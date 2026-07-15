@@ -103,6 +103,20 @@ export default function EndOfDayPage() {
   const [weight, setWeight] = useState("");
   const [date, setDate] = useState("");
   const [itemType, setItemType] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!itemType) {
+      setItemSearch("");
+    } else {
+      const found = ITEM_TYPES.find(it => it.code === itemType);
+      if (found) {
+        setItemSearch(found.name);
+      }
+    }
+  }, [itemType]);
+
 
   // Form State - Withdrawal
   const [withdrawalDate, setWithdrawalDate] = useState("");
@@ -675,22 +689,57 @@ export default function EndOfDayPage() {
 
             <div className="grid gap-5">
               
-              {/* Item Type (Select Dropdown) */}
-              <div className="grid gap-2">
+              {/* Item Type (Searchable Combobox) */}
+              <div className="grid gap-2 relative">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawned Gold Item Type</Label>
-                <Select onValueChange={(val) => val && setItemType(val)} value={itemType}>
-                  <SelectTrigger className="h-11 bg-white/50 border-slate-200 rounded-xl font-bold text-sm">
-                    <SelectValue placeholder="Select Item Code" />
-                  </SelectTrigger>
-                  <SelectContent className="glass max-h-60 overflow-y-auto">
-                    {ITEM_TYPES.map(it => (
-                      <SelectItem key={it.code} value={it.code} className="font-semibold text-sm">
-                        {it.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="relative">
+                  <Input 
+                    type="text"
+                    value={itemSearch} 
+                    onChange={e => {
+                      setItemSearch(e.target.value);
+                      setIsDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                    placeholder="Type to search e.g. P..." 
+                    className="h-11 border-slate-200 rounded-xl font-bold pr-10" 
+                  />
+                  <div className="absolute right-3 top-3.5 pointer-events-none text-slate-400">
+                    <Search className="h-4 w-4" />
+                  </div>
+                </div>
+                {isDropdownOpen && (
+                  <div className="absolute left-0 top-[70px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                    {ITEM_TYPES.filter(it => 
+                      it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
+                      it.name.toLowerCase().includes(itemSearch.toLowerCase())
+                    ).length === 0 ? (
+                      <div className="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching items</div>
+                    ) : (
+                      ITEM_TYPES.filter(it => 
+                        it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
+                        it.name.toLowerCase().includes(itemSearch.toLowerCase())
+                      ).map(it => (
+                        <button
+                          key={it.code}
+                          type="button"
+                          className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700"
+                          onClick={() => {
+                            setItemType(it.code);
+                            setItemSearch(it.name);
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          <span>{it.name}</span>
+                          {itemType === it.code && <CheckCircle className="h-4 w-4 text-blue-600" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
+
 
               {/* Bill Number */}
               <div className="grid gap-2">
