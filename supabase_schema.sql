@@ -132,43 +132,74 @@ alter table public.journal_entry_line enable row level security;
 alter table public.account enable row level security;
 alter table public.stock_items enable row level security;
 
--- Create policies to allow all actions (public access for development ease)
+-- Create policies to allow all actions (dropping first if exists to prevent errors)
+
+drop policy if exists "Public branches select" on public.branches;
+drop policy if exists "Public branches insert" on public.branches;
+drop policy if exists "Public branches update" on public.branches;
 create policy "Public branches select" on public.branches for select using (true);
 create policy "Public branches insert" on public.branches for insert with check (true);
 create policy "Public branches update" on public.branches for update using (true);
 
+drop policy if exists "Public profiles select" on public.profiles;
+drop policy if exists "Public profiles insert" on public.profiles;
+drop policy if exists "Public profiles update" on public.profiles;
 create policy "Public profiles select" on public.profiles for select using (true);
 create policy "Public profiles insert" on public.profiles for insert with check (true);
 create policy "Public profiles update" on public.profiles for update using (true);
 
+drop policy if exists "Public branch_status select" on public.branch_status;
+drop policy if exists "Public branch_status insert" on public.branch_status;
+drop policy if exists "Public branch_status update" on public.branch_status;
 create policy "Public branch_status select" on public.branch_status for select using (true);
 create policy "Public branch_status insert" on public.branch_status for insert with check (true);
 create policy "Public branch_status update" on public.branch_status for update using (true);
 
+drop policy if exists "Public clients select" on public.clients;
+drop policy if exists "Public clients insert" on public.clients;
+drop policy if exists "Public clients update" on public.clients;
 create policy "Public clients select" on public.clients for select using (true);
 create policy "Public clients insert" on public.clients for insert with check (true);
 create policy "Public clients update" on public.clients for update using (true);
 
+drop policy if exists "Public pawns select" on public.pawns;
+drop policy if exists "Public pawns insert" on public.pawns;
+drop policy if exists "Public pawns update" on public.pawns;
 create policy "Public pawns select" on public.pawns for select using (true);
 create policy "Public pawns insert" on public.pawns for insert with check (true);
 create policy "Public pawns update" on public.pawns for update using (true);
 
+drop policy if exists "Public vault_transfer select" on public.vault_transfer;
+drop policy if exists "Public vault_transfer insert" on public.vault_transfer;
+drop policy if exists "Public vault_transfer update" on public.vault_transfer;
 create policy "Public vault_transfer select" on public.vault_transfer for select using (true);
 create policy "Public vault_transfer insert" on public.vault_transfer for insert with check (true);
 create policy "Public vault_transfer update" on public.vault_transfer for update using (true);
 
+drop policy if exists "Public journal_entry select" on public.journal_entry;
+drop policy if exists "Public journal_entry insert" on public.journal_entry;
+drop policy if exists "Public journal_entry update" on public.journal_entry;
 create policy "Public journal_entry select" on public.journal_entry for select using (true);
 create policy "Public journal_entry insert" on public.journal_entry for insert with check (true);
 create policy "Public journal_entry update" on public.journal_entry for update using (true);
 
+drop policy if exists "Public journal_entry_line select" on public.journal_entry_line;
+drop policy if exists "Public journal_entry_line insert" on public.journal_entry_line;
+drop policy if exists "Public journal_entry_line update" on public.journal_entry_line;
 create policy "Public journal_entry_line select" on public.journal_entry_line for select using (true);
 create policy "Public journal_entry_line insert" on public.journal_entry_line for insert with check (true);
 create policy "Public journal_entry_line update" on public.journal_entry_line for update using (true);
 
+drop policy if exists "Public account select" on public.account;
+drop policy if exists "Public account insert" on public.account;
+drop policy if exists "Public account update" on public.account;
 create policy "Public account select" on public.account for select using (true);
 create policy "Public account insert" on public.account for insert with check (true);
 create policy "Public account update" on public.account for update using (true);
 
+drop policy if exists "Public stock_items select" on public.stock_items;
+drop policy if exists "Public stock_items insert" on public.stock_items;
+drop policy if exists "Public stock_items update" on public.stock_items;
 create policy "Public stock_items select" on public.stock_items for select using (true);
 create policy "Public stock_items insert" on public.stock_items for insert with check (true);
 create policy "Public stock_items update" on public.stock_items for update using (true);
