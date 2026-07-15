@@ -1,7 +1,6 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/repository';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { InjectRepository as InjectTypeORMRepository } from '@nestjs/typeorm';
 import { Branch } from '../branches/branch.entity';
 import { User, UserRole } from '../users/user.entity';
 import * as bcrypt from 'bcrypt';
@@ -9,9 +8,9 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class SeedService implements OnApplicationBootstrap {
   constructor(
-    @InjectTypeORMRepository(Branch)
+    @InjectRepository(Branch)
     private readonly branchRepo: Repository<Branch>,
-    @InjectTypeORMRepository(User)
+    @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
 
