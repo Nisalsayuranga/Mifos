@@ -1,0 +1,41 @@
+# Node / Next.js
+node_modules/
+.next/
+dist/
+build/
+.env*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+mvnw
+mvnw.cmd
+.settings/
+.project
+.classpath
+.factorypath
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sensitive Financial Data (Mifos Requirement)
+**/firebase-adminsdk.json
+**/firebase-key.json
+**/*.p12
+**/*.pem
+**/*.key
+**/*.token
+
+# OS
+Thumbs.db
+.DS_Store
