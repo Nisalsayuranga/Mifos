@@ -705,82 +705,84 @@ export default function EndOfDayPage() {
                 </div>
               </div>
             ) : (
-              <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow>
-                    <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill No</TableHead>
-                    {currentUser?.role === 'ADMIN' && (
-                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
-                    )}
-                    <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Name</TableHead>
-                    <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Weight (g)</TableHead>
-                    <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Appraised Value</TableHead>
-                    <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Pawning Date</TableHead>
-                    {stockFilter === 'Withdrawn' ? (
-                      <>
-                        <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Withdraw Date</TableHead>
-                        <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400 max-w-xs">Reason / Notes</TableHead>
-                      </>
-                    ) : (
-                      <TableHead className="px-6 py-4 text-right" />
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-100">
-                  {filteredStock.map((item) => (
-                    <TableRow key={item.id} className="group hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="px-6 py-4 font-black text-slate-800 text-sm">
-                        {item.bill_no}
-                      </TableCell>
+              <div className="overflow-x-auto w-full">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow>
+                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill No</TableHead>
                       {currentUser?.role === 'ADMIN' && (
-                        <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
-                          <span className="bg-blue-50 text-blue-800 border border-blue-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wide">
-                            {item.branch_id || 'HQ'}
-                          </span>
-                        </TableCell>
+                        <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
                       )}
-                      <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
-                        <span className="bg-slate-100 text-slate-800 border border-slate-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase mr-2 tracking-wide">
-                          {item.item_type}
-                        </span>
-                        {getItemName(item.item_type)}
-                      </TableCell>
-                      <TableCell className="px-6 py-4 font-bold text-slate-600 text-sm">
-                        {parseFloat(item.weight).toFixed(3)} g
-                      </TableCell>
-                      <TableCell className="px-6 py-4 font-black text-slate-800 text-sm text-right text-gradient">
-                        Rs. {(parseFloat(item.price) || 0).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">
-                        {new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </TableCell>
-                      {item.status === 'Withdrawn' ? (
+                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Name</TableHead>
+                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Weight (g)</TableHead>
+                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Appraised Value</TableHead>
+                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Pawning Date</TableHead>
+                      {stockFilter === 'Withdrawn' ? (
                         <>
-                          <TableCell className="px-6 py-4 font-bold text-rose-600 text-xs uppercase tracking-wider">
-                            {new Date(item.withdrawal_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 max-w-xs">
-                            <p className="text-xs font-black text-rose-800 uppercase tracking-widest">{item.withdrawal_reason}</p>
-                            {item.withdrawal_notes && (
-                              <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">{item.withdrawal_notes}</p>
-                            )}
-                          </TableCell>
+                          <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Withdraw Date</TableHead>
+                          <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400 max-w-xs">Reason / Notes</TableHead>
                         </>
                       ) : (
-                        <TableCell className="px-6 py-4 text-right">
-                          <Button 
-                            onClick={() => openWithdrawModal(item)}
-                            size="sm"
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 font-black text-[9px] uppercase tracking-widest h-8 px-4 rounded-xl transition-all"
-                          >
-                            Withdraw / Close
-                          </Button>
-                        </TableCell>
+                        <TableHead className="px-6 py-4 text-right" />
                       )}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-slate-100">
+                    {filteredStock.map((item) => (
+                      <TableRow key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                        <TableCell className="px-6 py-4 font-black text-slate-800 text-sm">
+                          {item.bill_no}
+                        </TableCell>
+                        {currentUser?.role === 'ADMIN' && (
+                          <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
+                            <span className="bg-blue-50 text-blue-800 border border-blue-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wide">
+                              {item.branch_id || 'HQ'}
+                            </span>
+                          </TableCell>
+                        )}
+                        <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
+                          <span className="bg-slate-100 text-slate-800 border border-slate-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase mr-2 tracking-wide">
+                            {item.item_type}
+                          </span>
+                          {getItemName(item.item_type)}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 font-bold text-slate-600 text-sm">
+                          {parseFloat(item.weight).toFixed(3)} g
+                        </TableCell>
+                        <TableCell className="px-6 py-4 font-black text-slate-800 text-sm text-right text-gradient">
+                          Rs. {(parseFloat(item.price) || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">
+                          {new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </TableCell>
+                        {item.status === 'Withdrawn' ? (
+                          <>
+                            <TableCell className="px-6 py-4 font-bold text-rose-600 text-xs uppercase tracking-wider">
+                              {new Date(item.withdrawal_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 max-w-xs">
+                              <p className="text-xs font-black text-rose-800 uppercase tracking-widest">{item.withdrawal_reason}</p>
+                              {item.withdrawal_notes && (
+                                <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">{item.withdrawal_notes}</p>
+                              )}
+                            </TableCell>
+                          </>
+                        ) : (
+                          <TableCell className="px-6 py-4 text-right">
+                            <Button 
+                              onClick={() => openWithdrawModal(item)}
+                              size="sm"
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 font-black text-[9px] uppercase tracking-widest h-8 px-4 rounded-xl transition-all"
+                            >
+                              Withdraw / Close
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
         </div>

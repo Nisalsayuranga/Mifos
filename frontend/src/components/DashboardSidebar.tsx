@@ -13,6 +13,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  X,
   TrendingUp,
   History,
   ShieldCheck,
@@ -58,7 +59,17 @@ const navGroups = [
   }
 ];
 
-export default function DashboardSidebar({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean, setIsCollapsed: (v: boolean) => void }) {
+export default function DashboardSidebar({ 
+  isCollapsed, 
+  setIsCollapsed,
+  isMobileOpen,
+  setIsMobileOpen
+}: { 
+  isCollapsed: boolean, 
+  setIsCollapsed: (v: boolean) => void,
+  isMobileOpen?: boolean,
+  setIsMobileOpen?: (v: boolean) => void
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -88,7 +99,8 @@ export default function DashboardSidebar({ isCollapsed, setIsCollapsed }: { isCo
     <aside 
       className={cn(
         "fixed left-0 top-0 h-screen bg-slate-950 text-slate-300 transition-all duration-500 ease-in-out z-50 flex flex-col shadow-2xl overflow-hidden border-r border-white/5 font-sans",
-        isCollapsed ? "w-24" : "w-72"
+        isCollapsed ? "md:w-24" : "md:w-72",
+        isMobileOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0"
       )}
     >
       {/* Branding Section */}
@@ -113,15 +125,23 @@ export default function DashboardSidebar({ isCollapsed, setIsCollapsed }: { isCo
             )}
           </div>
           
-          {/* Top Toggle Button (Only when open) */}
+          {/* Top Toggle Button (Desktop only) */}
           {!isCollapsed && (
             <button 
               onClick={() => setIsCollapsed(true)}
-              className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all group animate-in fade-in zoom-in duration-500"
+              className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all group animate-in fade-in zoom-in duration-500 hidden md:flex"
             >
               <ChevronLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
             </button>
           )}
+
+          {/* Close button (Mobile only) */}
+          <button 
+            onClick={() => setIsMobileOpen?.(false)}
+            className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all group md:hidden"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       </div>
 
