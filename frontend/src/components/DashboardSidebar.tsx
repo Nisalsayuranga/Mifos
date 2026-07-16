@@ -105,22 +105,22 @@ export default function DashboardSidebar({
     >
       {/* Branding Section */}
       <div className={cn(
-        "h-28 flex items-center mb-2 relative shrink-0 transition-all duration-500",
+        "h-20 flex items-center mb-1 relative shrink-0 transition-all duration-500",
         isCollapsed ? "justify-center" : "px-6"
       )}>
         <div className={cn(
           "flex items-center w-full",
           isCollapsed ? "justify-center" : "justify-between"
         )}>
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 bg-primary rounded-2xl flex items-center justify-center shadow-2xl shadow-primary/30 ring-2 ring-white/10 group-hover:scale-110 transition-transform duration-300 relative overflow-hidden shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-xl shadow-primary/30 ring-2 ring-white/10 group-hover:scale-110 transition-transform duration-300 relative overflow-hidden shrink-0">
               <div className="absolute inset-0 bg-linear-to-br from-white/20 to-transparent" />
-              <span className="text-white font-black text-xl tracking-tighter relative z-10">RP</span>
+              <span className="text-white font-black text-sm tracking-tighter relative z-10">RP</span>
             </div>
             {!isCollapsed && (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-500">
-                <span className="text-white font-black tracking-tighter text-2xl leading-tight">RUPASINGHE</span>
-                <span className="text-primary text-[10px] font-black uppercase tracking-[0.3em] opacity-90">Management Hub</span>
+                <span className="text-white font-black tracking-tighter text-lg leading-none">RUPASINGHE</span>
+                <span className="text-primary text-[8px] font-black uppercase tracking-[0.2em] opacity-90 mt-0.5">Management Hub</span>
               </div>
             )}
           </div>
@@ -129,32 +129,32 @@ export default function DashboardSidebar({
           {!isCollapsed && (
             <button 
               onClick={() => setIsCollapsed(true)}
-              className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all group animate-in fade-in zoom-in duration-500 hidden md:flex"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all group animate-in fade-in zoom-in duration-500 hidden md:flex"
             >
-              <ChevronLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+              <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
             </button>
           )}
 
           {/* Close button (Mobile only) */}
           <button 
             onClick={() => setIsMobileOpen?.(false)}
-            className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all group md:hidden"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all group md:hidden"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {/* Navigation Groups */}
-      <div className="flex-1 px-4 space-y-10 overflow-y-auto pt-6 scrollbar-hide pb-10">
+      <div className="flex-1 px-4 space-y-4 overflow-y-auto pt-4 scrollbar-hide pb-6">
         {navGroups.map((group) => (
-          <div key={group.label} className="space-y-4 text-center">
+          <div key={group.label} className="space-y-1 text-center">
             {!isCollapsed && (
-              <p className="px-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-4">
+              <p className="px-4 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
                 {group.label}
               </p>
             )}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {group.items.map((item) => {
                 if (item.adminOnly && user?.role !== 'ADMIN') return null;
                 
@@ -166,23 +166,23 @@ export default function DashboardSidebar({
                     key={item.name} 
                     href={item.href}
                     className={cn(
-                      "group flex items-center h-12 rounded-2xl transition-all duration-300 relative overflow-hidden",
-                      isCollapsed ? "justify-center" : "px-5",
+                      "group flex items-center h-9.5 rounded-xl transition-all duration-300 relative overflow-hidden",
+                      isCollapsed ? "justify-center" : "px-4",
                       isActive 
-                        ? "bg-primary text-white shadow-xl shadow-primary/20" 
+                        ? "bg-primary text-white shadow-md shadow-primary/20" 
                         : "hover:bg-white/5 hover:text-white"
                     )}
                   >
                     <Icon className={cn(
-                      "w-5 h-5 shrink-0 transition-all duration-300 group-hover:scale-110",
+                      "w-4 h-4 shrink-0 transition-all duration-300 group-hover:scale-110",
                       isActive ? "text-white" : "text-slate-500 group-hover:text-primary",
-                      !isCollapsed && "mr-5"
+                      !isCollapsed && "mr-3.5"
                     )} />
                     {!isCollapsed && (
-                      <span className="font-bold text-[13px] tracking-tight">{item.name}</span>
+                      <span className="font-bold text-[12.5px] tracking-tight">{item.name}</span>
                     )}
                     {isActive && !isCollapsed && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      <div className="ml-auto w-1 h-1 rounded-full bg-white animate-pulse" />
                     )}
                   </Link>
                 );
@@ -193,13 +193,13 @@ export default function DashboardSidebar({
       </div>
 
       {/* Profile & Footer */}
-      <div className="p-4 border-t border-white/5 space-y-3 bg-black/20 shrink-0">
+      <div className="p-3 border-t border-white/5 space-y-2 bg-black/20 shrink-0">
         {!isCollapsed && user && (
           <Link 
             href="/profile"
-            className="flex items-center gap-4 px-5 py-4 rounded-3xl bg-white/5 border border-white/5 group transition-all hover:bg-white/10 hover:border-white/20 active:scale-[0.98] cursor-pointer"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/5 border border-white/5 group transition-all hover:bg-white/10 hover:border-white/20 active:scale-[0.98] cursor-pointer"
           >
-            <div className="w-11 h-11 rounded-2xl bg-slate-800 flex items-center justify-center border border-white/10 relative overflow-hidden">
+            <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center border border-white/10 relative overflow-hidden shrink-0">
               {user.avatar_url || user.avatarUrl ? (
                 <img 
                   src={user.avatar_url || user.avatarUrl} 
@@ -207,15 +207,15 @@ export default function DashboardSidebar({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <UserCircle className="w-7 h-7 text-slate-400 group-hover:text-primary transition-colors" />
+                <UserCircle className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
               )}
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-950 shadow-sm shadow-emerald-500/50" />
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-slate-950 shadow-sm" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-white font-black text-sm truncate tracking-tight group-hover:text-primary transition-colors">
+              <span className="text-white font-black text-xs truncate tracking-tight group-hover:text-primary transition-colors">
                 {user.firstName || user.first_name || 'User'}
               </span>
-              <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest truncate">
+              <span className="text-slate-500 text-[8px] font-black uppercase tracking-widest truncate">
                 {user.role || 'Staff'}
               </span>
             </div>
@@ -227,25 +227,25 @@ export default function DashboardSidebar({
           {isCollapsed && (
             <button 
               onClick={() => setIsCollapsed(false)}
-              className="flex items-center justify-center w-full h-11 rounded-2xl hover:bg-white/5 text-slate-500 hover:text-white transition-all group"
+              className="flex items-center justify-center w-full h-9 rounded-xl hover:bg-white/5 text-slate-500 hover:text-white transition-all group"
             >
-              <ChevronRight className="w-5 h-5 transition-transform group-hover:scale-110" />
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:scale-110" />
             </button>
           )}
           
           <button 
             onClick={handleLogout}
             className={cn(
-              "flex items-center w-full h-11 rounded-2xl transition-all group",
-              isCollapsed ? "justify-center" : "px-5",
+              "flex items-center w-full h-9 rounded-xl transition-all group",
+              isCollapsed ? "justify-center" : "px-4",
               "hover:bg-rose-500/10 text-slate-500 hover:text-rose-400"
             )}
           >
             <LogOut className={cn(
-              "w-5 h-5 shrink-0 transition-transform group-hover:rotate-12",
-              !isCollapsed && "mr-5"
+              "w-4 h-4 shrink-0 transition-transform group-hover:rotate-12",
+              !isCollapsed && "mr-3.5"
             )} />
-            {!isCollapsed && <span className="font-bold text-[13px]">Logout</span>}
+            {!isCollapsed && <span className="font-bold text-[12.5px]">Logout</span>}
           </button>
         </div>
       </div>
