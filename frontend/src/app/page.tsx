@@ -64,6 +64,8 @@ const loanDistribution = [
 export default function Home() {
   const [stats, setStats] = useState(statsTemplate);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(true);
+  const [clientMap, setClientMap] = useState<{[key: string]: string}>({});
   const [branchId, setBranchId] = useState('');
   const [branchName, setBranchName] = useState('');
   const [status, setStatus] = useState('CLOSED');
@@ -114,6 +116,7 @@ export default function Home() {
   };
 
   const loadDashboardData = async () => {
+    setLoadingTransactions(true);
     try {
       // 1. Get Customers Count
       const { count: clientCount } = await supabase.from('clients').select('*', { count: 'exact', head: true });
@@ -126,6 +129,16 @@ export default function Home() {
       // 3. Get Recent Transactions
       const { data: txs } = await supabase.from('transaction').select('*').order('timestamp', { ascending: false }).limit(6);
 
+      // 4. Get Client Names mapping to resolve client_id to actual names
+      const { data: clientsList } = await supabase.from('clients').select('id, firstName, lastName');
+      const cmap: {[key: string]: string} = {};
+      if (clientsList) {
+        clientsList.forEach((c: any) => {
+          cmap[c.id] = `${c.firstName} ${c.lastName || ''}`.trim();
+        });
+      }
+      setClientMap(cmap);
+
       setStats([
         { label: "Total Pawn Value", value: `Rs. ${totalPawnSum.toLocaleString()}`, change: "+0.0%", trend: "up", icon: DollarSign, color: "emerald" },
         { label: "Active Pawnes", value: activePawns.toString(), change: "+0.0%", trend: "up", icon: CreditCard, color: "blue" },
@@ -136,6 +149,8 @@ export default function Home() {
       if (txs) setRecentTransactions(txs);
     } catch (err) {
       console.error('Dashboard Load Error:', err);
+    } finally {
+      setLoadingTransactions(false);
     }
   };
 
@@ -354,29 +369,41 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentTransactions.length === 0 ? (
-                    <tr><td colSpan={4} className="px-6 py-12 text-center font-black text-slate-300 italic animate-pulse">Synchronizing with central vault...</td></tr>
-                ) : recentTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-primary/3 transition-all duration-300 group cursor-default">
-                    <td className="px-6 py-3.5 whitespace-nowrap">
-                      <div className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors flex items-center gap-2">
-                         <div className="w-1.5 h-1.5 rounded-full bg-primary/20 group-hover:bg-primary transition-colors" />
-                         {tx.client_id}
-                      </div>
-                    </td>
-                    <td className="px-6 py-3.5 whitespace-nowrap">
-                      <Badge className="bg-white text-slate-600 border border-slate-200 font-black text-[9px] uppercase tracking-widest shadow-xs px-3 py-1 rounded-lg">
-                        {tx.type}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-3.5 whitespace-nowrap text-right">
-                      <div className="text-sm font-black text-emerald-600 tracking-tighter italic">Rs. {tx.amount?.toLocaleString()}</div>
-                    </td>
-                    <td className="px-6 py-3.5 whitespace-nowrap text-right">
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{new Date(tx.timestamp).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}</span>
-                    </td>
-                  </tr>
-                ))}
+                {loadingTransactions ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center font-black text-slate-300 italic animate-pulse">
+                        Synchronizing with central vault...
+                      </td>
+                    </tr>
+                ) : recentTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center font-semibold text-slate-400 text-xs italic">
+                        No recent transactions found.
+                      </td>
+                    </tr>
+                ) : (
+                  recentTransactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-primary/3 transition-all duration-300 group cursor-default">
+                      <td className="px-6 py-3.5 whitespace-nowrap">
+                        <div className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 rounded-full bg-primary/20 group-hover:bg-primary transition-colors" />
+                           {clientMap[tx.client_id] || tx.client_id}
+                        </div>
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap">
+                        <Badge className="bg-white text-slate-600 border border-slate-200 font-black text-[9px] uppercase tracking-widest shadow-xs px-3 py-1 rounded-lg">
+                          {tx.type}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap text-right">
+                        <div className="text-sm font-black text-emerald-600 tracking-tighter italic">Rs. {tx.amount?.toLocaleString()}</div>
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap text-right">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{new Date(tx.timestamp).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

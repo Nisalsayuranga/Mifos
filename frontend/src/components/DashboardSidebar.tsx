@@ -91,21 +91,6 @@ export default function DashboardSidebar({
     }
   }, [pathname]);
 
-  const handleMouseEnter = (label: string) => {
-    if (window.innerWidth >= 768) {
-      setOpenGroup(label);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (window.innerWidth >= 768) {
-      const active = navGroups.find(group => 
-        group.items.some(item => pathname === item.href)
-      );
-      setOpenGroup(active ? active.label : null);
-    }
-  };
-
   const handleGroupClick = (label: string) => {
     setOpenGroup(openGroup === label ? null : label);
   };
@@ -192,8 +177,6 @@ export default function DashboardSidebar({
             <div 
               key={group.label} 
               className="space-y-1"
-              onMouseEnter={() => handleMouseEnter(group.label)}
-              onMouseLeave={handleMouseLeave}
             >
               {/* Group Header Button */}
               <button
