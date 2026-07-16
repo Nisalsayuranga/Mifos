@@ -978,7 +978,7 @@ export default function EndOfDayPage() {
                       setIsDropdownOpen(true);
                     }}
                     onFocus={() => setIsDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                    onBlur={() => setIsDropdownOpen(false)}
                     placeholder="Search and select gold items (e.g. Ring, Pendant)..." 
                     className="h-11 border-slate-200 rounded-xl font-bold pr-10 text-sm bg-white" 
                   />
@@ -1005,8 +1005,11 @@ export default function EndOfDayPage() {
                           <button
                             key={it.code}
                             type="button"
-                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700"
-                            onClick={() => handleSelectCode(it.code)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700 cursor-pointer"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectCode(it.code);
+                            }}
                           >
                             <span>{it.name}</span>
                             {isSelected && <CheckCircle className="h-4 w-4 text-blue-600" />}
