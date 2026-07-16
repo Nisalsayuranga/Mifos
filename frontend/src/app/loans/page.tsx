@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Plus, Search, FileText, Package, TrendingUp, AlertTriangle,
-  Pencil, Trash2, RefreshCcw, Sparkles, Filter, UserCheck, Calculator, Coins
+  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -416,9 +416,6 @@ export default function PawnesPage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
         <div>
-          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 mb-3 px-3 py-0.5 font-black uppercase tracking-widest text-[10px]">
-            <Sparkles className="w-3 h-3 mr-1" /> Pawn Tickets
-          </Badge>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">
             Active <span className="text-gradient">Pawnes</span>
           </h1>
@@ -1116,21 +1113,59 @@ export default function PawnesPage() {
                         .border-b-2 { border-bottom: 2px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
                         .border-t { border-top: 1px solid #ccc; padding-top: 4px; margin-top: 4px; }
                         .border-t-2 { border-top: 2px dashed #000; padding-top: 6px; margin-top: 6px; }
-                        .text-center { text-align: center; }
-                        .text-right { text-align: right; }
-                        .font-black { font-weight: 900; }
-                        .grid { display: flex; gap: 4px; }
-                        .grid > div { flex: 1; }
-                        .flex { display: flex; justify-content: space-between; }
-                        .text-emerald-600 { color: #000; font-weight: bold; border: 1px solid #000; padding: 1px 4px; }
-                        .uppercase { text-transform: uppercase; }
-                        .tracking-widest { letter-spacing: 0.1em; }
-                        span[class*='bg-'] { background: none !important; }
-                      </style>
-                    </head>
-                    <body>
-                      ${receiptEl.innerHTML}
-                    </body>
+                      <head>
+                        <title>Pawn Ticket - ${detailsPawn.id}</title>
+                        <style>
+                          body { font-family: sans-serif; padding: 40px; line-height: 1.6; color: #1e293b; }
+                          .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+                          .logo { font-size: 24px; font-weight: 800; color: #2563eb; letter-spacing: -0.05em; }
+                          .meta { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; color: #64748b; }
+                          .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+                          .label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
+                          .val { font-size: 16px; font-weight: 700; margin-top: 4px; }
+                          .amount-box { bg-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; margin-top: 30px; }
+                          .amount-title { font-size: 14px; font-weight: 800; color: #475569; }
+                          .amount-val { font-size: 32px; font-weight: 900; color: #059669; letter-spacing: -0.05em; margin-top: 8px; }
+                          .footer-note { margin-top: 50px; font-size: 12px; color: #94a3b8; text-align: center; border-t: 1px solid #e2e8f0; pt-20; }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="header">
+                          <div class="logo">RUPASINGHE PAWNING</div>
+                          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-top: 5px;">Official Receipt / Vault Voucher</div>
+                        </div>
+                        <div class="meta">
+                          <div><strong>Ticket ID:</strong> ${detailsPawn.id}</div>
+                          <div><strong>Date:</strong> ${new Date(detailsPawn.created_at).toLocaleString('en-GB')}</div>
+                        </div>
+                        <div class="grid">
+                          <div>
+                            <div class="label">Customer Name</div>
+                            <div class="val">${clientMap[detailsPawn.client_id] || detailsPawn.client_id}</div>
+                          </div>
+                          <div>
+                            <div class="label">Branch Office</div>
+                            <div class="val">${detailsPawn.branch_id || 'HQ'}</div>
+                          </div>
+                        </div>
+                        <div class="grid">
+                          <div>
+                            <div class="label">Collateral Description</div>
+                            <div class="val">${detailsPawn.description}</div>
+                          </div>
+                          <div>
+                            <div class="label">Appraised Valuation</div>
+                            <div class="val">Rs. ${parseFloat(detailsPawn.appraised_value || 0).toLocaleString()}</div>
+                          </div>
+                        </div>
+                        <div class="amount-box">
+                          <div class="amount-title">Total Disbursed Capital</div>
+                          <div class="amount-val">Rs. ${parseFloat(detailsPawn.disbursed_amount || 0).toLocaleString()}</div>
+                        </div>
+                        <div class="footer-note">
+                          This is a computer-generated transaction record. Central Vault copy. Thank you for your business.
+                        </div>
+                      </body>
                     </html>
                   `);
                   printWindow.document.close();
@@ -1139,7 +1174,7 @@ export default function PawnesPage() {
                 }}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2"
               >
-                <Sparkles className="w-4 h-4" /> Print Customer Bill
+                <Printer className="w-4 h-4" /> Print Customer Bill
               </Button>
             </div>
           </DialogHeader>

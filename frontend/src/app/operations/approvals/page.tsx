@@ -131,9 +131,6 @@ export default function ApprovalsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
         <div>
-          <Badge variant="secondary" className="bg-amber-100/50 text-amber-800 border-amber-200/50 mb-3 px-3 py-0.5 font-black uppercase tracking-widest text-[10px]">
-            <Sparkles className="w-3 h-3 mr-1 text-amber-600" /> Maker-Checker Workflow
-          </Badge>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">
             Disbursal <span className="text-gradient">Approvals</span>
           </h1>

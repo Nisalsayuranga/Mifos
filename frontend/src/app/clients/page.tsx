@@ -419,9 +419,6 @@ export default function ClientsPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
         <div>
-          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 mb-3 px-3 py-0.5 font-black uppercase tracking-widest text-[10px]">
-            <Sparkles className="w-3 h-3 mr-1" /> Customer List
-          </Badge>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">Our <span className="text-gradient">Customers</span></h1>
           <p className="text-slate-500 font-medium tracking-tight">Manage all customer information for this branch.</p>
         </div>

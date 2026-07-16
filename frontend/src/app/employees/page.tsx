@@ -380,7 +380,7 @@ export default function StaffPage() {
               {/* Branch name preview */}
               {branchName && (
                 <div className="flex items-center gap-2 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
-                  <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                  <Building2 className="w-4 h-4 text-primary shrink-0" />
                   <span className="text-primary font-black text-sm truncate pr-2">
                     Will be assigned to: <span className="font-black">{branchName}</span> ({branchId.length > 8 ? `${branchId.substring(0, 8)}...` : branchId})
                   </span>

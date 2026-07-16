@@ -159,14 +159,6 @@ export default function Home() {
       {/* Dynamic Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-4 border-b border-slate-100">
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-1.5 rounded-lg">
-              <Zap className="w-3.5 h-3.5 text-primary animate-pulse" />
-            </div>
-            <Badge variant="outline" className="text-primary border-primary/20 font-black uppercase tracking-widest text-[9px] py-0.5 px-3 rounded-full bg-primary/5">
-              System: Online
-            </Badge>
-          </div>
           <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tighter leading-none">
             {branchName || 'Branch'} <span className="text-linear-to-r from-primary to-indigo-400 bg-clip-text text-transparent italic">Overview</span>
           </h1>
