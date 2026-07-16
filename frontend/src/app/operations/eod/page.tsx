@@ -100,6 +100,16 @@ export default function EndOfDayPage() {
 
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
+  const [billPrefix, setBillPrefix] = useState<string | null>(null);
+  const BILL_PREFIXES = ["1R", "12R", "3R", "6R", "A", "3M", "6M"];
+
+  const handlePrefixClick = (prefix: string) => {
+    if (billPrefix === prefix) {
+      setBillPrefix(null);
+    } else {
+      setBillPrefix(prefix);
+    }
+  };
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [date, setDate] = useState("");
@@ -268,8 +278,10 @@ export default function EndOfDayPage() {
       return;
     }
 
+    const finalBillNo = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
+
     const newItem = {
-      bill_no: billNo,
+      bill_no: finalBillNo,
       price: parseFloat(price) || 0,
       weight: parseFloat(weight) || 0,
       date: date,
@@ -307,6 +319,7 @@ export default function EndOfDayPage() {
 
       // Reset Form fields
       setBillNo("");
+      setBillPrefix(null);
       setPrice("");
       setWeight("");
       setDate(new Date().toISOString().split('T')[0]);
@@ -848,12 +861,45 @@ export default function EndOfDayPage() {
               {/* Bill Number */}
               <div className="grid gap-2">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Bill Number (Bill No)</Label>
-                <Input 
-                  value={billNo} 
-                  onChange={e => setBillNo(e.target.value)} 
-                  placeholder="E.g. BILL-90823" 
-                  className="h-11 border-slate-200 rounded-xl font-bold" 
-                />
+                
+                {/* Prefix selection buttons */}
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  {BILL_PREFIXES.map(pref => {
+                    const isSelected = billPrefix === pref;
+                    return (
+                      <button
+                        key={pref}
+                        type="button"
+                        onClick={() => handlePrefixClick(pref)}
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] font-black rounded-lg border transition-all duration-150 active:scale-95 cursor-pointer",
+                          isSelected
+                            ? "bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-600/10"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300"
+                        )}
+                      >
+                        {pref}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="relative">
+                  {billPrefix && (
+                    <span className="absolute left-3 top-3 text-slate-400 font-black text-xs bg-slate-100 px-2 py-1 rounded border border-slate-200/50 pointer-events-none select-none">
+                      {billPrefix}
+                    </span>
+                  )}
+                  <Input 
+                    value={billNo} 
+                    onChange={e => setBillNo(e.target.value)} 
+                    placeholder="Enter bill number (e.g. 31582)" 
+                    className={cn(
+                      "h-11 border-slate-200 rounded-xl font-bold",
+                      billPrefix ? (billPrefix.length > 2 ? "pl-16" : "pl-12") : ""
+                    )}
+                  />
+                </div>
               </div>
 
               {/* Date */}
