@@ -103,20 +103,21 @@ export default function EndOfDayPage() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [date, setDate] = useState("");
-  const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Array<{ id: string, code: string }>>([]);
   const [itemSearch, setItemSearch] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleSelectCode = (code: string) => {
-    if (!selectedCodes.includes(code)) {
-      setSelectedCodes([...selectedCodes, code]);
-    }
+    setSelectedItems([
+      ...selectedItems,
+      { id: Math.random().toString(36).substring(2, 9), code }
+    ]);
     setItemSearch("");
     setIsDropdownOpen(false);
   };
 
-  const handleRemoveCode = (codeToRemove: string) => {
-    setSelectedCodes(selectedCodes.filter(c => c !== codeToRemove));
+  const handleRemoveItem = (idToRemove: string) => {
+    setSelectedItems(selectedItems.filter(item => item.id !== idToRemove));
   };
 
 
@@ -262,7 +263,7 @@ export default function EndOfDayPage() {
       return;
     }
 
-    if (selectedCodes.length === 0) {
+    if (selectedItems.length === 0) {
       toast.error("Please select at least one gold item type.");
       return;
     }
@@ -272,7 +273,7 @@ export default function EndOfDayPage() {
       price: parseFloat(price) || 0,
       weight: parseFloat(weight) || 0,
       date: date,
-      item_type: selectedCodes.join(", "),
+      item_type: selectedItems.map(item => item.code).join(", "),
       status: 'Active',
       branch_id: targetBranch
     };
@@ -309,7 +310,7 @@ export default function EndOfDayPage() {
       setPrice("");
       setWeight("");
       setDate(new Date().toISOString().split('T')[0]);
-      setSelectedCodes([]);
+      setSelectedItems([]);
       setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
       setShowAddModal(false);
       
@@ -927,7 +928,7 @@ export default function EndOfDayPage() {
                         it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
                         it.name.toLowerCase().includes(itemSearch.toLowerCase())
                       ).map(it => {
-                        const isSelected = selectedCodes.includes(it.code);
+                        const isSelected = selectedItems.some(item => item.code === it.code);
                         return (
                           <button
                             key={it.code}
@@ -945,19 +946,19 @@ export default function EndOfDayPage() {
                 )}
 
                 {/* Selected Tags Display */}
-                {selectedCodes.length > 0 && (
+                {selectedItems.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
-                    {selectedCodes.map(code => {
-                      const found = ITEM_TYPES.find(it => it.code === code);
+                    {selectedItems.map(item => {
+                      const found = ITEM_TYPES.find(it => it.code === item.code);
                       return (
                         <div 
-                          key={code}
+                          key={item.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200/50 rounded-lg text-xs font-bold transition-all shadow-sm"
                         >
-                          <span>{found ? found.name : code}</span>
+                          <span>{found ? found.name : item.code}</span>
                           <button
                             type="button"
-                            onClick={() => handleRemoveCode(code)}
+                            onClick={() => handleRemoveItem(item.id)}
                             className="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-0.5 rounded transition-colors"
                           >
                             <X className="w-3.5 h-3.5" />
