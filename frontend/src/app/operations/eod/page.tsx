@@ -262,23 +262,39 @@ export default function EndOfDayPage() {
 
   // Handle Add Item
   const handleAddStock = async () => {
+    console.log("[DEBUG] handleAddStock initiated. Current state:", {
+      currentUser,
+      selectedAddBranch,
+      billNo,
+      price,
+      weight,
+      date,
+      selectedItems,
+      billPrefix
+    });
+
     const targetBranch = currentUser?.role === 'ADMIN' ? selectedAddBranch : (currentUser?.branchId || 'HQ');
+    console.log("[DEBUG] resolved targetBranch:", targetBranch);
     if (!targetBranch) {
+      console.warn("[DEBUG] Validation failed: targetBranch is empty.");
       toast.error("Please select a branch.");
       return;
     }
 
     if (!billNo || !price || !weight || !date) {
+      console.warn("[DEBUG] Validation failed: one or more required fields are empty.", { billNo, price, weight, date });
       toast.error("Please fill in all fields.");
       return;
     }
 
     if (selectedItems.length === 0) {
+      console.warn("[DEBUG] Validation failed: selectedItems list is empty.");
       toast.error("Please select at least one gold item type.");
       return;
     }
 
     const finalBillNo = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
+    console.log("[DEBUG] generated finalBillNo:", finalBillNo);
 
     const newItem = {
       bill_no: finalBillNo,
@@ -289,16 +305,24 @@ export default function EndOfDayPage() {
       status: 'Active',
       branch_id: targetBranch
     };
+    console.log("[DEBUG] newItem payload to insert:", newItem);
 
     try {
       if (isUsingSupabase) {
-        const { error } = await supabase
+        console.log("[DEBUG] Attempting Supabase insert...");
+        const { data, error } = await supabase
           .from('stock_items')
-          .insert([newItem]);
+          .insert([newItem])
+          .select();
         
-        if (error) throw error;
+        if (error) {
+          console.error("[DEBUG] Supabase insert error:", error);
+          throw error;
+        }
+        console.log("[DEBUG] Supabase insert successful. Returned data:", data);
         toast.success("Stock item added to Supabase!");
       } else {
+        console.log("[DEBUG] Supabase offline, using LocalStorage fallback...");
         // LocalStorage fallback
         const localItem = {
           ...newItem,
@@ -314,10 +338,12 @@ export default function EndOfDayPage() {
         }
         const updated = [localItem, ...allItems];
         localStorage.setItem('local_stock_items', JSON.stringify(updated));
+        console.log("[DEBUG] LocalStorage insert successful.");
         toast.success("Stock item added (Local Storage)!");
       }
 
       // Reset Form fields
+      console.log("[DEBUG] Resetting form fields...");
       setBillNo("");
       setBillPrefix(null);
       setPrice("");
