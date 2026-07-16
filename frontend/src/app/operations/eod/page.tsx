@@ -99,23 +99,48 @@ export default function EndOfDayPage() {
 
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
-  const [price, setPrice] = useState("");
-  const [weight, setWeight] = useState("");
   const [date, setDate] = useState("");
-  const [itemType, setItemType] = useState("");
-  const [itemSearch, setItemSearch] = useState("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [billItems, setBillItems] = useState<Array<{
+    id: string;
+    itemType: string;
+    itemSearch: string;
+    isDropdownOpen: boolean;
+    price: string;
+    weight: string;
+  }>>([
+    { id: '1', itemType: "", itemSearch: "", isDropdownOpen: false, price: "", weight: "" }
+  ]);
 
-  useEffect(() => {
-    if (!itemType) {
-      setItemSearch("");
-    } else {
-      const found = ITEM_TYPES.find(it => it.code === itemType);
-      if (found) {
-        setItemSearch(found.name);
-      }
+  const addBillItem = () => {
+    setBillItems([
+      ...billItems,
+      { id: Math.random().toString(), itemType: "", itemSearch: "", isDropdownOpen: false, price: "", weight: "" }
+    ]);
+  };
+
+  const removeBillItem = (id: string) => {
+    if (billItems.length > 1) {
+      setBillItems(billItems.filter(item => item.id !== id));
     }
-  }, [itemType]);
+  };
+
+  const updateBillItem = (id: string, field: string, value: any) => {
+    setBillItems(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value };
+      }
+      return item;
+    }));
+  };
+
+  const selectComboboxItem = (id: string, code: string, name: string) => {
+    setBillItems(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, itemType: code, itemSearch: name, isDropdownOpen: false };
+      }
+      return item;
+    }));
+  };
 
 
   // Form State - Withdrawal
@@ -255,37 +280,45 @@ export default function EndOfDayPage() {
       return;
     }
 
-    if (!billNo || !price || !weight || !date || !itemType) {
-      toast.error("Please fill in all fields.");
+    if (!billNo || !date) {
+      toast.error("Please fill in bill number and date.");
       return;
     }
 
-    const newItem = {
+    // Validate all items in the list
+    for (let i = 0; i < billItems.length; i++) {
+      const item = billItems[i];
+      if (!item.itemType || !item.price || !item.weight) {
+        toast.error(`Please fill in all fields for Item #${i + 1}`);
+        return;
+      }
+    }
+
+    const newItems = billItems.map(item => ({
       bill_no: billNo,
-      price: parseFloat(price) || 0,
-      weight: parseFloat(weight) || 0,
+      price: parseFloat(item.price) || 0,
+      weight: parseFloat(item.weight) || 0,
       date: date,
-      item_type: itemType,
+      item_type: item.itemType,
       status: 'Active',
       branch_id: targetBranch
-    };
+    }));
 
     try {
       if (isUsingSupabase) {
         const { error } = await supabase
           .from('stock_items')
-          .insert([newItem]);
+          .insert(newItems);
         
         if (error) throw error;
-        toast.success("Stock item added to Supabase!");
+        toast.success(`${newItems.length} stock item(s) added to Supabase!`);
       } else {
         // LocalStorage fallback
-        const localId = Math.random().toString(36).substring(2, 9);
-        const localItem = {
-          ...newItem,
-          id: localId,
+        const localItems = newItems.map(item => ({
+          ...item,
+          id: Math.random().toString(36).substring(2, 9),
           created_at: new Date().toISOString()
-        };
+        }));
         const localData = localStorage.getItem('local_stock_items');
         let allItems = [];
         if (localData) {
@@ -293,24 +326,24 @@ export default function EndOfDayPage() {
             allItems = JSON.parse(localData);
           } catch (e) {}
         }
-        const updated = [localItem, ...allItems];
+        const updated = [...localItems, ...allItems];
         localStorage.setItem('local_stock_items', JSON.stringify(updated));
-        toast.success("Stock item added (Local Storage)!");
+        toast.success(`${newItems.length} stock item(s) added (Local Storage)!`);
       }
 
       // Reset Form fields
       setBillNo("");
-      setPrice("");
-      setWeight("");
       setDate(new Date().toISOString().split('T')[0]);
-      setItemType("");
+      setBillItems([
+        { id: '1', itemType: "", itemSearch: "", isDropdownOpen: false, price: "", weight: "" }
+      ]);
       setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
       setShowAddModal(false);
       
       // Reload
       loadStockData();
     } catch (err: any) {
-      toast.error("Error adding stock item: " + err.message);
+      toast.error("Error adding stock items: " + err.message);
     }
   };
 
@@ -830,58 +863,6 @@ export default function EndOfDayPage() {
                 </div>
               )}
 
-              {/* Item Type (Searchable Combobox) */}
-              <div className="grid gap-2 relative">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawned Gold Item Type</Label>
-                <div className="relative">
-                  <Input 
-                    type="text"
-                    value={itemSearch} 
-                    onChange={e => {
-                      setItemSearch(e.target.value);
-                      setIsDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                    placeholder="Type to search e.g. P..." 
-                    className="h-11 border-slate-200 rounded-xl font-bold pr-10" 
-                  />
-                  <div className="absolute right-3 top-3.5 pointer-events-none text-slate-400">
-                    <Search className="h-4 w-4" />
-                  </div>
-                </div>
-                {isDropdownOpen && (
-                  <div className="absolute left-0 top-[70px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
-                    {ITEM_TYPES.filter(it => 
-                      it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
-                      it.name.toLowerCase().includes(itemSearch.toLowerCase())
-                    ).length === 0 ? (
-                      <div className="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching items</div>
-                    ) : (
-                      ITEM_TYPES.filter(it => 
-                        it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
-                        it.name.toLowerCase().includes(itemSearch.toLowerCase())
-                      ).map(it => (
-                        <button
-                          key={it.code}
-                          type="button"
-                          className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700"
-                          onClick={() => {
-                            setItemType(it.code);
-                            setItemSearch(it.name);
-                            setIsDropdownOpen(false);
-                          }}
-                        >
-                          <span>{it.name}</span>
-                          {itemType === it.code && <CheckCircle className="h-4 w-4 text-blue-600" />}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-
               {/* Bill Number */}
               <div className="grid gap-2">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Bill Number (Bill No)</Label>
@@ -893,32 +874,6 @@ export default function EndOfDayPage() {
                 />
               </div>
 
-              {/* Price & Weight Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised Value (Rs.)</Label>
-                  <Input 
-                    type="number"
-                    step="0.01"
-                    value={price} 
-                    onChange={e => setPrice(e.target.value)} 
-                    placeholder="125000" 
-                    className="h-11 border-slate-200 rounded-xl font-bold" 
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Gross Weight (g)</Label>
-                  <Input 
-                    type="number"
-                    step="0.001"
-                    value={weight} 
-                    onChange={e => setWeight(e.target.value)} 
-                    placeholder="8.500" 
-                    className="h-11 border-slate-200 rounded-xl font-bold" 
-                  />
-                </div>
-              </div>
-
               {/* Date */}
               <div className="grid gap-2">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawning Date</Label>
@@ -928,6 +883,115 @@ export default function EndOfDayPage() {
                   onChange={e => setDate(e.target.value)} 
                   className="h-11 border-slate-200 rounded-xl font-bold" 
                 />
+              </div>
+
+              {/* Items Section */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-t border-slate-100 pt-4">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Gold Items List</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addBillItem}
+                    className="h-8 border-dashed border-blue-500 text-blue-600 hover:bg-blue-50/50 font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" /> Add Item
+                  </Button>
+                </div>
+
+                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+                  {billItems.map((item, index) => (
+                    <div key={item.id} className="p-4 bg-slate-50 border border-slate-200/60 rounded-2xl relative space-y-4">
+                      {/* Item Header & Delete */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Item #{index + 1}</span>
+                        {billItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeBillItem(item.id)}
+                            className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Item Type (Searchable Combobox) */}
+                      <div className="grid gap-2 relative">
+                        <Label className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Pawned Gold Item Type</Label>
+                        <div className="relative">
+                          <Input 
+                            type="text"
+                            value={item.itemSearch} 
+                            onChange={e => {
+                              updateBillItem(item.id, 'itemSearch', e.target.value);
+                              updateBillItem(item.id, 'isDropdownOpen', true);
+                            }}
+                            onFocus={() => updateBillItem(item.id, 'isDropdownOpen', true)}
+                            onBlur={() => setTimeout(() => updateBillItem(item.id, 'isDropdownOpen', false), 200)}
+                            placeholder="Type to search e.g. P..." 
+                            className="h-10 border-slate-200 rounded-xl font-bold pr-10 text-xs" 
+                          />
+                          <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                            <Search className="h-3.5 w-3.5" />
+                          </div>
+                        </div>
+                        {item.isDropdownOpen && (
+                          <div className="absolute left-0 top-[65px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                            {ITEM_TYPES.filter(it => 
+                              it.code.toLowerCase().includes(item.itemSearch.toLowerCase()) || 
+                              it.name.toLowerCase().includes(item.itemSearch.toLowerCase())
+                            ).length === 0 ? (
+                              <div className="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching items</div>
+                            ) : (
+                              ITEM_TYPES.filter(it => 
+                                it.code.toLowerCase().includes(item.itemSearch.toLowerCase()) || 
+                                it.name.toLowerCase().includes(item.itemSearch.toLowerCase())
+                              ).map(it => (
+                                <button
+                                  key={it.code}
+                                  type="button"
+                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-xs transition-colors flex items-center justify-between text-slate-700"
+                                  onClick={() => selectComboboxItem(item.id, it.code, it.name)}
+                                >
+                                  <span>{it.name}</span>
+                                  {item.itemType === it.code && <CheckCircle className="h-3.5 w-3.5 text-blue-600" />}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Price & Weight Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="grid gap-1.5">
+                          <Label className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Value (Rs.)</Label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={item.price} 
+                            onChange={e => updateBillItem(item.id, 'price', e.target.value)} 
+                            placeholder="125000" 
+                            className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Weight (g)</Label>
+                          <Input 
+                            type="number"
+                            step="0.001"
+                            value={item.weight} 
+                            onChange={e => updateBillItem(item.id, 'weight', e.target.value)} 
+                            placeholder="8.500" 
+                            className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
