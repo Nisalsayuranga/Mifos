@@ -123,6 +123,69 @@ export default function EndOfDayPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("Pawn Redeemed (Closed)");
   const [withdrawalNotes, setWithdrawalNotes] = useState("");
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
+  const [selectedAddBranch, setSelectedAddBranch] = useState("");
+
+  // Load user from localStorage
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        setCurrentUser(u);
+        if (u.role !== 'ADMIN') {
+          setSelectedBranch(u.branchId || "HQ");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  // Fetch branches from Supabase
+  const loadBranches = async () => {
+    try {
+      const { data, error } = await supabase.from('branches').select('*').eq('is_active', true);
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (err) {
+      console.error("Failed to load branches:", err);
+      setBranches([
+        { id: 'BRL', name: 'Borella' },
+        { id: 'DHW', name: 'Dehiwala' },
+        { id: 'DMT', name: 'Dematagoda' },
+        { id: 'HMG', name: 'Homagama' },
+        { id: 'KDW', name: 'Kadawatha' },
+        { id: 'KIR', name: 'Kiribathgoda' },
+        { id: 'KOT', name: 'Kotikawatta' },
+        { id: 'KTW', name: 'Kottawa' },
+        { id: 'MRG', name: 'Maharagama' },
+        { id: 'PND', name: 'Panadura' },
+        { id: 'WAT', name: 'Wattala' },
+        { id: 'HQ',  name: 'Head Office' }
+      ]);
+    }
+  };
+
+  useEffect(() => {
+    loadBranches();
+  }, []);
+
+  // Sync selectedAddBranch with selectedBranch when modal opens
+  useEffect(() => {
+    if (showAddModal) {
+      if (selectedBranch && selectedBranch !== 'ALL') {
+        setSelectedAddBranch(selectedBranch);
+      } else if (currentUser && currentUser.role !== 'ADMIN') {
+        setSelectedAddBranch(currentUser.branchId || "HQ");
+      } else {
+        setSelectedAddBranch("");
+      }
+    }
+  }, [showAddModal]);
+
   // Default dates to today on mount
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -134,10 +197,17 @@ export default function EndOfDayPage() {
   const loadStockData = async () => {
     setLoadingStock(true);
     try {
-      const { data, error } = await supabase
-        .from('stock_items')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Determine the active branch filter
+      let activeBranch = selectedBranch;
+      if (!activeBranch && currentUser) {
+        activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
+      }
+
+      let query = supabase.from('stock_items').select('*');
+      if (activeBranch && activeBranch !== 'ALL') {
+        query = query.eq('branch_id', activeBranch);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -149,7 +219,15 @@ export default function EndOfDayPage() {
       const localData = localStorage.getItem('local_stock_items');
       if (localData) {
         try {
-          setStockItems(JSON.parse(localData));
+          const allItems = JSON.parse(localData);
+          let activeBranch = selectedBranch;
+          if (!activeBranch && currentUser) {
+            activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
+          }
+          const filtered = activeBranch && activeBranch !== 'ALL'
+            ? allItems.filter((item: any) => item.branch_id === activeBranch)
+            : allItems;
+          setStockItems(filtered);
         } catch (parseErr) {
           console.error("Error parsing local stock items", parseErr);
           setStockItems([]);
@@ -162,15 +240,21 @@ export default function EndOfDayPage() {
     }
   };
 
-  // Load stock when tab changes
+  // Load stock when tab or branch changes
   useEffect(() => {
     if (activeTab === 'stock') {
       loadStockData();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedBranch, currentUser]);
 
   // Handle Add Item
   const handleAddStock = async () => {
+    const targetBranch = currentUser?.role === 'ADMIN' ? selectedAddBranch : (currentUser?.branchId || 'HQ');
+    if (!targetBranch) {
+      toast.error("Please select a branch.");
+      return;
+    }
+
     if (!billNo || !price || !weight || !date || !itemType) {
       toast.error("Please fill in all fields.");
       return;
@@ -183,6 +267,7 @@ export default function EndOfDayPage() {
       date: date,
       item_type: itemType,
       status: 'Active',
+      branch_id: targetBranch
     };
 
     try {
@@ -201,8 +286,14 @@ export default function EndOfDayPage() {
           id: localId,
           created_at: new Date().toISOString()
         };
-        const updated = [localItem, ...stockItems];
-        setStockItems(updated);
+        const localData = localStorage.getItem('local_stock_items');
+        let allItems = [];
+        if (localData) {
+          try {
+            allItems = JSON.parse(localData);
+          } catch (e) {}
+        }
+        const updated = [localItem, ...allItems];
         localStorage.setItem('local_stock_items', JSON.stringify(updated));
         toast.success("Stock item added (Local Storage)!");
       }
@@ -213,6 +304,7 @@ export default function EndOfDayPage() {
       setWeight("");
       setDate(new Date().toISOString().split('T')[0]);
       setItemType("");
+      setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
       setShowAddModal(false);
       
       // Reload
@@ -555,6 +647,24 @@ export default function EndOfDayPage() {
               </button>
             </div>
 
+            {/* Branch Selector for Admin */}
+            {currentUser?.role === 'ADMIN' && (
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 w-full md:w-auto shrink-0">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-2">Branch:</span>
+                <Select value={selectedBranch} onValueChange={(val) => val && setSelectedBranch(val)}>
+                  <SelectTrigger className="h-8 w-44 bg-white border-slate-200 rounded-lg font-bold text-xs shadow-sm">
+                    <SelectValue placeholder="All Branches" />
+                  </SelectTrigger>
+                  <SelectContent className="glass max-h-48 overflow-y-auto">
+                    <SelectItem value="ALL" className="font-semibold text-xs">All Branches</SelectItem>
+                    {branches.map((b: any) => (
+                      <SelectItem key={b.id} value={b.id} className="font-semibold text-xs">{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Search Input & Action Button */}
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
               <div className="relative w-full sm:w-64">
@@ -599,6 +709,9 @@ export default function EndOfDayPage() {
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
                     <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill No</TableHead>
+                    {currentUser?.role === 'ADMIN' && (
+                      <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
+                    )}
                     <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Name</TableHead>
                     <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Weight (g)</TableHead>
                     <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Appraised Value</TableHead>
@@ -619,6 +732,13 @@ export default function EndOfDayPage() {
                       <TableCell className="px-6 py-4 font-black text-slate-800 text-sm">
                         {item.bill_no}
                       </TableCell>
+                      {currentUser?.role === 'ADMIN' && (
+                        <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
+                          <span className="bg-blue-50 text-blue-800 border border-blue-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wide">
+                            {item.branch_id || 'HQ'}
+                          </span>
+                        </TableCell>
+                      )}
                       <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
                         <span className="bg-slate-100 text-slate-800 border border-slate-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase mr-2 tracking-wide">
                           {item.item_type}
@@ -689,6 +809,25 @@ export default function EndOfDayPage() {
 
             <div className="grid gap-5">
               
+              {/* Branch Selection (Visible ONLY to Admin) */}
+              {currentUser?.role === 'ADMIN' && (
+                <div className="grid gap-2">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Target Branch Location</Label>
+                  <Select onValueChange={(val) => val && setSelectedAddBranch(val)} value={selectedAddBranch}>
+                    <SelectTrigger className="h-11 bg-white/50 border-slate-200 rounded-xl font-bold text-sm">
+                      <SelectValue placeholder="Select Branch" />
+                    </SelectTrigger>
+                    <SelectContent className="glass max-h-48 overflow-y-auto">
+                      {branches.map(b => (
+                        <SelectItem key={b.id} value={b.id} className="font-semibold text-sm">
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Item Type (Searchable Combobox) */}
               <div className="grid gap-2 relative">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawned Gold Item Type</Label>

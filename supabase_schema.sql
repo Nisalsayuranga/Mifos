@@ -114,6 +114,7 @@ create table if not exists public.stock_items (
     date date not null,
     item_type varchar not null, -- PP, PR, NL, EAR, etc.
     status varchar not null default 'Active', -- 'Active', 'Withdrawn'
+    branch_id text references public.branches(id) on delete cascade,
     withdrawal_date date,
     withdrawal_reason varchar,
     withdrawal_notes text,
