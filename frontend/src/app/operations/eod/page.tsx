@@ -99,33 +99,33 @@ export default function EndOfDayPage() {
 
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
+  const [price, setPrice] = useState("");
+  const [weight, setWeight] = useState("");
   const [date, setDate] = useState("");
-  const [billItems, setBillItems] = useState<Array<{
+  const [selectedItemTypes, setSelectedItemTypes] = useState<Array<{
     id: string;
-    itemType: string;
-    itemSearch: string;
+    code: string;
+    search: string;
     isDropdownOpen: boolean;
-    price: string;
-    weight: string;
   }>>([
-    { id: '1', itemType: "", itemSearch: "", isDropdownOpen: false, price: "", weight: "" }
+    { id: '1', code: "", search: "", isDropdownOpen: false }
   ]);
 
-  const addBillItem = () => {
-    setBillItems([
-      ...billItems,
-      { id: Math.random().toString(), itemType: "", itemSearch: "", isDropdownOpen: false, price: "", weight: "" }
+  const addSelectedItemType = () => {
+    setSelectedItemTypes([
+      ...selectedItemTypes,
+      { id: Math.random().toString(), code: "", search: "", isDropdownOpen: false }
     ]);
   };
 
-  const removeBillItem = (id: string) => {
-    if (billItems.length > 1) {
-      setBillItems(billItems.filter(item => item.id !== id));
+  const removeSelectedItemType = (id: string) => {
+    if (selectedItemTypes.length > 1) {
+      setSelectedItemTypes(selectedItemTypes.filter(item => item.id !== id));
     }
   };
 
-  const updateBillItem = (id: string, field: string, value: any) => {
-    setBillItems(prev => prev.map(item => {
+  const updateSelectedItemTypeField = (id: string, field: string, value: any) => {
+    setSelectedItemTypes(prev => prev.map(item => {
       if (item.id === id) {
         return { ...item, [field]: value };
       }
@@ -133,10 +133,10 @@ export default function EndOfDayPage() {
     }));
   };
 
-  const selectComboboxItem = (id: string, code: string, name: string) => {
-    setBillItems(prev => prev.map(item => {
+  const selectItemTypeInCombobox = (id: string, code: string, name: string) => {
+    setSelectedItemTypes(prev => prev.map(item => {
       if (item.id === id) {
-        return { ...item, itemType: code, itemSearch: name, isDropdownOpen: false };
+        return { ...item, code, search: name, isDropdownOpen: false };
       }
       return item;
     }));
@@ -280,45 +280,43 @@ export default function EndOfDayPage() {
       return;
     }
 
-    if (!billNo || !date) {
-      toast.error("Please fill in bill number and date.");
+    if (!billNo || !price || !weight || !date) {
+      toast.error("Please fill in all fields.");
       return;
     }
 
-    // Validate all items in the list
-    for (let i = 0; i < billItems.length; i++) {
-      const item = billItems[i];
-      if (!item.itemType || !item.price || !item.weight) {
-        toast.error(`Please fill in all fields for Item #${i + 1}`);
-        return;
-      }
+    // Get selected codes
+    const codes = selectedItemTypes.map(item => item.code).filter(Boolean);
+    if (codes.length === 0) {
+      toast.error("Please select at least one gold item type.");
+      return;
     }
 
-    const newItems = billItems.map(item => ({
+    const newItem = {
       bill_no: billNo,
-      price: parseFloat(item.price) || 0,
-      weight: parseFloat(item.weight) || 0,
+      price: parseFloat(price) || 0,
+      weight: parseFloat(weight) || 0,
       date: date,
-      item_type: item.itemType,
+      item_type: codes.join(", "),
       status: 'Active',
       branch_id: targetBranch
-    }));
+    };
 
     try {
       if (isUsingSupabase) {
         const { error } = await supabase
           .from('stock_items')
-          .insert(newItems);
+          .insert([newItem]);
         
         if (error) throw error;
-        toast.success(`${newItems.length} stock item(s) added to Supabase!`);
+        toast.success("Stock item added to Supabase!");
       } else {
         // LocalStorage fallback
-        const localItems = newItems.map(item => ({
-          ...item,
+        const localItem = {
+          ...newItem,
           id: Math.random().toString(36).substring(2, 9),
           created_at: new Date().toISOString()
-        }));
+        };
         const localData = localStorage.getItem('local_stock_items');
         let allItems = [];
         if (localData) {
@@ -326,16 +324,18 @@ export default function EndOfDayPage() {
             allItems = JSON.parse(localData);
           } catch (e) {}
         }
-        const updated = [...localItems, ...allItems];
+        const updated = [localItem, ...allItems];
         localStorage.setItem('local_stock_items', JSON.stringify(updated));
-        toast.success(`${newItems.length} stock item(s) added (Local Storage)!`);
+        toast.success("Stock item added (Local Storage)!");
       }
 
       // Reset Form fields
       setBillNo("");
+      setPrice("");
+      setWeight("");
       setDate(new Date().toISOString().split('T')[0]);
-      setBillItems([
-        { id: '1', itemType: "", itemSearch: "", isDropdownOpen: false, price: "", weight: "" }
+      setSelectedItemTypes([
+        { id: '1', code: "", search: "", isDropdownOpen: false }
       ]);
       setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
       setShowAddModal(false);
@@ -343,7 +343,7 @@ export default function EndOfDayPage() {
       // Reload
       loadStockData();
     } catch (err: any) {
-      toast.error("Error adding stock items: " + err.message);
+      toast.error("Error adding stock item: " + err.message);
     }
   };
 
@@ -774,10 +774,16 @@ export default function EndOfDayPage() {
                           </TableCell>
                         )}
                         <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
-                          <span className="bg-slate-100 text-slate-800 border border-slate-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase mr-2 tracking-wide">
-                            {item.item_type}
-                          </span>
-                          {getItemName(item.item_type)}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {(item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean).map((code: string) => (
+                              <span key={code} className="bg-slate-100 text-slate-800 border border-slate-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wide">
+                                {code}
+                              </span>
+                            ))}
+                            <span className="text-slate-700 font-bold ml-1">
+                              {(item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean).map((code: string) => getItemName(code)).join(" + ")}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="px-6 py-4 font-bold text-slate-600 text-sm">
                           {parseFloat(item.weight).toFixed(3)} g
@@ -900,95 +906,104 @@ export default function EndOfDayPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
-                  {billItems.map((item, index) => (
-                    <div key={item.id} className="p-4 bg-slate-50 border border-slate-200/60 rounded-2xl relative space-y-4">
-                      {/* Item Header & Delete */}
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Item #{index + 1}</span>
-                        {billItems.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeBillItem(item.id)}
-                            className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+              {/* Price & Weight Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised Value (Rs.)</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={price} 
+                    onChange={e => setPrice(e.target.value)} 
+                    placeholder="125000" 
+                    className="h-11 border-slate-200 rounded-xl font-bold" 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Gross Weight (g)</Label>
+                  <Input 
+                    type="number"
+                    step="0.001"
+                    value={weight} 
+                    onChange={e => setWeight(e.target.value)} 
+                    placeholder="8.500" 
+                    className="h-11 border-slate-200 rounded-xl font-bold" 
+                  />
+                </div>
+              </div>
 
-                      {/* Item Type (Searchable Combobox) */}
-                      <div className="grid gap-2 relative">
-                        <Label className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Pawned Gold Item Type</Label>
-                        <div className="relative">
+              {/* Pawned Gold Item Types List */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-t border-slate-100 pt-4">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Gold Item Categories</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSelectedItemType}
+                    className="h-8 border-dashed border-blue-500 text-blue-600 hover:bg-blue-50/50 font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" /> Add Item
+                  </Button>
+                </div>
+
+                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                  {selectedItemTypes.map((item, index) => (
+                    <div key={item.id} className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl relative">
+                      <div className="flex-1 grid gap-1.5 relative">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute top-1 right-2">Item #{index + 1}</span>
+                        <div className="relative mt-2">
                           <Input 
                             type="text"
-                            value={item.itemSearch} 
+                            value={item.search} 
                             onChange={e => {
-                              updateBillItem(item.id, 'itemSearch', e.target.value);
-                              updateBillItem(item.id, 'isDropdownOpen', true);
+                              updateSelectedItemTypeField(item.id, 'search', e.target.value);
+                              updateSelectedItemTypeField(item.id, 'isDropdownOpen', true);
                             }}
-                            onFocus={() => updateBillItem(item.id, 'isDropdownOpen', true)}
-                            onBlur={() => setTimeout(() => updateBillItem(item.id, 'isDropdownOpen', false), 200)}
+                            onFocus={() => updateSelectedItemTypeField(item.id, 'isDropdownOpen', true)}
+                            onBlur={() => setTimeout(() => updateSelectedItemTypeField(item.id, 'isDropdownOpen', false), 200)}
                             placeholder="Type to search e.g. P..." 
-                            className="h-10 border-slate-200 rounded-xl font-bold pr-10 text-xs" 
+                            className="h-10 border-slate-200 rounded-lg font-bold pr-10 text-xs bg-white" 
                           />
                           <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
-                            <Search className="h-3.5 w-3.5" />
+                            <Search className="h-4 w-4" />
                           </div>
                         </div>
                         {item.isDropdownOpen && (
-                          <div className="absolute left-0 top-[65px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                          <div className="absolute left-0 top-[50px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
                             {ITEM_TYPES.filter(it => 
-                              it.code.toLowerCase().includes(item.itemSearch.toLowerCase()) || 
-                              it.name.toLowerCase().includes(item.itemSearch.toLowerCase())
+                              it.code.toLowerCase().includes(item.search.toLowerCase()) || 
+                              it.name.toLowerCase().includes(item.search.toLowerCase())
                             ).length === 0 ? (
                               <div className="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching items</div>
                             ) : (
                               ITEM_TYPES.filter(it => 
-                                it.code.toLowerCase().includes(item.itemSearch.toLowerCase()) || 
-                                it.name.toLowerCase().includes(item.itemSearch.toLowerCase())
+                                it.code.toLowerCase().includes(item.search.toLowerCase()) || 
+                                it.name.toLowerCase().includes(item.search.toLowerCase())
                               ).map(it => (
                                 <button
                                   key={it.code}
                                   type="button"
                                   className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-xs transition-colors flex items-center justify-between text-slate-700"
-                                  onClick={() => selectComboboxItem(item.id, it.code, it.name)}
+                                  onClick={() => selectItemTypeInCombobox(item.id, it.code, it.name)}
                                 >
                                   <span>{it.name}</span>
-                                  {item.itemType === it.code && <CheckCircle className="h-3.5 w-3.5 text-blue-600" />}
+                                  {item.code === it.code && <CheckCircle className="h-3.5 w-3.5 text-blue-600" />}
                                 </button>
                               ))
                             )}
                           </div>
                         )}
                       </div>
-
-                      {/* Price & Weight Grid */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="grid gap-1.5">
-                          <Label className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Value (Rs.)</Label>
-                          <Input 
-                            type="number"
-                            step="0.01"
-                            value={item.price} 
-                            onChange={e => updateBillItem(item.id, 'price', e.target.value)} 
-                            placeholder="125000" 
-                            className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label className="font-bold text-[10px] uppercase tracking-wider text-slate-500">Weight (g)</Label>
-                          <Input 
-                            type="number"
-                            step="0.001"
-                            value={item.weight} 
-                            onChange={e => updateBillItem(item.id, 'weight', e.target.value)} 
-                            placeholder="8.500" 
-                            className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
-                          />
-                        </div>
-                      </div>
+                      {selectedItemTypes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedItemType(item.id)}
+                          className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors self-end mb-1 shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
