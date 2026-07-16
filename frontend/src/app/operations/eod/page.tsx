@@ -806,9 +806,9 @@ export default function EndOfDayPage() {
 
       {/* MODAL: ADD STOCK ITEM */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-[580px] glass p-0 rounded-[2rem] border-white/40">
-          <div className="h-2 bg-blue-600" />
-          <div className="p-8 space-y-6">
+        <DialogContent className="sm:max-w-[580px] glass p-0 rounded-[2rem] border-white/40 max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="h-2 bg-blue-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0">
             <DialogHeader>
               <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
                 <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 text-blue-600">
@@ -820,8 +820,10 @@ export default function EndOfDayPage() {
                 Declare a physical gold pawn asset and insert it into active vault stock logs.
               </DialogDescription>
             </DialogHeader>
+          </div>
 
-            <div className="grid gap-5">
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-5">
+            <div className="grid gap-5 pb-4">
               
               {/* Branch Selection (Visible ONLY to Admin) */}
               {currentUser?.role === 'ADMIN' && (
@@ -967,25 +969,25 @@ export default function EndOfDayPage() {
                 )}
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-3">
-              <Button variant="outline" onClick={() => setShowAddModal(false)} className="rounded-xl font-bold">Cancel</Button>
-              <Button 
-                onClick={handleAddStock} 
-                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-blue-600/10"
-              >
-                Insert to Vault
-              </Button>
-            </div>
+          <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={() => setShowAddModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button 
+              onClick={handleAddStock} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-blue-600/10"
+            >
+              Insert to Vault
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* MODAL: WITHDRAWAL / RELEASE */}
       <Dialog open={showWithdrawModal} onOpenChange={setShowWithdrawModal}>
-        <DialogContent className="sm:max-w-[450px] glass p-0 overflow-hidden rounded-[2rem] border-white/40">
-          <div className="h-2 bg-rose-600" />
-          <div className="p-8 space-y-6">
+        <DialogContent className="sm:max-w-[450px] glass p-0 rounded-[2rem] border-white/40 max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="h-2 bg-rose-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0">
             <DialogHeader>
               <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
                 <div className="h-10 w-10 bg-rose-50 rounded-xl flex items-center justify-center border border-rose-100 text-rose-600">
@@ -997,7 +999,9 @@ export default function EndOfDayPage() {
                 Record the withdrawal and closure of pawn gold assets from physical vault storage.
               </DialogDescription>
             </DialogHeader>
+          </div>
 
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-5">
             {selectedItemForWithdrawal && (
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 grid grid-cols-2 gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
                 <div>Bill No: <span className="text-slate-900 font-black">{selectedItemForWithdrawal.bill_no}</span></div>
@@ -1007,7 +1011,7 @@ export default function EndOfDayPage() {
               </div>
             )}
 
-            <div className="grid gap-5">
+            <div className="grid gap-5 pb-4">
               
               {/* Reason (Select Dropdown) */}
               <div className="grid gap-2">
@@ -1047,16 +1051,16 @@ export default function EndOfDayPage() {
                 />
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-3">
-              <Button variant="outline" onClick={() => setShowWithdrawModal(false)} className="rounded-xl font-bold">Cancel</Button>
-              <Button 
-                onClick={handleWithdrawStock} 
-                className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-rose-600/10"
-              >
-                Release Gold Asset
-              </Button>
-            </div>
+          <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={() => setShowWithdrawModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button 
+              onClick={handleWithdrawStock} 
+              className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-rose-600/10"
+            >
+              Release Gold Asset
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
