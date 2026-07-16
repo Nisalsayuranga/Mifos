@@ -890,22 +890,6 @@ export default function EndOfDayPage() {
                   className="h-11 border-slate-200 rounded-xl font-bold" 
                 />
               </div>
-
-              {/* Items Section */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center border-t border-slate-100 pt-4">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Gold Items List</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addBillItem}
-                    className="h-8 border-dashed border-blue-500 text-blue-600 hover:bg-blue-50/50 font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" /> Add Item
-                  </Button>
-                </div>
-
               {/* Price & Weight Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
