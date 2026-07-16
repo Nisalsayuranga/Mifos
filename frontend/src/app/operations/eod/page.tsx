@@ -102,44 +102,20 @@ export default function EndOfDayPage() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [date, setDate] = useState("");
-  const [selectedItemTypes, setSelectedItemTypes] = useState<Array<{
-    id: string;
-    code: string;
-    search: string;
-    isDropdownOpen: boolean;
-  }>>([
-    { id: '1', code: "", search: "", isDropdownOpen: false }
-  ]);
+  const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+  const [itemSearch, setItemSearch] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const addSelectedItemType = () => {
-    setSelectedItemTypes([
-      ...selectedItemTypes,
-      { id: Math.random().toString(), code: "", search: "", isDropdownOpen: false }
-    ]);
-  };
-
-  const removeSelectedItemType = (id: string) => {
-    if (selectedItemTypes.length > 1) {
-      setSelectedItemTypes(selectedItemTypes.filter(item => item.id !== id));
+  const handleSelectCode = (code: string) => {
+    if (!selectedCodes.includes(code)) {
+      setSelectedCodes([...selectedCodes, code]);
     }
+    setItemSearch("");
+    setIsDropdownOpen(false);
   };
 
-  const updateSelectedItemTypeField = (id: string, field: string, value: any) => {
-    setSelectedItemTypes(prev => prev.map(item => {
-      if (item.id === id) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    }));
-  };
-
-  const selectItemTypeInCombobox = (id: string, code: string, name: string) => {
-    setSelectedItemTypes(prev => prev.map(item => {
-      if (item.id === id) {
-        return { ...item, code, search: name, isDropdownOpen: false };
-      }
-      return item;
-    }));
+  const handleRemoveCode = (codeToRemove: string) => {
+    setSelectedCodes(selectedCodes.filter(c => c !== codeToRemove));
   };
 
 
@@ -285,9 +261,7 @@ export default function EndOfDayPage() {
       return;
     }
 
-    // Get selected codes
-    const codes = selectedItemTypes.map(item => item.code).filter(Boolean);
-    if (codes.length === 0) {
+    if (selectedCodes.length === 0) {
       toast.error("Please select at least one gold item type.");
       return;
     }
@@ -297,7 +271,7 @@ export default function EndOfDayPage() {
       price: parseFloat(price) || 0,
       weight: parseFloat(weight) || 0,
       date: date,
-      item_type: codes.join(", "),
+      item_type: selectedCodes.join(", "),
       status: 'Active',
       branch_id: targetBranch
     };
@@ -334,9 +308,7 @@ export default function EndOfDayPage() {
       setPrice("");
       setWeight("");
       setDate(new Date().toISOString().split('T')[0]);
-      setSelectedItemTypes([
-        { id: '1', code: "", search: "", isDropdownOpen: false }
-      ]);
+      setSelectedCodes([]);
       setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
       setShowAddModal(false);
       
@@ -916,81 +888,82 @@ export default function EndOfDayPage() {
                 </div>
               </div>
 
-              {/* Pawned Gold Item Types List */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center border-t border-slate-100 pt-4">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Gold Item Categories</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addSelectedItemType}
-                    className="h-8 border-dashed border-blue-500 text-blue-600 hover:bg-blue-50/50 font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" /> Add Item
-                  </Button>
+              {/* Pawned Gold Item Categories (Multi-Select Tag Input) */}
+              <div className="grid gap-2 relative">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawned Gold Item Categories</Label>
+                
+                {/* Search Input */}
+                <div className="relative">
+                  <Input 
+                    type="text"
+                    value={itemSearch} 
+                    onChange={e => {
+                      setItemSearch(e.target.value);
+                      setIsDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                    placeholder="Search and select gold items (e.g. Ring, Pendant)..." 
+                    className="h-11 border-slate-200 rounded-xl font-bold pr-10 text-sm bg-white" 
+                  />
+                  <div className="absolute right-3 top-3.5 pointer-events-none text-slate-400">
+                    <Search className="h-4 w-4" />
+                  </div>
                 </div>
 
-                <div className="space-y-3 pr-1">
-                  {selectedItemTypes.map((item, index) => (
-                    <div key={item.id} className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl relative">
-                      <div className="flex-1 grid gap-1.5 relative">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute top-1 right-2">Item #{index + 1}</span>
-                        <div className="relative mt-2">
-                          <Input 
-                            type="text"
-                            value={item.search} 
-                            onChange={e => {
-                              updateSelectedItemTypeField(item.id, 'search', e.target.value);
-                              updateSelectedItemTypeField(item.id, 'isDropdownOpen', true);
-                            }}
-                            onFocus={() => updateSelectedItemTypeField(item.id, 'isDropdownOpen', true)}
-                            onBlur={() => setTimeout(() => updateSelectedItemTypeField(item.id, 'isDropdownOpen', false), 200)}
-                            placeholder="Type to search e.g. P..." 
-                            className="h-10 border-slate-200 rounded-lg font-bold pr-10 text-xs bg-white" 
-                          />
-                          <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
-                            <Search className="h-4 w-4" />
-                          </div>
-                        </div>
-                        {item.isDropdownOpen && (
-                          <div className="absolute left-0 top-[50px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
-                            {ITEM_TYPES.filter(it => 
-                              it.code.toLowerCase().includes(item.search.toLowerCase()) || 
-                              it.name.toLowerCase().includes(item.search.toLowerCase())
-                            ).length === 0 ? (
-                              <div className="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching items</div>
-                            ) : (
-                              ITEM_TYPES.filter(it => 
-                                it.code.toLowerCase().includes(item.search.toLowerCase()) || 
-                                it.name.toLowerCase().includes(item.search.toLowerCase())
-                              ).map(it => (
-                                <button
-                                  key={it.code}
-                                  type="button"
-                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-xs transition-colors flex items-center justify-between text-slate-700"
-                                  onClick={() => selectItemTypeInCombobox(item.id, it.code, it.name)}
-                                >
-                                  <span>{it.name}</span>
-                                  {item.code === it.code && <CheckCircle className="h-3.5 w-3.5 text-blue-600" />}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {selectedItemTypes.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSelectedItemType(item.id)}
-                          className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors self-end mb-1 shrink-0"
+                {/* Dropdown */}
+                {isDropdownOpen && (
+                  <div className="absolute left-0 top-[70px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                    {ITEM_TYPES.filter(it => 
+                      it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
+                      it.name.toLowerCase().includes(itemSearch.toLowerCase())
+                    ).length === 0 ? (
+                      <div className="px-4 py-3 text-xs font-bold text-slate-400 text-center">No matching items</div>
+                    ) : (
+                      ITEM_TYPES.filter(it => 
+                        it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
+                        it.name.toLowerCase().includes(itemSearch.toLowerCase())
+                      ).map(it => {
+                        const isSelected = selectedCodes.includes(it.code);
+                        return (
+                          <button
+                            key={it.code}
+                            type="button"
+                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700"
+                            onClick={() => handleSelectCode(it.code)}
+                          >
+                            <span>{it.name}</span>
+                            {isSelected && <CheckCircle className="h-4 w-4 text-blue-600" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* Selected Tags Display */}
+                {selectedCodes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
+                    {selectedCodes.map(code => {
+                      const found = ITEM_TYPES.find(it => it.code === code);
+                      return (
+                        <div 
+                          key={code}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200/50 rounded-lg text-xs font-bold transition-all shadow-sm"
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                          <span>{found ? found.name : code}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCode(code)}
+                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-0.5 rounded transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
