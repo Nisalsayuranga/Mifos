@@ -833,7 +833,7 @@ export default function EndOfDayPage() {
 
       {/* MODAL: ADD STOCK ITEM */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-[450px] glass p-0 overflow-hidden rounded-[2rem] border-white/40">
+        <DialogContent className="sm:max-w-[580px] glass p-0 rounded-[2rem] border-white/40">
           <div className="h-2 bg-blue-600" />
           <div className="p-8 space-y-6">
             <DialogHeader>
@@ -931,7 +931,7 @@ export default function EndOfDayPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                <div className="space-y-3 pr-1">
                   {selectedItemTypes.map((item, index) => (
                     <div key={item.id} className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl relative">
                       <div className="flex-1 grid gap-1.5 relative">
