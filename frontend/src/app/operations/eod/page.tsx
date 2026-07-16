@@ -445,7 +445,7 @@ export default function EndOfDayPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-6 w-full max-w-[96%] xl:max-w-[1400px] mx-auto pb-20">
       
       {/* Page Header */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -793,7 +793,7 @@ export default function EndOfDayPage() {
                                 {code}
                               </span>
                             ))}
-                            <span className="text-slate-700 font-bold ml-1">
+                            <span className="text-slate-700 font-bold ml-1 whitespace-normal break-words">
                               {(item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean).map((code: string) => getItemName(code)).join(" + ")}
                             </span>
                           </div>
