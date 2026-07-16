@@ -73,6 +73,42 @@ export default function DashboardSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  const groupIcons: { [key: string]: any } = {
+    "Overview": LayoutDashboard,
+    "Finance": Wallet,
+    "Transactions": ArrowRightLeft,
+    "Operations": ShieldCheck
+  };
+
+  useEffect(() => {
+    const active = navGroups.find(group => 
+      group.items.some(item => pathname === item.href)
+    );
+    if (active) {
+      setOpenGroup(active.label);
+    }
+  }, [pathname]);
+
+  const handleMouseEnter = (label: string) => {
+    if (window.innerWidth >= 768) {
+      setOpenGroup(label);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (window.innerWidth >= 768) {
+      const active = navGroups.find(group => 
+        group.items.some(item => pathname === item.href)
+      );
+      setOpenGroup(active ? active.label : null);
+    }
+  };
+
+  const handleGroupClick = (label: string) => {
+    setOpenGroup(openGroup === label ? null : label);
+  };
 
   useEffect(() => {
     const syncUser = () => {
@@ -146,50 +182,93 @@ export default function DashboardSidebar({
       </div>
 
       {/* Navigation Groups */}
-      <div className="flex-1 px-4 space-y-4 overflow-y-auto pt-4 scrollbar-hide pb-6">
-        {navGroups.map((group) => (
-          <div key={group.label} className="space-y-1 text-center">
-            {!isCollapsed && (
-              <p className="px-4 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                {group.label}
-              </p>
-            )}
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                if (item.adminOnly && user?.role !== 'ADMIN') return null;
-                
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
-                
-                return (
-                  <Link 
-                    key={item.name} 
-                    href={item.href}
-                    className={cn(
-                      "group flex items-center h-9.5 rounded-xl transition-all duration-300 relative overflow-hidden",
-                      isCollapsed ? "justify-center" : "px-4",
-                      isActive 
-                        ? "bg-primary text-white shadow-md shadow-primary/20" 
-                        : "hover:bg-white/5 hover:text-white"
-                    )}
-                  >
-                    <Icon className={cn(
-                      "w-4 h-4 shrink-0 transition-all duration-300 group-hover:scale-110",
-                      isActive ? "text-white" : "text-slate-500 group-hover:text-primary",
-                      !isCollapsed && "mr-3.5"
-                    )} />
-                    {!isCollapsed && (
-                      <span className="font-bold text-[12.5px] tracking-tight">{item.name}</span>
-                    )}
-                    {isActive && !isCollapsed && (
-                      <div className="ml-auto w-1 h-1 rounded-full bg-white animate-pulse" />
-                    )}
-                  </Link>
-                );
-              })}
+      <div className="flex-1 px-4 space-y-2 overflow-y-auto pt-4 scrollbar-hide pb-6">
+        {navGroups.map((group) => {
+          const GroupIcon = groupIcons[group.label] || LayoutDashboard;
+          const isGroupActive = group.items.some(item => pathname === item.href);
+          const isOpen = openGroup === group.label;
+
+          return (
+            <div 
+              key={group.label} 
+              className="space-y-1"
+              onMouseEnter={() => handleMouseEnter(group.label)}
+              onMouseLeave={handleMouseLeave}
+            >
+              {/* Group Header Button */}
+              <button
+                type="button"
+                onClick={() => handleGroupClick(group.label)}
+                className={cn(
+                  "w-full flex items-center h-9.5 rounded-xl transition-all duration-300 relative overflow-hidden cursor-pointer",
+                  isCollapsed ? "justify-center" : "px-4 justify-between",
+                  isGroupActive 
+                    ? "bg-white/10 text-white font-bold border border-white/5" 
+                    : "hover:bg-white/5 text-slate-400 hover:text-white"
+                )}
+              >
+                <div className="flex items-center">
+                  <GroupIcon className={cn(
+                    "w-4 h-4 shrink-0 transition-transform duration-300",
+                    isGroupActive ? "text-primary" : "text-slate-500",
+                    !isCollapsed && "mr-3.5"
+                  )} />
+                  {!isCollapsed && (
+                    <span className="font-bold text-[12.5px] tracking-tight">{group.label}</span>
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <ChevronRight className={cn(
+                    "w-3.5 h-3.5 text-slate-500 transition-transform duration-300",
+                    isOpen && "rotate-90"
+                  )} />
+                )}
+              </button>
+
+              {/* Sub-items sliding container */}
+              <div className={cn(
+                "grid transition-all duration-300 ease-in-out overflow-hidden",
+                isOpen ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
+              )}>
+                <div className="overflow-hidden space-y-1 pl-3 border-l border-white/5 ml-5">
+                  {group.items.map((item) => {
+                    if (item.adminOnly && user?.role !== 'ADMIN') return null;
+                    const isActive = pathname === item.href;
+                    const SubIcon = item.icon;
+                    
+                    return (
+                      <Link 
+                        key={item.name} 
+                        href={item.href}
+                        onClick={() => {
+                          if (window.innerWidth < 768 && setIsMobileOpen) {
+                            setIsMobileOpen(false);
+                          }
+                        }}
+                        className={cn(
+                          "group flex items-center h-8.5 rounded-lg transition-all duration-300 relative overflow-hidden",
+                          isCollapsed ? "justify-center" : "px-3",
+                          isActive 
+                            ? "bg-primary text-white shadow-xs" 
+                            : "text-slate-400 hover:bg-white/5 hover:text-white"
+                        )}
+                      >
+                        <SubIcon className={cn(
+                          "w-3.5 h-3.5 shrink-0 transition-all duration-300 group-hover:scale-105",
+                          isActive ? "text-white" : "text-slate-500 group-hover:text-primary",
+                          !isCollapsed && "mr-3"
+                        )} />
+                        {!isCollapsed && (
+                          <span className="font-bold text-[12px] tracking-tight">{item.name}</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Profile & Footer */}
