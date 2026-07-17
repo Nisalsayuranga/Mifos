@@ -100,7 +100,9 @@ export default function EndOfDayPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [isEditingWithdrawal, setIsEditingWithdrawal] = useState(false);
+  const [isEditingActive, setIsEditingActive] = useState(false);
   const [selectedItemForWithdrawal, setSelectedItemForWithdrawal] = useState<any | null>(null);
+  const [selectedActiveItem, setSelectedActiveItem] = useState<any | null>(null);
 
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
@@ -264,6 +266,55 @@ export default function EndOfDayPage() {
     }
   }, [activeTab, selectedBranch, currentUser]);
 
+  const closeAddModal = () => {
+    setBillNo("");
+    setBillPrefix(null);
+    setPrice("");
+    setWeight("");
+    setDate(new Date().toISOString().split('T')[0]);
+    setSelectedItems([]);
+    setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
+    setIsEditingActive(false);
+    setSelectedActiveItem(null);
+    setShowAddModal(false);
+  };
+
+  const openEditActiveModal = (item: any) => {
+    setSelectedActiveItem(item);
+    
+    // Attempt to extract prefix from bill_no
+    let foundPrefix = null;
+    let cleanBillNo = item.bill_no;
+    for (const pref of BILL_PREFIXES) {
+      if (item.bill_no.startsWith(pref + " ")) {
+        foundPrefix = pref;
+        cleanBillNo = item.bill_no.substring(pref.length + 1);
+        break;
+      } else if (item.bill_no.startsWith(pref)) {
+        foundPrefix = pref;
+        cleanBillNo = item.bill_no.substring(pref.length);
+        break;
+      }
+    }
+
+    setBillNo(cleanBillNo);
+    setBillPrefix(foundPrefix);
+    setPrice(item.price.toString());
+    setWeight(item.weight.toString());
+    setDate(item.date);
+    setSelectedAddBranch(item.branch_id || "");
+    
+    // Parse item_type comma-separated string into selectedItems tags
+    const codes = (item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean);
+    setSelectedItems(codes.map((code: string) => ({
+      id: Math.random().toString(36).substring(2, 9),
+      code
+    })));
+    
+    setIsEditingActive(true);
+    setShowAddModal(true);
+  };
+
   // Handle Add Item
   const handleAddStock = async () => {
     console.log("[DEBUG] handleAddStock initiated. Current state:", {
@@ -274,7 +325,9 @@ export default function EndOfDayPage() {
       weight,
       date,
       selectedItems,
-      billPrefix
+      billPrefix,
+      isEditingActive,
+      selectedActiveItem
     });
 
     const targetBranch = currentUser?.role === 'ADMIN' ? selectedAddBranch : (currentUser?.branchId || 'HQ');
@@ -309,58 +362,91 @@ export default function EndOfDayPage() {
       status: 'Active',
       branch_id: targetBranch
     };
-    console.log("[DEBUG] newItem payload to insert:", newItem);
+    console.log("[DEBUG] newItem payload:", newItem);
 
     try {
       if (isUsingSupabase) {
-        console.log("[DEBUG] Attempting Supabase insert...");
-        const { data, error } = await supabase
-          .from('stock_items')
-          .insert([newItem])
-          .select();
-        
-        if (error) {
-          console.error("[DEBUG] Supabase insert error:", error);
-          throw error;
+        if (isEditingActive && selectedActiveItem) {
+          console.log("[DEBUG] Attempting Supabase update...");
+          const { error } = await supabase
+            .from('stock_items')
+            .update({
+              bill_no: newItem.bill_no,
+              price: newItem.price,
+              weight: newItem.weight,
+              date: newItem.date,
+              item_type: newItem.item_type,
+              branch_id: newItem.branch_id
+            })
+            .eq('id', selectedActiveItem.id);
+
+          if (error) {
+            console.error("[DEBUG] Supabase update error:", error);
+            throw error;
+          }
+          toast.success("Stock item updated in Supabase!");
+        } else {
+          console.log("[DEBUG] Attempting Supabase insert...");
+          const { data, error } = await supabase
+            .from('stock_items')
+            .insert([newItem])
+            .select();
+          
+          if (error) {
+            console.error("[DEBUG] Supabase insert error:", error);
+            throw error;
+          }
+          console.log("[DEBUG] Supabase insert successful. Returned data:", data);
+          toast.success("Stock item added to Supabase!");
         }
-        console.log("[DEBUG] Supabase insert successful. Returned data:", data);
-        toast.success("Stock item added to Supabase!");
       } else {
         console.log("[DEBUG] Supabase offline, using LocalStorage fallback...");
-        // LocalStorage fallback
-        const localItem = {
-          ...newItem,
-          id: Math.random().toString(36).substring(2, 9),
-          created_at: new Date().toISOString()
-        };
-        const localData = localStorage.getItem('local_stock_items');
-        let allItems = [];
-        if (localData) {
-          try {
-            allItems = JSON.parse(localData);
-          } catch (e) {}
+        if (isEditingActive && selectedActiveItem) {
+          // LocalStorage fallback update
+          const updated = stockItems.map(item => {
+            if (item.id === selectedActiveItem.id) {
+              return {
+                ...item,
+                bill_no: newItem.bill_no,
+                price: newItem.price,
+                weight: newItem.weight,
+                date: newItem.date,
+                item_type: newItem.item_type,
+                branch_id: newItem.branch_id
+              };
+            }
+            return item;
+          });
+          setStockItems(updated);
+          localStorage.setItem('local_stock_items', JSON.stringify(updated));
+          toast.success("Stock item updated (Local Storage)!");
+        } else {
+          // LocalStorage fallback insert
+          const localItem = {
+            ...newItem,
+            id: Math.random().toString(36).substring(2, 9),
+            created_at: new Date().toISOString()
+          };
+          const localData = localStorage.getItem('local_stock_items');
+          let allItems = [];
+          if (localData) {
+            try {
+              allItems = JSON.parse(localData);
+            } catch (e) {}
+          }
+          const updated = [localItem, ...allItems];
+          localStorage.setItem('local_stock_items', JSON.stringify(updated));
+          console.log("[DEBUG] LocalStorage insert successful.");
+          toast.success("Stock item added (Local Storage)!");
         }
-        const updated = [localItem, ...allItems];
-        localStorage.setItem('local_stock_items', JSON.stringify(updated));
-        console.log("[DEBUG] LocalStorage insert successful.");
-        toast.success("Stock item added (Local Storage)!");
       }
 
-      // Reset Form fields
-      console.log("[DEBUG] Resetting form fields...");
-      setBillNo("");
-      setBillPrefix(null);
-      setPrice("");
-      setWeight("");
-      setDate(new Date().toISOString().split('T')[0]);
-      setSelectedItems([]);
-      setSelectedAddBranch(selectedBranch !== 'ALL' ? selectedBranch : "");
-      setShowAddModal(false);
+      closeAddModal();
       
       // Reload
       loadStockData();
     } catch (err: any) {
-      toast.error("Error adding stock item: " + err.message);
+      toast.error("Error saving stock item: " + err.message);
     }
   };
 
@@ -1026,13 +1112,21 @@ export default function EndOfDayPage() {
                             </TableCell>
                           </>
                         ) : (
-                          <TableCell className="px-6 py-4 text-right">
+                          <TableCell className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                            <Button 
+                              onClick={() => openEditActiveModal(item)}
+                              size="sm"
+                              variant="outline"
+                              className="border-slate-200 hover:bg-slate-50 text-slate-600 font-black text-[9px] uppercase tracking-widest h-8 px-3 rounded-xl transition-all cursor-pointer"
+                            >
+                              Edit
+                            </Button>
                             <Button 
                               onClick={() => openWithdrawModal(item)}
                               size="sm"
-                              className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 font-black text-[9px] uppercase tracking-widest h-8 px-4 rounded-xl transition-all"
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 font-black text-[9px] uppercase tracking-widest h-8 px-3 rounded-xl transition-all cursor-pointer"
                             >
-                              Withdraw / Close
+                              Withdraw
                             </Button>
                           </TableCell>
                         )}
@@ -1060,10 +1154,12 @@ export default function EndOfDayPage() {
                 <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 text-blue-600">
                   <Package className="h-5 w-5" />
                 </div>
-                Add Vault Stock Item
+                {isEditingActive ? "Edit Vault Stock Item" : "Add Physical Vault Stock"}
               </DialogTitle>
               <DialogDescription className="font-medium text-slate-500 text-sm">
-                Declare a physical gold pawn asset and insert it into active vault stock logs.
+                {isEditingActive 
+                  ? "Modify the record of pawn gold items stored in physical vault storage."
+                  : "Declare a physical gold pawn asset and insert it into active vault stock logs."}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -1254,12 +1350,12 @@ export default function EndOfDayPage() {
           </div>
 
           <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-            <Button variant="outline" onClick={() => setShowAddModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button variant="outline" onClick={closeAddModal} className="rounded-xl font-bold">Cancel</Button>
             <Button 
               onClick={handleAddStock} 
-              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-blue-600/10"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-blue-600/10 cursor-pointer"
             >
-              Insert to Vault
+              {isEditingActive ? "Save Changes" : "Insert to Vault"}
             </Button>
           </div>
         </DialogContent>
