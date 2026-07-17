@@ -500,10 +500,10 @@ export default function EndOfDayPage() {
       `;
     }).join('');
 
-    printWindow.document.write(\`
+    printWindow.document.write(`
       <html>
         <head>
-          <title>Vault Stock Report - \${dateStr}</title>
+          <title>Vault Stock Report - ${dateStr}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
             .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
@@ -532,24 +532,24 @@ export default function EndOfDayPage() {
               <div class="subtitle">Vault Inventory Stock Report</div>
             </div>
             <div class="meta-info">
-              <div><strong>Branch Filter:</strong> \${activeBranchName}</div>
-              <div><strong>Report Status:</strong> \${stockFilter} Vault Items</div>
-              <div><strong>Generated:</strong> \${dateStr}</div>
+              <div><strong>Branch Filter:</strong> ${activeBranchName}</div>
+              <div><strong>Report Status:</strong> ${stockFilter} Vault Items</div>
+              <div><strong>Generated:</strong> ${dateStr}</div>
             </div>
           </div>
 
           <div class="stats-container">
             <div class="stat-card">
               <div class="stat-label">Total Vault Items</div>
-              <div class="stat-value">\${totalCount} Items</div>
+              <div class="stat-value">${totalCount} Items</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Cumulative Weight</div>
-              <div class="stat-value">\${totalWeight.toFixed(3)} g</div>
+              <div class="stat-value">${totalWeight.toFixed(3)} g</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Cumulative Value</div>
-              <div class="stat-value">Rs. \${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+              <div class="stat-value">Rs. ${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
             </div>
           </div>
 
@@ -566,11 +566,11 @@ export default function EndOfDayPage() {
               </tr>
             </thead>
             <tbody>
-              \${tableRowsHtml}
+              ${tableRowsHtml}
               <tr class="total-row">
                 <td colspan="3" class="total-cell" style="text-align: right; font-weight: 900;">REPORT SUMMARY TOTALS:</td>
-                <td class="total-cell" style="text-align: right; font-weight: 900;">\${totalWeight.toFixed(3)} g</td>
-                <td class="total-cell" style="text-align: right; font-weight: 900;">Rs. \${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="total-cell" style="text-align: right; font-weight: 900;">${totalWeight.toFixed(3)} g</td>
+                <td class="total-cell" style="text-align: right; font-weight: 900;">Rs. ${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td colspan="2" class="total-cell"></td>
               </tr>
             </tbody>
@@ -586,7 +586,7 @@ export default function EndOfDayPage() {
           </script>
         </body>
       </html>
-    \`);
+    `);
     printWindow.document.close();
   };
 
