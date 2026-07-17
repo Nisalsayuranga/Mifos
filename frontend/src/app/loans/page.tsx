@@ -1141,7 +1141,7 @@ export default function PawnesPage() {
                         <div class="grid">
                           <div>
                             <div class="label">Customer Name</div>
-                            <div class="val">${clientMap[detailsPawn.client_id] || detailsPawn.client_id}</div>
+                            <div class="val">${clientsMap[detailsPawn.client_id?.toLowerCase()] || detailsPawn.client_id || '—'}</div>
                           </div>
                           <div>
                             <div class="label">Branch Office</div>
