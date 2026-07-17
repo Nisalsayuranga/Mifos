@@ -24,7 +24,9 @@ import {
   FileText,
   Search,
   CheckCircle,
-  X
+  X,
+  FileSpreadsheet,
+  Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,25 +41,26 @@ import { cn } from "@/lib/utils";
 
 // Stock item abbreviations
 const ITEM_TYPES = [
-  { code: 'PP', name: 'Pendant / Pha (PP)' },
-  { code: 'PR', name: 'Pendant Ring (PR)' },
+  { code: 'PP', name: 'Pendant (PP)' },
+  { code: 'PR', name: 'Ring (PR)' },
   { code: 'NL', name: 'Necklace (NL)' },
   { code: 'EAR', name: 'Earring (EAR)' },
   { code: 'BRC', name: 'Bracelet (BRC)' },
-  { code: 'BPR', name: 'Bracelet / Pendant Ring (BPR)' },
-  { code: 'PB', name: 'Pubbar / Pin (PB)' },
-  { code: 'CR', name: 'Chain Ring (CR)' },
-  { code: 'WJ', name: 'Wedding Jewelry (WJ)' },
-  { code: 'BJ', name: 'Baby Jewelry (BJ)' },
-  { code: 'ANK', name: 'Anklet (ANK)' },
+  { code: 'BPR', name: 'Baby Ring (BPR)' },
+  { code: 'PB', name: 'Bangle (PB)' },
+  { code: 'CR', name: 'Carved Ring (CR)' },
+  { code: 'WJ', name: 'Wire Gyspy (WJ)' },
+  { code: 'BJ', name: 'Ball Gyspy (BJ)' },
+  { code: 'ANK', name: 'Anklets (ANK)' },
   { code: 'CH', name: 'Chain (CH)' },
-  { code: 'DCH', name: 'Double Chain (DCH)' },
-  { code: 'SPCH', name: 'Spiral Chain (SPCH)' },
-  { code: 'VCH', name: 'V-Chain (VCH)' },
-  { code: 'BLCT', name: 'Biscuit / Bar (BLCT)' },
-  { code: 'COIN', name: 'Gold Coin (COIN)' },
-  { code: 'NA', name: 'Naththa / Nose Ring (NA)' },
-  { code: 'TS', name: 'Thali (TS)' }
+  { code: 'DCH', name: 'Diamond Chain (DCH)' },
+  { code: 'SPCH', name: 'Singapore Chain (SPCH)' },
+  { code: 'VCH', name: 'V Chain (VCH)' },
+  { code: 'BKT', name: 'Biscuit (BKT)' },
+  { code: 'COIN', name: 'Coin (COIN)' },
+  { code: 'NA', name: 'Not Applicable (NA)' },
+  { code: 'TS', name: 'Tassel (TS)' },
+  { code: 'SPJ', name: 'Spring Gyspy (SPJ)' }
 ];
 
 export default function EndOfDayPage() {
@@ -424,8 +427,167 @@ export default function EndOfDayPage() {
   };
 
   const getItemName = (code: string) => {
+    if (code === 'BLCT') return 'Biscuit (BKT)'; // Backward compatibility
     const found = ITEM_TYPES.find(item => item.code === code);
     return found ? found.name : code;
+  };
+
+  const handleExportExcel = () => {
+    const headers = ["Bill No", "Branch", "Item Categories", "Item Names", "Weight (g)", "Appraised Value (Rs.)", "Date", "Status"];
+    const rows = filteredStock.map(item => [
+      item.bill_no,
+      item.branch_id || 'HQ',
+      item.item_type || '',
+      (item.item_type || "").split(",").map((c: string) => getItemName(c.trim())).join(" + "),
+      parseFloat(item.weight).toFixed(3),
+      parseFloat(item.price || 0).toFixed(2),
+      item.date,
+      item.status
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute("download", `Vault_Stock_Report_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Excel CSV file downloaded successfully!");
+  };
+
+  const handleExportPDF = () => {
+    const printWindow = window.open('', '_blank', 'width=1000,height=800')!;
+    const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const activeBranchName = branches.find(b => b.id === selectedBranch)?.name || (selectedBranch === 'ALL' ? 'All Branches' : selectedBranch);
+
+    const totalCount = filteredStock.length;
+    const totalWeight = filteredStock.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
+    const totalValue = filteredStock.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+
+    const tableRowsHtml = filteredStock.map((item, index) => {
+      const itemsList = (item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean);
+      const badgesHtml = itemsList.map((code: string) => 
+        `<span style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:800; text-transform:uppercase; margin-right:4px; display:inline-block;">${code}</span>`
+      ).join('');
+      const namesJoined = itemsList.map((code: string) => getItemName(code)).join(" + ");
+
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; background: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+          <td style="padding: 10px 12px; font-weight: 800; color: #0f172a;">${item.bill_no}</td>
+          <td style="padding: 10px 12px; font-weight: bold; color: #475569;">${item.branch_id || 'HQ'}</td>
+          <td style="padding: 10px 12px; font-weight: bold; color: #334155; font-size: 11px;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">
+              ${badgesHtml}
+              <span style="font-weight: 700; color: #1e293b; margin-left: 2px;">${namesJoined}</span>
+            </div>
+          </td>
+          <td style="padding: 10px 12px; font-weight: bold; text-align: right; color: #475569;">${parseFloat(item.weight).toFixed(3)} g</td>
+          <td style="padding: 10px 12px; font-weight: 800; text-align: right; color: #0f172a;">Rs. ${(parseFloat(item.price) || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td style="padding: 10px 12px; font-weight: bold; color: #64748b; font-size: 11px;">${new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+          <td style="padding: 10px 12px;">
+            <span style="background: ${item.status === 'Active' ? '#ecfdf5' : '#fef2f2'}; color: ${item.status === 'Active' ? '#065f46' : '#991b1b'}; border: 1px solid ${item.status === 'Active' ? '#a7f3d0' : '#fecaca'}; padding: 2px 8px; border-radius: 9999px; font-size: 9px; font-weight: 800; text-transform: uppercase;">
+              ${item.status}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    printWindow.document.write(\`
+      <html>
+        <head>
+          <title>Vault Stock Report - \${dateStr}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
+            .title { font-size: 24px; font-weight: 900; letter-spacing: -0.05em; color: #0f172a; margin: 0; }
+            .subtitle { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px; }
+            .meta-info { font-size: 12px; color: #475569; text-align: right; line-height: 1.6; }
+            .stats-container { display: grid; grid-template-cols: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+            .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px 20px; border-radius: 12px; }
+            .stat-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+            .stat-value { font-size: 20px; font-weight: 900; color: #0f172a; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background: #f1f5f9; color: #475569; padding: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #cbd5e1; }
+            td { font-size: 12px; }
+            .total-row { border-top: 2px solid #94a3b8; background: #f8fafc !important; font-weight: 900; }
+            .total-cell { padding: 12px; font-size: 13px; color: #0f172a; }
+            @media print {
+              body { padding: 20px; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">RUPASINGHE PAWNING</h1>
+              <div class="subtitle">Vault Inventory Stock Report</div>
+            </div>
+            <div class="meta-info">
+              <div><strong>Branch Filter:</strong> \${activeBranchName}</div>
+              <div><strong>Report Status:</strong> \${stockFilter} Vault Items</div>
+              <div><strong>Generated:</strong> \${dateStr}</div>
+            </div>
+          </div>
+
+          <div class="stats-container">
+            <div class="stat-card">
+              <div class="stat-label">Total Vault Items</div>
+              <div class="stat-value">\${totalCount} Items</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Cumulative Weight</div>
+              <div class="stat-value">\${totalWeight.toFixed(3)} g</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Cumulative Value</div>
+              <div class="stat-value">Rs. \${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left;">Bill No</th>
+                <th style="text-align: left;">Branch</th>
+                <th style="text-align: left;">Item categories & Names</th>
+                <th style="text-align: right;">Gross Weight</th>
+                <th style="text-align: right;">Appraised Value</th>
+                <th style="text-align: left;">Pawning Date</th>
+                <th style="text-align: left;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              \${tableRowsHtml}
+              <tr class="total-row">
+                <td colspan="3" class="total-cell" style="text-align: right; font-weight: 900;">REPORT SUMMARY TOTALS:</td>
+                <td class="total-cell" style="text-align: right; font-weight: 900;">\${totalWeight.toFixed(3)} g</td>
+                <td class="total-cell" style="text-align: right; font-weight: 900;">Rs. \${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td colspan="2" class="total-cell"></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    \`);
+    printWindow.document.close();
   };
 
   // Calculate statistics (active vault stock)
@@ -722,12 +884,32 @@ export default function EndOfDayPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Button 
-                onClick={() => setShowAddModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-9 px-6 rounded-xl w-full sm:w-auto shrink-0 shadow-lg shadow-blue-500/10 flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" /> Add Stock Item
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button 
+                  onClick={handleExportExcel}
+                  variant="outline"
+                  className="border-slate-200 hover:bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-[9px] h-9 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="Export to Excel"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel
+                </Button>
+                
+                <Button 
+                  onClick={handleExportPDF}
+                  variant="outline"
+                  className="border-slate-200 hover:bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-[9px] h-9 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  title="Print PDF Report"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-600" /> Print
+                </Button>
+
+                <Button 
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-9 px-6 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-blue-500/10 shrink-0"
+                >
+                  <PlusCircle className="w-4 h-4" /> Add Stock Item
+                </Button>
+              </div>
             </div>
           </div>
 
