@@ -718,12 +718,6 @@ export default function EndOfDayPage() {
           </p>
         </div>
         
-        {/* Connection status badge */}
-        {activeTab === 'stock' && (
-          <Badge variant={isUsingSupabase ? "success" : "warning"} className="font-bold text-[10px] uppercase tracking-wider px-3 py-1">
-            {isUsingSupabase ? "Connected to Supabase" : "Offline Mode (Local Cache)"}
-          </Badge>
-        )}
       </div>
 
       {/* Tabs Menu */}
