@@ -99,6 +99,7 @@ export default function EndOfDayPage() {
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [isEditingWithdrawal, setIsEditingWithdrawal] = useState(false);
   const [selectedItemForWithdrawal, setSelectedItemForWithdrawal] = useState<any | null>(null);
 
   // Form State - Add Stock Item
@@ -369,6 +370,17 @@ export default function EndOfDayPage() {
     setWithdrawalDate(new Date().toISOString().split('T')[0]);
     setWithdrawalReason("Pawn Redeemed (Closed)");
     setWithdrawalNotes("");
+    setIsEditingWithdrawal(false);
+    setShowWithdrawModal(true);
+  };
+
+  // Open edit withdrawal dialog
+  const openEditWithdrawalModal = (item: any) => {
+    setSelectedItemForWithdrawal(item);
+    setWithdrawalDate(item.withdrawal_date || new Date().toISOString().split('T')[0]);
+    setWithdrawalReason(item.withdrawal_reason || "Pawn Redeemed (Closed)");
+    setWithdrawalNotes(item.withdrawal_notes || "");
+    setIsEditingWithdrawal(true);
     setShowWithdrawModal(true);
   };
 
@@ -395,7 +407,7 @@ export default function EndOfDayPage() {
           .eq('id', id);
 
         if (error) throw error;
-        toast.success("Item marked as Withdrawn in Supabase!");
+        toast.success(isEditingWithdrawal ? "Withdrawal details updated in Supabase!" : "Item marked as Withdrawn in Supabase!");
       } else {
         // LocalStorage fallback
         const updated = stockItems.map(item => {
@@ -412,17 +424,18 @@ export default function EndOfDayPage() {
         });
         setStockItems(updated);
         localStorage.setItem('local_stock_items', JSON.stringify(updated));
-        toast.success("Item marked as Withdrawn (Local Storage)!");
+        toast.success(isEditingWithdrawal ? "Withdrawal details updated (Local Storage)!" : "Item marked as Withdrawn (Local Storage)!");
       }
 
       setWithdrawalNotes("");
       setSelectedItemForWithdrawal(null);
       setShowWithdrawModal(false);
+      setIsEditingWithdrawal(false);
       
       // Reload
       loadStockData();
     } catch (err: any) {
-      toast.error("Error recording withdrawal: " + err.message);
+      toast.error("Error saving withdrawal: " + err.message);
     }
   };
 
@@ -949,6 +962,7 @@ export default function EndOfDayPage() {
                         <>
                           <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Withdraw Date</TableHead>
                           <TableHead className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400 max-w-xs">Reason / Notes</TableHead>
+                          <TableHead className="px-6 py-4 text-right" />
                         </>
                       ) : (
                         <TableHead className="px-6 py-4 text-right" />
@@ -999,6 +1013,16 @@ export default function EndOfDayPage() {
                               {item.withdrawal_notes && (
                                 <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">{item.withdrawal_notes}</p>
                               )}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right">
+                              <Button 
+                                onClick={() => openEditWithdrawalModal(item)}
+                                size="sm"
+                                variant="outline"
+                                className="border-slate-200 hover:bg-slate-50 text-slate-600 font-black text-[9px] uppercase tracking-widest h-8 px-3 rounded-xl transition-all cursor-pointer"
+                              >
+                                Edit
+                              </Button>
                             </TableCell>
                           </>
                         ) : (
@@ -1251,10 +1275,12 @@ export default function EndOfDayPage() {
                 <div className="h-10 w-10 bg-rose-50 rounded-xl flex items-center justify-center border border-rose-100 text-rose-600">
                   <ArrowUpRight className="h-5 w-5" />
                 </div>
-                Release Pawn Item
+                {isEditingWithdrawal ? "Edit Withdrawal Details" : "Release Pawn Item"}
               </DialogTitle>
               <DialogDescription className="font-medium text-slate-500 text-sm">
-                Record the withdrawal and closure of pawn gold assets from physical vault storage.
+                {isEditingWithdrawal 
+                  ? "Modify the withdrawal date, reason, or comments recorded for this stock item." 
+                  : "Record the withdrawal and closure of pawn gold assets from physical vault storage."}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -1313,11 +1339,11 @@ export default function EndOfDayPage() {
 
           <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
             <Button variant="outline" onClick={() => setShowWithdrawModal(false)} className="rounded-xl font-bold">Cancel</Button>
-            <Button 
+             <Button 
               onClick={handleWithdrawStock} 
-              className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-rose-600/10"
+              className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-rose-600/10 cursor-pointer"
             >
-              Release Gold Asset
+              {isEditingWithdrawal ? "Save Changes" : "Release Gold Asset"}
             </Button>
           </div>
         </DialogContent>
