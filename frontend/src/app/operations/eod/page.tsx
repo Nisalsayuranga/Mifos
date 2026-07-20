@@ -110,6 +110,40 @@ export default function EndOfDayPage() {
   const [billPrefix, setBillPrefix] = useState<string | null>(null);
   const BILL_PREFIXES = ["A", "1R", "3M", "3R", "6R", "12R", "6M"];
 
+  const parseBillNumber = (billNoStr: string) => {
+    const str = (billNoStr || "").trim().toUpperCase();
+    const sortedPrefixesByLength = [...BILL_PREFIXES].sort((a, b) => b.length - a.length);
+
+    for (const pref of sortedPrefixesByLength) {
+      if (str.startsWith(pref + " ") || str === pref || (str.startsWith(pref) && !/\D/.test(str.charAt(pref.length)))) {
+        const rest = str.substring(pref.length).trim();
+        const numPart = parseInt(rest.replace(/\D/g, ''), 10) || 0;
+        const orderIdx = BILL_PREFIXES.indexOf(pref);
+        return { orderIdx: orderIdx >= 0 ? orderIdx : 999, numPart, raw: str };
+      }
+    }
+
+    const numPart = parseInt(str.replace(/\D/g, ''), 10) || 0;
+    return { orderIdx: 999, numPart, raw: str };
+  };
+
+  const sortStockItems = (items: any[]) => {
+    return [...(items || [])].sort((a, b) => {
+      const infoA = parseBillNumber(a?.bill_no);
+      const infoB = parseBillNumber(b?.bill_no);
+
+      if (infoA.orderIdx !== infoB.orderIdx) {
+        return infoA.orderIdx - infoB.orderIdx;
+      }
+
+      if (infoA.numPart !== infoB.numPart) {
+        return infoA.numPart - infoB.numPart;
+      }
+
+      return infoA.raw.localeCompare(infoB.raw);
+    });
+  };
+
   const handlePrefixClick = (prefix: string) => {
     if (billPrefix === prefix) {
       setBillPrefix(null);
@@ -242,7 +276,7 @@ export default function EndOfDayPage() {
 
       if (error) throw error;
 
-      setStockItems(data || []);
+      setStockItems(sortStockItems(data || []));
       setIsUsingSupabase(true);
     } catch (err: any) {
       console.warn("Supabase fetch failed, falling back to LocalStorage:", err.message);
@@ -258,7 +292,7 @@ export default function EndOfDayPage() {
           const filtered = activeBranch && activeBranch !== 'ALL'
             ? allItems.filter((item: any) => item.branch_id === activeBranch)
             : allItems;
-          setStockItems(filtered);
+          setStockItems(sortStockItems(filtered));
         } catch (parseErr) {
           console.error("Error parsing local stock items", parseErr);
           setStockItems([]);
@@ -858,37 +892,8 @@ export default function EndOfDayPage() {
     return matchesStatus && matchesSearch;
   });
 
-  // Custom sort by prefix order: A -> 1R -> 3M -> 3R -> 6R -> 12R -> 6M -> Others
-  const PREFIX_ORDER = ["A", "1R", "3M", "3R", "6R", "12R", "6M"];
-
-  const getPrefixInfo = (billNo: string) => {
-    const clean = (billNo || "").trim();
-    for (let i = 0; i < PREFIX_ORDER.length; i++) {
-      const pref = PREFIX_ORDER[i];
-      if (clean.startsWith(pref + " ") || clean.startsWith(pref)) {
-        const numPartStr = clean.substring(pref.length).trim();
-        const numPart = parseInt(numPartStr.replace(/\D/g, ''), 10) || 0;
-        return { orderIndex: i, numPart, raw: clean };
-      }
-    }
-    const numPart = parseInt(clean.replace(/\D/g, ''), 10) || 0;
-    return { orderIndex: 999, numPart, raw: clean };
-  };
-
-  const sortedStock = [...filteredStock].sort((a, b) => {
-    const infoA = getPrefixInfo(a.bill_no);
-    const infoB = getPrefixInfo(b.bill_no);
-
-    if (infoA.orderIndex !== infoB.orderIndex) {
-      return infoA.orderIndex - infoB.orderIndex;
-    }
-
-    if (infoA.numPart !== infoB.numPart) {
-      return infoA.numPart - infoB.numPart;
-    }
-
-    return infoA.raw.localeCompare(infoB.raw);
-  });
+  // Strict sort by prefix order: A -> 1R -> 3M -> 3R -> 6R -> 12R -> 6M -> Others
+  const sortedStock = sortStockItems(filteredStock);
 
   return (
     <div className="space-y-6 w-full max-w-[96%] xl:max-w-[1400px] mx-auto pb-20">
