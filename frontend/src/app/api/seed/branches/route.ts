@@ -23,6 +23,9 @@ const INITIAL_BRANCHES = [
   { id: 'MRG', name: 'Maharagama' },
   { id: 'PND', name: 'Panadura' },
   { id: 'WAT', name: 'Wattala' },
+  { id: 'W2',  name: 'Wattala 2' },
+  { id: 'W3',  name: 'Wattala 3' },
+  { id: 'W4',  name: 'Wattala 4' },
   { id: 'HQ',  name: 'Head Office' },
 ];
 

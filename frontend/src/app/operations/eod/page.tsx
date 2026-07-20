@@ -167,6 +167,14 @@ export default function EndOfDayPage() {
   // Fetch branches from Supabase
   const loadBranches = async () => {
     try {
+      // Ensure W2, W3, W4 exist in Supabase
+      const newBranches = [
+        { id: 'W2', name: 'Wattala 2', is_active: true },
+        { id: 'W3', name: 'Wattala 3', is_active: true },
+        { id: 'W4', name: 'Wattala 4', is_active: true }
+      ];
+      await supabase.from('branches').upsert(newBranches, { onConflict: 'id' });
+
       const { data, error } = await supabase.from('branches').select('*').eq('is_active', true);
       if (error) throw error;
       setBranches(data || []);
@@ -184,6 +192,9 @@ export default function EndOfDayPage() {
         { id: 'MRG', name: 'Maharagama' },
         { id: 'PND', name: 'Panadura' },
         { id: 'WAT', name: 'Wattala' },
+        { id: 'W2',  name: 'Wattala 2' },
+        { id: 'W3',  name: 'Wattala 3' },
+        { id: 'W4',  name: 'Wattala 4' },
         { id: 'HQ',  name: 'Head Office' }
       ]);
     }
