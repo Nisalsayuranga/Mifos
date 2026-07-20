@@ -108,7 +108,7 @@ export default function EndOfDayPage() {
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
   const [billPrefix, setBillPrefix] = useState<string | null>(null);
-  const BILL_PREFIXES = ["1R", "12R", "3R", "6R", "A", "3M", "6M"];
+  const BILL_PREFIXES = ["A", "1R", "3M", "3R", "6R", "12R", "6M"];
 
   const handlePrefixClick = (prefix: string) => {
     if (billPrefix === prefix) {
@@ -354,6 +354,17 @@ export default function EndOfDayPage() {
     const finalBillNo = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
     console.log("[DEBUG] generated finalBillNo:", finalBillNo);
 
+    // Duplicate bill number check (case-insensitive & trimmed)
+    const isDuplicate = stockItems.some(item => 
+      item.bill_no.toLowerCase().trim() === finalBillNo.toLowerCase().trim() &&
+      (!isEditingActive || item.id !== selectedActiveItem?.id)
+    );
+
+    if (isDuplicate) {
+      toast.error(`Bill Number "${finalBillNo}" already exists in inventory! Duplicate bill numbers are not allowed.`);
+      return;
+    }
+
     const newItem = {
       bill_no: finalBillNo,
       price: parseFloat(price) || 0,
@@ -534,7 +545,7 @@ export default function EndOfDayPage() {
 
   const handleExportExcel = () => {
     const headers = ["Bill No", "Branch", "Item Categories", "Item Names", "Weight (g)", "Appraised Value (Rs.)", "Date", "Status"];
-    const rows = filteredStock.map(item => [
+    const rows = sortedStock.map(item => [
       item.bill_no,
       item.branch_id || 'HQ',
       item.item_type || '',
@@ -567,11 +578,11 @@ export default function EndOfDayPage() {
     const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const activeBranchName = branches.find(b => b.id === selectedBranch)?.name || (selectedBranch === 'ALL' ? 'All Branches' : selectedBranch);
 
-    const totalCount = filteredStock.length;
-    const totalWeight = filteredStock.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
-    const totalValue = filteredStock.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+    const totalCount = sortedStock.length;
+    const totalWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
+    const totalValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
 
-    const tableRowsHtml = filteredStock.map((item, index) => {
+    const tableRowsHtml = sortedStock.map((item, index) => {
       const itemsList = (item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean);
       const badgesHtml = itemsList.map((code: string) => 
         `<span style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:800; text-transform:uppercase; margin-right:4px; display:inline-block;">${code}</span>`
@@ -704,6 +715,38 @@ export default function EndOfDayPage() {
       item.item_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
       getItemName(item.item_type).toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
+  });
+
+  // Custom sort by prefix order: A -> 1R -> 3M -> 3R -> 6R -> 12R -> 6M -> Others
+  const PREFIX_ORDER = ["A", "1R", "3M", "3R", "6R", "12R", "6M"];
+
+  const getPrefixInfo = (billNo: string) => {
+    const clean = (billNo || "").trim();
+    for (let i = 0; i < PREFIX_ORDER.length; i++) {
+      const pref = PREFIX_ORDER[i];
+      if (clean.startsWith(pref + " ") || clean.startsWith(pref)) {
+        const numPartStr = clean.substring(pref.length).trim();
+        const numPart = parseInt(numPartStr.replace(/\D/g, ''), 10) || 0;
+        return { orderIndex: i, numPart, raw: clean };
+      }
+    }
+    const numPart = parseInt(clean.replace(/\D/g, ''), 10) || 0;
+    return { orderIndex: 999, numPart, raw: clean };
+  };
+
+  const sortedStock = [...filteredStock].sort((a, b) => {
+    const infoA = getPrefixInfo(a.bill_no);
+    const infoB = getPrefixInfo(b.bill_no);
+
+    if (infoA.orderIndex !== infoB.orderIndex) {
+      return infoA.orderIndex - infoB.orderIndex;
+    }
+
+    if (infoA.numPart !== infoB.numPart) {
+      return infoA.numPart - infoB.numPart;
+    }
+
+    return infoA.raw.localeCompare(infoB.raw);
   });
 
   return (
@@ -1074,7 +1117,7 @@ export default function EndOfDayPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-slate-100">
-                    {filteredStock.map((item) => (
+                    {sortedStock.map((item) => (
                       <TableRow key={item.id} className="group hover:bg-slate-50/50 transition-colors">
                         <TableCell className="px-6 py-4 font-black text-slate-800 text-sm">
                           {item.bill_no}
@@ -1242,10 +1285,29 @@ export default function EndOfDayPage() {
                     placeholder="Enter bill number (e.g. 31582)" 
                     className={cn(
                       "h-11 border-slate-200 rounded-xl font-bold",
-                      billPrefix ? (billPrefix.length > 2 ? "pl-16" : "pl-12") : ""
+                      billPrefix ? (billPrefix.length > 2 ? "pl-16" : "pl-12") : "",
+                      billNo.trim() !== "" && stockItems.some(item => 
+                        item.bill_no.toLowerCase().trim() === (billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim()).toLowerCase().trim() && 
+                        (!isEditingActive || item.id !== selectedActiveItem?.id)
+                      ) ? "border-rose-500 focus:ring-rose-500" : ""
                     )}
                   />
                 </div>
+                {(() => {
+                  const checkBill = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
+                  const isDup = billNo.trim() !== "" && stockItems.some(item => 
+                    item.bill_no.toLowerCase().trim() === checkBill.toLowerCase().trim() && 
+                    (!isEditingActive || item.id !== selectedActiveItem?.id)
+                  );
+                  if (isDup) {
+                    return (
+                      <p className="text-rose-600 font-bold text-xs flex items-center gap-1 mt-1">
+                        <AlertCircle className="w-3.5 h-3.5" /> Duplicate Bill Number ({checkBill}) already exists in inventory!
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               {/* Date */}
