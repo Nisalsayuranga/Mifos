@@ -8,10 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label"
 import { 
   Plus, Search, UserPlus, Sparkles, Filter, MoreVertical, RefreshCcw, 
-  Pencil, Trash2, ShieldCheck, UserCog, Camera, CameraOff, MapPin, Image
+  Pencil, Trash2, ShieldCheck, UserCog, Camera, CameraOff, MapPin, Image,
+  Users, Edit
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -252,6 +254,27 @@ export default function ClientsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Stock Customers State
+  const [stockCustomers, setStockCustomers] = useState<any[]>([]);
+  const [showCustomerRegistryModal, setShowCustomerRegistryModal] = useState(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+
+  // Form State - Add Customer
+  const [custName, setCustName] = useState("");
+  const [custAddress, setCustAddress] = useState("");
+  const [custAddress2, setCustAddress2] = useState("");
+  const [custTp, setCustTp] = useState("");
+  const [custNic, setCustNic] = useState("");
+  const [custBills, setCustBills] = useState("");
+
+  // Autocomplete Suggestions
+  const [nameSuggestions, setNameSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [isUsingSupabase, setIsUsingSupabase] = useState(true);
+
   // Form State
   const [nic, setNic] = useState('');
   const [firstName, setFirstName] = useState(''); // Mapped to Name with Initials
@@ -294,8 +317,29 @@ export default function ClientsPage() {
     }
   };
 
+  const loadCustomerData = async () => {
+    try {
+      const { data, error } = await supabase.from('stock_customers').select('*').order('name', { ascending: true });
+      if (error) throw error;
+      setStockCustomers(data || []);
+    } catch (err) {
+      console.warn("Failed to fetch stock customers from Supabase, loading LocalStorage:", err);
+      const local = localStorage.getItem('local_stock_customers');
+      if (local) {
+        try {
+          setStockCustomers(JSON.parse(local));
+        } catch (e) {
+          setStockCustomers([]);
+        }
+      } else {
+        setStockCustomers([]);
+      }
+    }
+  };
+
   useEffect(() => {
     loadClients();
+    loadCustomerData();
   }, []);
 
   useEffect(() => {
@@ -307,6 +351,9 @@ export default function ClientsPage() {
         if (nicParam) {
           setNic(nicParam);
         }
+      } else if (params.get('register_existing') === 'true') {
+        const billParam = params.get('bill') || "";
+        openAddCustomerModal(billParam);
       }
     }
   }, []);
@@ -408,6 +455,137 @@ export default function ClientsPage() {
     }
   };
 
+  // Existing Shop Bills Customer operations & logic
+  const openAddCustomerModal = (initialBill = "") => {
+    setSelectedCustomer(null);
+    setCustName("");
+    setCustAddress("");
+    setCustAddress2("");
+    setCustTp("");
+    setCustNic("");
+    setCustBills(initialBill);
+    setIsEditingCustomer(false);
+    setShowAddCustomerModal(true);
+  };
+
+  const openEditCustomerModal = (customer: any) => {
+    setSelectedCustomer(customer);
+    setCustName(customer.name);
+    setCustAddress(customer.address);
+    setCustAddress2(customer.address_2 || "");
+    setCustTp(customer.tp);
+    setCustNic(customer.nic || "");
+    setCustBills(customer.bill_numbers || "");
+    setIsEditingCustomer(true);
+    setShowAddCustomerModal(true);
+  };
+
+  const handleNameChange = (val: string) => {
+    setCustName(val);
+    if (!val.trim()) {
+      setNameSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const matches = stockCustomers.filter(c => 
+      c.name.toLowerCase().includes(val.toLowerCase())
+    );
+    setNameSuggestions(matches);
+    setShowSuggestions(matches.length > 0);
+  };
+
+  const selectNameSuggestion = (suggestion: any) => {
+    setCustName(suggestion.name);
+    setCustAddress(suggestion.address);
+    setCustAddress2(suggestion.address_2 || "");
+    setCustTp(suggestion.tp);
+    setCustNic(suggestion.nic || "");
+    if (!custBills.trim()) {
+      setCustBills(suggestion.bill_numbers || "");
+    }
+    setShowSuggestions(false);
+    setNameSuggestions([]);
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!custName.trim() || !custAddress.trim() || !custTp.trim()) {
+      toast.error("Name, Address, and Telephone are required fields.");
+      return;
+    }
+
+    const payload = {
+      name: custName.trim(),
+      address: custAddress.trim(),
+      address_2: custAddress2.trim() || null,
+      tp: custTp.trim(),
+      nic: custNic.trim() || null,
+      bill_numbers: custBills.trim()
+    };
+
+    try {
+      if (isUsingSupabase) {
+        if (isEditingCustomer && selectedCustomer) {
+          const { error } = await supabase
+            .from('stock_customers')
+            .update(payload)
+            .eq('id', selectedCustomer.id);
+          if (error) throw error;
+          toast.success("Customer profile updated in Supabase!");
+        } else {
+          const { error } = await supabase
+            .from('stock_customers')
+            .insert([payload]);
+          if (error) throw error;
+          toast.success("Customer profile created in Supabase!");
+        }
+      } else {
+        const local = localStorage.getItem('local_stock_customers');
+        let list: any[] = [];
+        if (local) {
+          try { list = JSON.parse(local); } catch (e) {}
+        }
+        if (isEditingCustomer && selectedCustomer) {
+          list = list.map(c => c.id === selectedCustomer.id ? { ...c, ...payload } : c);
+          toast.success("Customer profile updated (Local Storage)!");
+        } else {
+          const newCust = {
+            id: Math.random().toString(36).substring(2, 9),
+            ...payload,
+            created_at: new Date().toISOString()
+          };
+          list = [newCust, ...list];
+          toast.success("Customer profile created (Local Storage)!");
+        }
+        localStorage.setItem('local_stock_customers', JSON.stringify(list));
+      }
+      setShowAddCustomerModal(false);
+      loadCustomerData();
+    } catch (err: any) {
+      toast.error("Error saving customer profile: " + err.message);
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this customer profile?")) return;
+    try {
+      if (isUsingSupabase) {
+        const { error } = await supabase.from('stock_customers').delete().eq('id', id);
+        if (error) throw error;
+        toast.success("Customer profile deleted from Supabase!");
+      } else {
+        const local = localStorage.getItem('local_stock_customers');
+        if (local) {
+          const list = JSON.parse(local).filter((c: any) => c.id !== id);
+          localStorage.setItem('local_stock_customers', JSON.stringify(list));
+        }
+        toast.success("Customer profile deleted (Local Storage)!");
+      }
+      loadCustomerData();
+    } catch (err: any) {
+      toast.error("Error deleting customer: " + err.message);
+    }
+  };
+
   const filteredClients = clients.filter(client => 
     client.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.nationalId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -422,9 +600,18 @@ export default function ClientsPage() {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">Our <span className="text-gradient">Customers</span></h1>
           <p className="text-slate-500 font-medium tracking-tight">Manage all customer information for this branch.</p>
         </div>
-        <Button onClick={() => setIsOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full md:w-auto shrink-0 transition-all">
-          <UserPlus className="h-4 w-4" /> Add New Customer
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center shrink-0">
+          <Button 
+            onClick={() => setShowCustomerRegistryModal(true)} 
+            variant="outline"
+            className="gap-2 border-slate-200 hover:bg-slate-50 text-slate-700 h-14 px-6 font-black uppercase tracking-widest text-xs shadow-sm cursor-pointer card-hover w-full sm:w-auto shrink-0 transition-all"
+          >
+            <Users className="h-4 w-4 text-blue-600" /> Existing Customers
+          </Button>
+          <Button onClick={() => setIsOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full sm:w-auto shrink-0 transition-all">
+            <UserPlus className="h-4 w-4" /> Add New Customer
+          </Button>
+        </div>
       </div>
 
       {/* New Customer Dialog */}
@@ -729,6 +916,251 @@ export default function ClientsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* MODAL: CUSTOMER REGISTRY */}
+      <Dialog open={showCustomerRegistryModal} onOpenChange={setShowCustomerRegistryModal}>
+        <DialogContent className="sm:max-w-[750px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[85vh] flex flex-col">
+          <div className="h-2 bg-blue-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 text-blue-600">
+                  <Users className="h-5 w-5" />
+                </div>
+                Customer Registry
+              </DialogTitle>
+              <DialogDescription className="font-medium text-slate-500 text-sm">
+                Manage profile details and associated bill numbers for active vault customers.
+              </DialogDescription>
+            </DialogHeader>
+            <Button 
+              onClick={() => openAddCustomerModal("")}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-9 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <UserPlus className="w-3.5 h-3.5" /> Add Profile
+            </Button>
+          </div>
+
+          {/* Search bar inside Registry */}
+          <div className="px-6 py-2 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input 
+                placeholder="Search customers by name, phone or NIC..." 
+                className="pl-9 h-9 rounded-xl bg-slate-50 border-slate-200 font-medium"
+                value={customerSearchQuery}
+                onChange={(e) => setCustomerSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-2">
+            {(() => {
+              const filtered = stockCustomers.filter(c => 
+                (c.name || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                (c.tp || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                (c.nic || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                (c.bill_numbers || "").toLowerCase().includes(customerSearchQuery.toLowerCase())
+              );
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400">
+                    <Users className="w-10 h-10 text-slate-300 mb-2" />
+                    <p className="font-bold text-xs uppercase tracking-wider">No customers registered</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="border border-slate-100 rounded-2xl overflow-hidden mb-4">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="font-bold text-slate-500 text-xs">Customer</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-xs">Address</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-xs">NIC</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-xs">Linked Bills</TableHead>
+                        <th style={{ width: "80px" }} />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map(c => (
+                        <TableRow key={c.id} className="hover:bg-slate-50/50">
+                          <TableCell className="py-3">
+                            <div className="font-black text-slate-900 text-xs">{c.name}</div>
+                            <div className="text-[10px] text-slate-500 font-bold mt-0.5">{c.tp}</div>
+                          </TableCell>
+                          <TableCell className="py-3 text-[11px] text-slate-600 font-semibold max-w-[200px] truncate">
+                            <div>{c.address}</div>
+                            {c.address_2 && <div className="text-slate-400 text-[10px]">{c.address_2}</div>}
+                          </TableCell>
+                          <TableCell className="py-3 text-[11px] font-black text-slate-700">{c.nic || '—'}</TableCell>
+                          <TableCell className="py-3 max-w-[150px]">
+                            <div className="flex flex-wrap gap-1">
+                              {(c.bill_numbers || "").split(",").map((b: string) => b.trim()).filter(Boolean).map((bill: string) => (
+                                <span key={bill} className="bg-blue-50 text-blue-800 border border-blue-100 font-black px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide">
+                                  {bill}
+                                </span>
+                              ))}
+                              {(!c.bill_numbers || !c.bill_numbers.trim()) && <span className="text-slate-400 text-xs">—</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3 text-right">
+                            <div className="flex items-center gap-1 justify-end">
+                              <Button 
+                                onClick={() => openEditCustomerModal(c)}
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0 rounded-lg hover:bg-slate-100 text-slate-600"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button 
+                                onClick={() => handleDeleteCustomer(c.id)}
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-rose-600"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+            <Button onClick={() => setShowCustomerRegistryModal(false)} className="rounded-xl font-bold">Close Registry</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: ADD/EDIT CUSTOMER */}
+      <Dialog open={showAddCustomerModal} onOpenChange={setShowAddCustomerModal}>
+        <DialogContent className="sm:max-w-[480px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[90vh] flex flex-col">
+          <div className="h-2 bg-blue-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-9 w-9 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 text-blue-600">
+                  <UserPlus className="h-4.5 w-4.5" />
+                </div>
+                {isEditingCustomer ? "Edit Customer Profile" : "Register Customer Profile"}
+              </DialogTitle>
+              <DialogDescription className="font-medium text-slate-500 text-xs">
+                Associate customer contact details and addresses with active vault stock bills.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
+            <div className="grid gap-4 pb-4">
+              
+              {/* Customer Name */}
+              <div className="grid gap-1.5 relative">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Customer Name</Label>
+                <div className="relative">
+                  <Input 
+                    value={custName} 
+                    onChange={e => handleNameChange(e.target.value)} 
+                    placeholder="E.g. Saman Kumara" 
+                    className="h-10 border-slate-200 rounded-xl font-bold" 
+                  />
+                  {showSuggestions && nameSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] max-h-40 overflow-y-auto divide-y divide-slate-100">
+                      {nameSuggestions.map(suggestion => (
+                        <button
+                          key={suggestion.id}
+                          type="button"
+                          onClick={() => selectNameSuggestion(suggestion)}
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors animate-in fade-in"
+                        >
+                          <div className="font-black text-slate-900">{suggestion.name}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{suggestion.tp} | {suggestion.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Telephone */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Telephone (TP)</Label>
+                <Input 
+                  value={custTp} 
+                  onChange={e => setCustTp(e.target.value)} 
+                  placeholder="E.g. 0771234567" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* NIC */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">NIC (Optional)</Label>
+                <Input 
+                  value={custNic} 
+                  onChange={e => setCustNic(e.target.value)} 
+                  placeholder="E.g. 199512345678" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* Address */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address</Label>
+                <Input 
+                  value={custAddress} 
+                  onChange={e => setCustAddress(e.target.value)} 
+                  placeholder="E.g. No 12, Main Street, Wattala" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* Address 2 */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address Line 2 (Optional)</Label>
+                <Input 
+                  value={custAddress2} 
+                  onChange={e => setCustAddress2(e.target.value)} 
+                  placeholder="E.g. Apartment 4B" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* Bill Numbers */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Linked Pawn Bill Numbers</Label>
+                <Input 
+                  value={custBills} 
+                  onChange={e => setCustBills(e.target.value)} 
+                  placeholder="Comma separated: e.g. 1R 15580, 12R 20750" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+                <span className="text-[9px] font-bold text-slate-400">Associate one or multiple bill numbers to this customer profile.</span>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={() => setShowAddCustomerModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button 
+              onClick={handleSaveCustomer} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg cursor-pointer"
+            >
+              Save Customer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }
