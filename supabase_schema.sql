@@ -205,7 +205,6 @@ create policy "Public stock_items select" on public.stock_items for select using
 create policy "Public stock_items insert" on public.stock_items for insert with check (true);
 create policy "Public stock_items update" on public.stock_items for update using (true);
 
--- 11. Create stock_customers table
 create table if not exists public.stock_customers (
     id uuid default gen_random_uuid() primary key,
     name text not null,
@@ -214,6 +213,7 @@ create table if not exists public.stock_customers (
     tp text not null,
     nic text,
     bill_numbers text, -- Comma-separated list of associated bill numbers (e.g. "1R 15580, 3M 100")
+    branch_id text references public.branches(id) on delete cascade,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

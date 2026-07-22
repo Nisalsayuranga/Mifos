@@ -319,7 +319,15 @@ export default function ClientsPage() {
 
   const loadCustomerData = async () => {
     try {
-      const { data, error } = await supabase.from('stock_customers').select('*').order('name', { ascending: true });
+      const storedUser = localStorage.getItem('user');
+      const user = storedUser ? JSON.parse(storedUser) : null;
+      const activeBranch = user ? (user.role === 'ADMIN' ? 'ALL' : (user.branchId || 'HQ')) : 'HQ';
+
+      let query = supabase.from('stock_customers').select('*');
+      if (activeBranch !== 'ALL') {
+        query = query.eq('branch_id', activeBranch);
+      }
+      const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
       setStockCustomers(data || []);
       setIsUsingSupabase(true);
@@ -329,7 +337,14 @@ export default function ClientsPage() {
       const local = localStorage.getItem('local_stock_customers');
       if (local) {
         try {
-          setStockCustomers(JSON.parse(local));
+          const allItems = JSON.parse(local);
+          const storedUser = localStorage.getItem('user');
+          const user = storedUser ? JSON.parse(storedUser) : null;
+          const activeBranch = user ? (user.role === 'ADMIN' ? 'ALL' : (user.branchId || 'HQ')) : 'HQ';
+          const filtered = activeBranch !== 'ALL'
+            ? allItems.filter((item: any) => item.branch_id === activeBranch)
+            : allItems;
+          setStockCustomers(filtered);
         } catch (e) {
           setStockCustomers([]);
         }
@@ -532,7 +547,8 @@ export default function ClientsPage() {
       address_2: custAddress2.trim() || null,
       tp: custTp.trim(),
       nic: custNic.trim() || null,
-      bill_numbers: custBills.trim()
+      bill_numbers: custBills.trim(),
+      branch_id: branchId || 'HQ'
     };
 
     try {

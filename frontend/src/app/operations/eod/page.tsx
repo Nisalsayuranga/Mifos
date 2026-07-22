@@ -328,15 +328,34 @@ export default function EndOfDayPage() {
 
   const loadCustomerData = async () => {
     try {
-      const { data, error } = await supabase.from('stock_customers').select('*').order('name', { ascending: true });
+      let activeBranch = selectedBranch;
+      if (!activeBranch && currentUser) {
+        activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
+      }
+
+      let query = supabase.from('stock_customers').select('*');
+      if (activeBranch && activeBranch !== 'ALL') {
+        query = query.eq('branch_id', activeBranch);
+      }
+      const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
       setStockCustomers(data || []);
+      setIsUsingSupabase(true);
     } catch (err) {
       console.warn("Failed to fetch stock customers from Supabase, loading LocalStorage:", err);
+      setIsUsingSupabase(false);
       const local = localStorage.getItem('local_stock_customers');
       if (local) {
         try {
-          setStockCustomers(JSON.parse(local));
+          const allItems = JSON.parse(local);
+          let activeBranch = selectedBranch;
+          if (!activeBranch && currentUser) {
+            activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
+          }
+          const filtered = activeBranch && activeBranch !== 'ALL'
+            ? allItems.filter((item: any) => item.branch_id === activeBranch)
+            : allItems;
+          setStockCustomers(filtered);
         } catch (e) {
           setStockCustomers([]);
         }
@@ -634,7 +653,10 @@ export default function EndOfDayPage() {
       address_2: custAddress2.trim() || null,
       tp: custTp.trim(),
       nic: custNic.trim() || null,
-      bill_numbers: custBills.trim()
+      bill_numbers: custBills.trim(),
+      branch_id: selectedBranch && selectedBranch !== 'ALL' 
+        ? selectedBranch 
+        : (currentUser?.branchId || 'HQ')
     };
 
     try {
