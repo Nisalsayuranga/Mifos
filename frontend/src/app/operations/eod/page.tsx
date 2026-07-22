@@ -293,6 +293,9 @@ export default function EndOfDayPage() {
       if (activeBranch && activeBranch !== 'ALL') {
         query = query.eq('branch_id', activeBranch);
       }
+      if (searchQuery.trim()) {
+        query = query.ilike('bill_no', `%${searchQuery.trim()}%`);
+      }
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -310,9 +313,14 @@ export default function EndOfDayPage() {
           if (!activeBranch && currentUser) {
             activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
           }
-          const filtered = activeBranch && activeBranch !== 'ALL'
+          let filtered = activeBranch && activeBranch !== 'ALL'
             ? allItems.filter((item: any) => item.branch_id === activeBranch)
             : allItems;
+          if (searchQuery.trim()) {
+            filtered = filtered.filter((item: any) => 
+              (item.bill_no || "").toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          }
           setStockItems(sortStockItems(filtered));
         } catch (parseErr) {
           console.error("Error parsing local stock items", parseErr);
@@ -365,10 +373,16 @@ export default function EndOfDayPage() {
     }
   };
 
-  // Load stock when tab or branch changes
+  // Load stock when tab, branch or search query changes
   useEffect(() => {
     if (activeTab === 'stock') {
       loadStockData();
+    }
+  }, [activeTab, selectedBranch, currentUser, searchQuery]);
+
+  // Load customer registry only when tab or branch filter changes
+  useEffect(() => {
+    if (activeTab === 'stock') {
       loadCustomerData();
     }
   }, [activeTab, selectedBranch, currentUser]);
