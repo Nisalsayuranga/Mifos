@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -12,6 +12,16 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [expiredAlert, setExpiredAlert] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('expired') === 'true') {
+        setExpiredAlert(true);
+      }
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +76,11 @@ export default function LoginPage() {
             <CardDescription className="font-medium text-slate-600">Enter your branch email and assigned password.</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
+            {expiredAlert && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl p-3 font-semibold mb-4 text-center animate-in fade-in">
+                Your session has expired due to 10 minutes of inactivity. Please log in again.
+              </div>
+            )}
             <form className="space-y-6" onSubmit={handleLogin}>
               <div>
                 <Label className="block text-sm font-bold text-slate-700">Email Address</Label>
