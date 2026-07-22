@@ -458,6 +458,17 @@ export default function ClientsPage() {
   };
 
   // Existing Shop Bills Customer operations & logic
+  const handleAddBillPrefix = (prefix: string) => {
+    const trimmed = custBills.trim();
+    if (!trimmed) {
+      setCustBills(prefix + " ");
+    } else if (trimmed.endsWith(",")) {
+      setCustBills(custBills + " " + prefix + " ");
+    } else {
+      setCustBills(custBills + ", " + prefix + " ");
+    }
+  };
+
   const openAddCustomerModal = (initialBill = "") => {
     setSelectedCustomer(null);
     setCustName("");
@@ -1138,7 +1149,21 @@ export default function ClientsPage() {
 
               {/* Bill Numbers */}
               <div className="grid gap-1.5">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Linked Pawn Bill Numbers</Label>
+                <div className="flex justify-between items-center">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Linked Pawn Bill Numbers</Label>
+                  <div className="flex items-center gap-1">
+                    {["A", "1R", "3M", "3R", "6R", "12R", "6M"].map(pref => (
+                      <button
+                        key={pref}
+                        type="button"
+                        onClick={() => handleAddBillPrefix(pref)}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded text-[9px] font-black text-slate-700 cursor-pointer transition-colors active:scale-95"
+                      >
+                        {pref}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <Input 
                   value={custBills} 
                   onChange={e => setCustBills(e.target.value)} 
