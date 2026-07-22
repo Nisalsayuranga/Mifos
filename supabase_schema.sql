@@ -204,3 +204,23 @@ drop policy if exists "Public stock_items update" on public.stock_items;
 create policy "Public stock_items select" on public.stock_items for select using (true);
 create policy "Public stock_items insert" on public.stock_items for insert with check (true);
 create policy "Public stock_items update" on public.stock_items for update using (true);
+
+-- 11. Create stock_customers table
+create table if not exists public.stock_customers (
+    id uuid default gen_random_uuid() primary key,
+    name text not null,
+    address text not null,
+    address_2 text,
+    tp text not null,
+    nic text,
+    bill_numbers text, -- Comma-separated list of associated bill numbers (e.g. "1R 15580, 3M 100")
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.stock_customers enable row level security;
+drop policy if exists "Public stock_customers select" on public.stock_customers;
+drop policy if exists "Public stock_customers insert" on public.stock_customers;
+drop policy if exists "Public stock_customers update" on public.stock_customers;
+create policy "Public stock_customers select" on public.stock_customers for select using (true);
+create policy "Public stock_customers insert" on public.stock_customers for insert with check (true);
+create policy "Public stock_customers update" on public.stock_customers for update using (true);
