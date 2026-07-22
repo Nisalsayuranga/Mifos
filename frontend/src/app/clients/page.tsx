@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { 
   Plus, Search, UserPlus, Sparkles, Filter, MoreVertical, RefreshCcw, 
   Pencil, Trash2, ShieldCheck, UserCog, Camera, CameraOff, MapPin, Image,
-  Users, Edit
+  Users, Edit, FileText
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
@@ -22,6 +22,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { printLoanAgreement } from "@/lib/loanAgreementPrint"
 
 // Reusable Live Webcam Capture Component
 const WebcamCapture = ({ 
@@ -275,6 +276,18 @@ export default function ClientsPage() {
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [isUsingSupabase, setIsUsingSupabase] = useState(true);
 
+  // Agreement Modal State
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [agreementClientNum, setAgreementClientNum] = useState("");
+  const [agreementDate, setAgreementDate] = useState("");
+  const [agreementBorrowerName, setAgreementBorrowerName] = useState("");
+  const [agreementNic, setAgreementNic] = useState("");
+  const [agreementAddress, setAgreementAddress] = useState("");
+  const [agreementLoanLimit, setAgreementLoanLimit] = useState("100000");
+  const [agreementServiceFee, setAgreementServiceFee] = useState("3.5");
+  const [agreementInterest, setAgreementInterest] = useState("0");
+  const [agreementCode, setAgreementCode] = useState("");
+
   // Form State
   const [nic, setNic] = useState('');
   const [firstName, setFirstName] = useState(''); // Mapped to Name with Initials
@@ -374,6 +387,38 @@ export default function ClientsPage() {
       }
     }
   }, []);
+
+  const openAgreementDialog = (client: any) => {
+    setAgreementClientNum(client.nic || `CLI-${client.id.substring(0, 6)}`.toUpperCase());
+    setAgreementDate(new Date().toISOString().split('T')[0]);
+    setAgreementBorrowerName(client.first_name || client.firstName || "");
+    setAgreementNic(client.nic || "");
+    setAgreementAddress(client.address || "");
+    setAgreementLoanLimit("100000");
+    setAgreementServiceFee("3.5");
+    setAgreementInterest("0");
+    setAgreementCode("");
+    setShowAgreementModal(true);
+  };
+
+  const handleGenerateAgreement = () => {
+    if (!agreementCode.trim()) {
+      toast.error("SMS Verification Code is required to sign the agreement.");
+      return;
+    }
+    printLoanAgreement({
+      clientNumber: agreementClientNum,
+      agreementDate: agreementDate,
+      borrowerName: agreementBorrowerName,
+      nicNumber: agreementNic,
+      address: agreementAddress,
+      loanLimit: agreementLoanLimit,
+      serviceFee: agreementServiceFee,
+      interestRate: agreementInterest,
+      verificationCode: agreementCode
+    });
+    setShowAgreementModal(false);
+  };
 
   const handleSave = async () => {
     if (!nic || !firstName) {
@@ -933,6 +978,9 @@ export default function ClientsPage() {
                         <DropdownMenuItem onClick={() => openEditDialog(client)} className="gap-3 px-4 py-3 rounded-xl font-bold text-slate-700 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer outline-none">
                           <Pencil className="w-4 h-4" /> Edit Profile
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openAgreementDialog(client)} className="gap-3 px-4 py-3 rounded-xl font-bold text-slate-700 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer outline-none">
+                          <FileText className="w-4 h-4 text-blue-600" /> Loan Agreement
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDelete(client)} className="gap-3 px-4 py-3 rounded-xl font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
                           <Trash2 className="w-4 h-4" /> Delete Record
                         </DropdownMenuItem>
@@ -1199,6 +1247,142 @@ export default function ClientsPage() {
               className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg cursor-pointer"
             >
               Save Customer
+            </Button>
+          </div>
+        </DialogContent>
+      {/* MODAL: DIGITAL LOAN AGREEMENT SIGNER */}
+      <Dialog open={showAgreementModal} onOpenChange={setShowAgreementModal}>
+        <DialogContent className="sm:max-w-[500px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[90vh] flex flex-col">
+          <div className="h-2 bg-blue-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-9 w-9 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 text-blue-600">
+                  <FileText className="h-4.5 w-4.5" />
+                </div>
+                Digital Loan Agreement Signer
+              </DialogTitle>
+              <DialogDescription className="font-medium text-slate-500 text-xs">
+                Fill in the details to customize and electronically sign the 11-page Loan Agreement document.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
+            <div className="grid gap-4 pb-4">
+              
+              {/* Client / Agreement Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Agreement Date</Label>
+                  <Input 
+                    type="date"
+                    value={agreementDate} 
+                    onChange={e => setAgreementDate(e.target.value)} 
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Client Number / Code</Label>
+                  <Input 
+                    value={agreementClientNum} 
+                    onChange={e => setAgreementClientNum(e.target.value)} 
+                    placeholder="E.g. CLI-002"
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                  />
+                </div>
+              </div>
+
+              {/* Borrower Details */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Borrower Full Name</Label>
+                <Input 
+                  value={agreementBorrowerName} 
+                  onChange={e => setAgreementBorrowerName(e.target.value)} 
+                  className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">NIC Number</Label>
+                  <Input 
+                    value={agreementNic} 
+                    onChange={e => setAgreementNic(e.target.value)} 
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Approved Loan Limit (LKR)</Label>
+                  <Input 
+                    type="number"
+                    value={agreementLoanLimit} 
+                    onChange={e => setAgreementLoanLimit(e.target.value)} 
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Residential Address</Label>
+                <Input 
+                  value={agreementAddress} 
+                  onChange={e => setAgreementAddress(e.target.value)} 
+                  className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                />
+              </div>
+
+              {/* Interest and Service Fee Config */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Loan Service Fee (%)</Label>
+                  <Input 
+                    type="number"
+                    step="0.1"
+                    value={agreementServiceFee} 
+                    onChange={e => setAgreementServiceFee(e.target.value)} 
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Interest Rate (%)</Label>
+                  <Input 
+                    type="number"
+                    value={agreementInterest} 
+                    onChange={e => setAgreementInterest(e.target.value)} 
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
+                    disabled
+                  />
+                  <span className="text-[9px] font-bold text-slate-400">Interest is set to 0% as per Agreement Clause 4.2.</span>
+                </div>
+              </div>
+
+              {/* SMS Verification (Signature Code) */}
+              <div className="grid gap-1.5 bg-slate-50 p-4 rounded-2xl border border-slate-200/50">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" /> SMS Verification Code (Electronic Signature)
+                </Label>
+                <Input 
+                  value={agreementCode} 
+                  onChange={e => setAgreementCode(e.target.value)} 
+                  placeholder="Enter 6-digit signature code" 
+                  className="h-10 border-blue-200 rounded-xl font-black text-center text-sm tracking-widest bg-white" 
+                />
+                <span className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">
+                  This code acts as the electronic signature of the Borrower under the Electronic Transactions Act No. 19 of 2006.
+                </span>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={() => setShowAgreementModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button 
+              onClick={handleGenerateAgreement} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg cursor-pointer"
+            >
+              Generate & Print PDF
             </Button>
           </div>
         </DialogContent>
