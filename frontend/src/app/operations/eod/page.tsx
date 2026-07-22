@@ -110,23 +110,8 @@ export default function EndOfDayPage() {
 
   // Stock Customers State
   const [stockCustomers, setStockCustomers] = useState<any[]>([]);
-  const [showCustomerRegistryModal, setShowCustomerRegistryModal] = useState(false);
-  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
-  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
-
-  // Form State - Add Customer
-  const [custName, setCustName] = useState("");
-  const [custAddress, setCustAddress] = useState("");
-  const [custAddress2, setCustAddress2] = useState("");
-  const [custTp, setCustTp] = useState("");
-  const [custNic, setCustNic] = useState("");
-  const [custBills, setCustBills] = useState("");
-
-  // Autocomplete Suggestions
-  const [nameSuggestions, setNameSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [showBillCustomerModal, setShowBillCustomerModal] = useState(false);
+  const [selectedBillForCustomerView, setSelectedBillForCustomerView] = useState<string | null>(null);
 
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
@@ -1328,28 +1313,19 @@ export default function EndOfDayPage() {
                     {sortedStock.map((item) => (
                       <TableRow key={item.id} className="group hover:bg-slate-50/50 transition-colors">
                         <TableCell className="px-6 py-4">
-                          <div className="font-black text-slate-800 text-sm">{item.bill_no}</div>
-                          {(() => {
-                            const cust = getCustomerForBill(item.bill_no);
-                            if (cust) {
-                              return (
-                                <div className="text-[10px] text-slate-500 font-bold mt-1 flex flex-col gap-0.5 bg-slate-50 p-1.5 rounded-lg border border-slate-100 max-w-[180px]">
-                                  <div className="text-slate-800 font-black truncate">{cust.name}</div>
-                                  <div className="truncate">{cust.tp}</div>
-                                  <div className="text-[9px] truncate text-slate-400">{cust.address}</div>
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <a 
-                                  href={`/clients?register_existing=true&bill=${encodeURIComponent(item.bill_no)}`}
-                                  className="text-[9px] font-black text-blue-600 hover:text-blue-700 underline mt-1 block uppercase tracking-wider cursor-pointer"
-                                >
-                                  + Link Customer
-                                </a>
-                              );
-                            }
-                          })()}
+                          <button 
+                            onClick={() => {
+                              setSelectedBillForCustomerView(item.bill_no);
+                              setShowBillCustomerModal(true);
+                            }}
+                            className="font-black text-slate-800 text-sm hover:text-blue-600 underline decoration-dotted transition-colors text-left flex items-center gap-1.5 cursor-pointer"
+                            title="Click to view customer details"
+                          >
+                            {item.bill_no}
+                            {getCustomerForBill(item.bill_no) && (
+                              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full inline-block" />
+                            )}
+                          </button>
                         </TableCell>
                         {currentUser?.role === 'ADMIN' && (
                           <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
@@ -1750,6 +1726,87 @@ export default function EndOfDayPage() {
             >
               {isEditingWithdrawal ? "Save Changes" : "Release Gold Asset"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: BILL CUSTOMER INFO */}
+      <Dialog open={showBillCustomerModal} onOpenChange={setShowBillCustomerModal}>
+        <DialogContent className="sm:max-w-[420px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+          <div className="h-2 bg-blue-600" />
+          <div className="p-8">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-tighter text-slate-900">
+                Pawn Bill Details
+              </DialogTitle>
+              <DialogDescription className="font-semibold text-slate-400 text-xs mt-1">
+                Customer association for Bill No: <span className="text-slate-700 font-black">{selectedBillForCustomerView}</span>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-6 space-y-4">
+              {(() => {
+                if (!selectedBillForCustomerView) return null;
+                const cust = getCustomerForBill(selectedBillForCustomerView);
+                if (cust) {
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 space-y-3 font-semibold text-xs text-slate-600">
+                        <div>
+                          <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-1">Customer Name</span>
+                          <span className="text-sm font-black text-slate-900">{cust.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-1">Telephone (TP)</span>
+                          <span className="text-slate-900 font-bold">{cust.tp}</span>
+                        </div>
+                        {cust.nic && (
+                          <div>
+                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-1">NIC Number</span>
+                            <span className="text-slate-900 font-bold">{cust.nic}</span>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-1">Address</span>
+                          <span className="text-slate-800 font-bold block">{cust.address}</span>
+                          {cust.address_2 && (
+                            <span className="text-slate-400 block mt-1">{cust.address_2}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-end pt-2">
+                        <Button 
+                          onClick={() => setShowBillCustomerModal(false)}
+                          className="rounded-xl font-bold bg-slate-950 hover:bg-slate-900 text-white cursor-pointer px-5"
+                        >
+                          Close Details
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="text-center py-6 space-y-4">
+                      <div className="w-12 h-12 bg-slate-50 rounded-full border border-slate-100 flex items-center justify-center mx-auto">
+                        <Users className="w-6 h-6 text-slate-300" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-700 uppercase tracking-wide">No Customer Profile Linked</p>
+                        <p className="text-[11px] text-slate-400 font-semibold mt-1">There is no customer details registered under this bill number.</p>
+                      </div>
+                      <div className="flex justify-center pt-2">
+                        <a 
+                          href={`/clients?register_existing=true&bill=${encodeURIComponent(selectedBillForCustomerView)}`}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Add Customer Details
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
