@@ -322,8 +322,10 @@ export default function ClientsPage() {
       const { data, error } = await supabase.from('stock_customers').select('*').order('name', { ascending: true });
       if (error) throw error;
       setStockCustomers(data || []);
+      setIsUsingSupabase(true);
     } catch (err) {
       console.warn("Failed to fetch stock customers from Supabase, loading LocalStorage:", err);
+      setIsUsingSupabase(false);
       const local = localStorage.getItem('local_stock_customers');
       if (local) {
         try {
