@@ -113,6 +113,19 @@ export default function EndOfDayPage() {
   const [showBillCustomerModal, setShowBillCustomerModal] = useState(false);
   const [selectedBillForCustomerView, setSelectedBillForCustomerView] = useState<string | null>(null);
 
+  // Add Customer Form States
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [custName, setCustName] = useState("");
+  const [custAddress, setCustAddress] = useState("");
+  const [custAddress2, setCustAddress2] = useState("");
+  const [custTp, setCustTp] = useState("");
+  const [custNic, setCustNic] = useState("");
+  const [custBills, setCustBills] = useState("");
+  const [nameSuggestions, setNameSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
   const [billPrefix, setBillPrefix] = useState<string | null>(null);
@@ -545,6 +558,129 @@ export default function EndOfDayPage() {
       const bills = c.bill_numbers.split(",").map((b: string) => b.trim().toLowerCase());
       return bills.includes(cleanBill);
     });
+  };
+
+  const handleAddBillPrefix = (prefix: string) => {
+    const trimmed = custBills.trim();
+    if (!trimmed) {
+      setCustBills(prefix + " ");
+    } else if (trimmed.endsWith(",")) {
+      setCustBills(custBills + " " + prefix + " ");
+    } else {
+      setCustBills(custBills + ", " + prefix + " ");
+    }
+  };
+
+  const openAddCustomerModal = (initialBill = "") => {
+    setSelectedCustomer(null);
+    setCustName("");
+    setCustAddress("");
+    setCustAddress2("");
+    setCustTp("");
+    setCustNic("");
+    setCustBills(initialBill);
+    setIsEditingCustomer(false);
+    setShowAddCustomerModal(true);
+  };
+
+  const openEditCustomerModal = (customer: any) => {
+    setSelectedCustomer(customer);
+    setCustName(customer.name);
+    setCustAddress(customer.address);
+    setCustAddress2(customer.address_2 || "");
+    setCustTp(customer.tp);
+    setCustNic(customer.nic || "");
+    setCustBills(customer.bill_numbers || "");
+    setIsEditingCustomer(true);
+    setShowAddCustomerModal(true);
+  };
+
+  const handleNameChange = (val: string) => {
+    setCustName(val);
+    if (!val.trim()) {
+      setNameSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const matches = stockCustomers.filter(c => 
+      c.name.toLowerCase().includes(val.toLowerCase())
+    );
+    setNameSuggestions(matches);
+    setShowSuggestions(matches.length > 0);
+  };
+
+  const selectNameSuggestion = (suggestion: any) => {
+    setCustName(suggestion.name);
+    setCustAddress(suggestion.address);
+    setCustAddress2(suggestion.address_2 || "");
+    setCustTp(suggestion.tp);
+    setCustNic(suggestion.nic || "");
+    if (!custBills.trim()) {
+      setCustBills(suggestion.bill_numbers || "");
+    }
+    setShowSuggestions(false);
+    setNameSuggestions([]);
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!custName.trim() || !custAddress.trim() || !custTp.trim()) {
+      toast.error("Name, Address, and Telephone are required fields.");
+      return;
+    }
+
+    const payload = {
+      name: custName.trim(),
+      address: custAddress.trim(),
+      address_2: custAddress2.trim() || null,
+      tp: custTp.trim(),
+      nic: custNic.trim() || null,
+      bill_numbers: custBills.trim()
+    };
+
+    try {
+      if (isUsingSupabase) {
+        if (isEditingCustomer && selectedCustomer) {
+          const { error } = await supabase
+            .from('stock_customers')
+            .update(payload)
+            .eq('id', selectedCustomer.id);
+          if (error) throw error;
+          toast.success("Customer profile updated in Supabase!");
+        } else {
+          const { error } = await supabase
+            .from('stock_customers')
+            .insert([payload]);
+          if (error) throw error;
+          toast.success("Customer profile created in Supabase!");
+        }
+      } else {
+        const local = localStorage.getItem('local_stock_customers');
+        let list: any[] = [];
+        if (local) {
+          try { list = JSON.parse(local); } catch (e) {}
+        }
+        if (isEditingCustomer && selectedCustomer) {
+          list = list.map(c => c.id === selectedCustomer.id ? { ...c, ...payload } : c);
+          toast.success("Customer profile updated (Local Storage)!");
+        } else {
+          const newCust = {
+            id: Math.random().toString(36).substring(2, 9),
+            ...payload,
+            created_at: new Date().toISOString()
+          };
+          list = [newCust, ...list];
+          toast.success("Customer profile created (Local Storage)!");
+        }
+        localStorage.setItem('local_stock_customers', JSON.stringify(list));
+      }
+      setShowAddCustomerModal(false);
+      loadCustomerData();
+      
+      // Auto close bill info modal to refresh view cleanly
+      setShowBillCustomerModal(false);
+    } catch (err: any) {
+      toast.error("Error saving customer profile: " + err.message);
+    }
   };
 
   // Open withdrawal dialog
@@ -1774,7 +1910,17 @@ export default function EndOfDayPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex justify-end pt-2">
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button 
+                          onClick={() => {
+                            openEditCustomerModal(cust);
+                            setShowBillCustomerModal(false);
+                          }}
+                          variant="outline"
+                          className="rounded-xl font-bold border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer px-4 flex items-center gap-1.5"
+                        >
+                          <Edit className="w-3.5 h-3.5 text-blue-600" /> Edit Profile
+                        </Button>
                         <Button 
                           onClick={() => setShowBillCustomerModal(false)}
                           className="rounded-xl font-bold bg-slate-950 hover:bg-slate-900 text-white cursor-pointer px-5"
@@ -1795,18 +1941,155 @@ export default function EndOfDayPage() {
                         <p className="text-[11px] text-slate-400 font-semibold mt-1">There is no customer details registered under this bill number.</p>
                       </div>
                       <div className="flex justify-center pt-2">
-                        <a 
-                          href={`/clients?register_existing=true&bill=${encodeURIComponent(selectedBillForCustomerView)}`}
-                          className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                        <Button 
+                          onClick={() => {
+                            openAddCustomerModal(selectedBillForCustomerView);
+                            setShowBillCustomerModal(false);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
                         >
-                          <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Add Customer Details
-                        </a>
+                          <UserPlus className="w-3.5 h-3.5" /> Add Customer Details
+                        </Button>
                       </div>
                     </div>
                   );
                 }
               })()}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: ADD/EDIT CUSTOMER */}
+      <Dialog open={showAddCustomerModal} onOpenChange={setShowAddCustomerModal}>
+        <DialogContent className="sm:max-w-[480px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[90vh] flex flex-col">
+          <div className="h-2 bg-blue-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-9 w-9 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 text-blue-600">
+                  <UserPlus className="h-4.5 w-4.5" />
+                </div>
+                {isEditingCustomer ? "Edit Customer Profile" : "Register Customer Profile"}
+              </DialogTitle>
+              <DialogDescription className="font-medium text-slate-500 text-xs">
+                Associate customer contact details and addresses with active vault stock bills.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
+            <div className="grid gap-4 pb-4">
+              
+              {/* Customer Name */}
+              <div className="grid gap-1.5 relative">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Customer Name</Label>
+                <div className="relative">
+                  <Input 
+                    value={custName} 
+                    onChange={e => handleNameChange(e.target.value)} 
+                    placeholder="E.g. Saman Kumara" 
+                    className="h-10 border-slate-200 rounded-xl font-bold" 
+                  />
+                  {showSuggestions && nameSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] max-h-40 overflow-y-auto divide-y divide-slate-100">
+                      {nameSuggestions.map(suggestion => (
+                        <button
+                          key={suggestion.id}
+                          type="button"
+                          onClick={() => selectNameSuggestion(suggestion)}
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors animate-in fade-in"
+                        >
+                          <div className="font-black text-slate-900">{suggestion.name}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{suggestion.tp} | {suggestion.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Telephone */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Telephone (TP)</Label>
+                <Input 
+                  value={custTp} 
+                  onChange={e => setCustTp(e.target.value)} 
+                  placeholder="E.g. 0771234567" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* NIC */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">NIC (Optional)</Label>
+                <Input 
+                  value={custNic} 
+                  onChange={e => setCustNic(e.target.value)} 
+                  placeholder="E.g. 199512345678" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* Address */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address</Label>
+                <Input 
+                  value={custAddress} 
+                  onChange={e => setCustAddress(e.target.value)} 
+                  placeholder="E.g. No 12, Main Street, Wattala" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* Address 2 */}
+              <div className="grid gap-1.5">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address Line 2 (Optional)</Label>
+                <Input 
+                  value={custAddress2} 
+                  onChange={e => setCustAddress2(e.target.value)} 
+                  placeholder="E.g. Apartment 4B" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+              </div>
+
+              {/* Bill Numbers */}
+              <div className="grid gap-1.5">
+                <div className="flex justify-between items-center">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Linked Pawn Bill Numbers</Label>
+                  <div className="flex items-center gap-1">
+                    {["A", "1R", "3M", "3R", "6R", "12R", "6M"].map(pref => (
+                      <button
+                        key={pref}
+                        type="button"
+                        onClick={() => handleAddBillPrefix(pref)}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded text-[9px] font-black text-slate-700 cursor-pointer transition-colors active:scale-95"
+                      >
+                        {pref}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Input 
+                  value={custBills} 
+                  onChange={e => setCustBills(e.target.value)} 
+                  placeholder="Comma separated: e.g. 1R 15580, 12R 20750" 
+                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                />
+                <span className="text-[9px] font-bold text-slate-400">Associate one or multiple bill numbers to this customer profile.</span>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={() => setShowAddCustomerModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button 
+              onClick={handleSaveCustomer} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg cursor-pointer"
+            >
+              Save Customer
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
