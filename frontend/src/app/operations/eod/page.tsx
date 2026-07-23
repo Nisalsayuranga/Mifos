@@ -177,15 +177,21 @@ export default function EndOfDayPage() {
   const [date, setDate] = useState("");
   const [selectedItems, setSelectedItems] = useState<Array<{ id: string, code: string }>>([]);
   const [itemSearch, setItemSearch] = useState("");
+  const [itemQuantity, setItemQuantity] = useState(1);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleSelectCode = (code: string) => {
+    const newItems = [];
+    for (let i = 0; i < itemQuantity; i++) {
+      newItems.push({ id: Math.random().toString(36).substring(2, 9), code });
+    }
     setSelectedItems([
       ...selectedItems,
-      { id: Math.random().toString(36).substring(2, 9), code }
+      ...newItems
     ]);
     setItemSearch("");
     setIsDropdownOpen(false);
+    setItemQuantity(1);
   };
 
   const handleRemoveItem = (idToRemove: string) => {
@@ -1725,22 +1731,34 @@ export default function EndOfDayPage() {
               <div className="grid gap-2 relative">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawned Gold Item Categories</Label>
                 
-                {/* Search Input */}
-                <div className="relative">
-                  <Input 
-                    type="text"
-                    value={itemSearch} 
-                    onChange={e => {
-                      setItemSearch(e.target.value);
-                      setIsDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsDropdownOpen(true)}
-                    onBlur={() => setIsDropdownOpen(false)}
-                    placeholder="Search and select gold items (e.g. Ring, Pendant)..." 
-                    className="h-11 border-slate-200 rounded-xl font-bold pr-10 text-sm bg-white" 
-                  />
-                  <div className="absolute right-3 top-3.5 pointer-events-none text-slate-400">
-                    <Search className="h-4 w-4" />
+                {/* Search Input and Quantity */}
+                <div className="flex gap-2 relative">
+                  <div className="relative flex-1">
+                    <Input 
+                      type="text"
+                      value={itemSearch} 
+                      onChange={e => {
+                        setItemSearch(e.target.value);
+                        setIsDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsDropdownOpen(true)}
+                      onBlur={() => setIsDropdownOpen(false)}
+                      placeholder="Search and select gold items (e.g. Ring, Pendant)..." 
+                      className="h-11 border-slate-200 rounded-xl font-bold pr-10 text-sm bg-white" 
+                    />
+                    <div className="absolute right-3 top-3.5 pointer-events-none text-slate-400">
+                      <Search className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <div className="relative w-24">
+                    <Input 
+                      type="number"
+                      min="1"
+                      value={itemQuantity}
+                      onChange={e => setItemQuantity(parseInt(e.target.value) || 1)}
+                      className="h-11 border-slate-200 rounded-xl font-bold text-center text-sm bg-white" 
+                      title="Quantity (e.g. 5 Rings)"
+                    />
                   </div>
                 </div>
 
