@@ -241,11 +241,11 @@ export default function EndOfDayPage() {
   const [selectedItems, setSelectedItems] = useState<Array<{ id: string, code: string }>>([]);
   const [itemSearch, setItemSearch] = useState("");
   const [itemQuantity, setItemQuantity] = useState(1);
-  const [is18C, setIs18C] = useState(false);
+  const [is18K, setIs18K] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleSelectCode = (code: string) => {
-    const finalCode = is18C ? `18C-${code}` : code;
+    const finalCode = is18K ? `18K-${code}` : code;
     const newItems = [];
     for (let i = 0; i < itemQuantity; i++) {
       newItems.push({ id: Math.random().toString(36).substring(2, 9), code: finalCode });
@@ -863,13 +863,13 @@ export default function EndOfDayPage() {
     if (!codeWithCount) return "";
     if (codeWithCount === 'BLCT') return 'Biscuit (BKT)'; // Backward compatibility
     
-    let is18C = false;
+    let is18K = false;
     let cleanCode = codeWithCount;
-    if (cleanCode.toUpperCase().startsWith("18C-")) {
-      is18C = true;
+    if (cleanCode.toUpperCase().startsWith("18K-") || cleanCode.toUpperCase().startsWith("18C-")) {
+      is18K = true;
       cleanCode = cleanCode.substring(4);
-    } else if (cleanCode.toUpperCase().startsWith("18C ")) {
-      is18C = true;
+    } else if (cleanCode.toUpperCase().startsWith("18K ") || cleanCode.toUpperCase().startsWith("18C ")) {
+      is18K = true;
       cleanCode = cleanCode.substring(4);
     }
 
@@ -879,14 +879,14 @@ export default function EndOfDayPage() {
       const count = match[2] ? parseInt(match[2], 10) : 1;
       const found = ITEM_TYPES.find(item => item.code === baseCode);
       const baseName = found ? found.name : baseCode;
-      const prefixStr = is18C ? "18C " : "";
+      const prefixStr = is18K ? "18K " : "";
       const fullName = `${prefixStr}${baseName}`;
       return count > 1 ? `${fullName} ${count}` : fullName;
     }
     
     const found = ITEM_TYPES.find(item => item.code === cleanCode.toUpperCase());
     const baseName = found ? found.name : cleanCode;
-    const prefixStr = is18C ? "18C " : "";
+    const prefixStr = is18K ? "18K " : "";
     return `${prefixStr}${baseName}`;
   };
 
@@ -1842,13 +1842,13 @@ export default function EndOfDayPage() {
                     />
                   </div>
 
-                  {/* 18 C Checkbox Toggle Button */}
+                  {/* 18 K Checkbox Toggle Button */}
                   <button
                     type="button"
-                    onClick={() => setIs18C(!is18C)}
+                    onClick={() => setIs18K(!is18K)}
                     className={cn(
                       "h-11 px-3.5 rounded-xl font-black text-xs border transition-all flex items-center gap-1.5 shrink-0 cursor-pointer select-none",
-                      is18C 
+                      is18K 
                         ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20" 
                         : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     )}
@@ -1856,11 +1856,11 @@ export default function EndOfDayPage() {
                   >
                     <input 
                       type="checkbox" 
-                      checked={is18C} 
+                      checked={is18K} 
                       onChange={() => {}} 
                       className="w-3.5 h-3.5 accent-amber-600 pointer-events-none"
                     />
-                    <span>18 C</span>
+                    <span>18 K</span>
                   </button>
                 </div>
 
@@ -1877,7 +1877,7 @@ export default function EndOfDayPage() {
                         it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
                         it.name.toLowerCase().includes(itemSearch.toLowerCase())
                       ).map(it => {
-                        const targetCheckCode = is18C ? `18C-${it.code}` : it.code;
+                        const targetCheckCode = is18K ? `18K-${it.code}` : it.code;
                         const isSelected = selectedItems.some(item => item.code === targetCheckCode || item.code === it.code);
                         return (
                           <button
@@ -1890,7 +1890,7 @@ export default function EndOfDayPage() {
                             }}
                           >
                             <span className="flex items-center gap-2">
-                              {is18C && <span className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-1.5 py-0.5 rounded text-[10px]">18C</span>}
+                              {is18K && <span className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-1.5 py-0.5 rounded text-[10px]">18K</span>}
                               {it.name}
                             </span>
                             {isSelected && <CheckCircle className="h-4 w-4 text-blue-600 shrink-0" />}
@@ -1920,18 +1920,18 @@ export default function EndOfDayPage() {
                     <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
                       {groupOrder.map(codeGroup => {
                         const group = groupedMap[codeGroup];
-                        const isItem18C = group.code.toUpperCase().startsWith("18C-");
-                        const rawCode = isItem18C ? group.code.substring(4) : group.code;
+                        const isItem18K = group.code.toUpperCase().startsWith("18K-") || group.code.toUpperCase().startsWith("18C-");
+                        const rawCode = isItem18K ? group.code.substring(4) : group.code;
                         const found = ITEM_TYPES.find(it => it.code === rawCode);
                         const baseName = found ? found.name : group.code;
-                        const displayName = (isItem18C ? "18C " : "") + baseName + (group.count > 1 ? ` ${group.count}` : "");
+                        const displayName = (isItem18K ? "18K " : "") + baseName + (group.count > 1 ? ` ${group.count}` : "");
 
                         return (
                           <div 
                             key={group.code}
                             className={cn(
                               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm border select-none",
-                              isItem18C 
+                              isItem18K 
                                 ? "bg-amber-50 text-amber-900 border-amber-200/70"
                                 : "bg-blue-50 text-blue-800 border-blue-200/50"
                             )}
