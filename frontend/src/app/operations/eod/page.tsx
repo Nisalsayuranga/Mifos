@@ -67,7 +67,7 @@ const ITEM_TYPES = [
   { code: 'SPJ', name: 'Spring Gyspy (SPJ)' }
 ];
 
-// Helper to compress item type codes into short format (e.g., EAR, EAR, EAR -> EAR3, or PR, PR -> PR2)
+// Helper to compress item type codes into short format (e.g., EAR, EAR, EAR -> EAR3, or 18C-PP, 18C-PP -> 18C-PP2)
 const compressItemTypeString = (str: string): string => {
   if (!str) return "";
   const tokens = str.split(/[, ]+/).map(t => t.trim()).filter(Boolean);
@@ -77,8 +77,8 @@ const compressItemTypeString = (str: string): string => {
   const order: string[] = [];
 
   for (const token of tokens) {
-    const match = token.match(/^([A-Za-z]+)(\d*)$/);
-    if (match) {
+    const match = token.match(/^([A-Za-z0-9-]+?)(\d*)$/);
+    if (match && match[1]) {
       const baseCode = match[1].toUpperCase();
       const num = match[2] ? parseInt(match[2], 10) : 1;
       if (!counts[baseCode]) {
@@ -102,15 +102,15 @@ const compressItemTypeString = (str: string): string => {
   }).join(", ");
 };
 
-// Helper to expand compressed string (e.g. EAR3, PR2) into array of individual item objects
+// Helper to expand compressed string (e.g. EAR3, 18C-PP2) into array of individual item objects
 const expandItemTypeCodes = (str: string): Array<{ id: string, code: string }> => {
   if (!str) return [];
   const tokens = str.split(/[, ]+/).map(t => t.trim()).filter(Boolean);
   const result: Array<{ id: string, code: string }> = [];
 
   for (const token of tokens) {
-    const match = token.match(/^([A-Za-z]+)(\d*)$/);
-    if (match) {
+    const match = token.match(/^([A-Za-z0-9-]+?)(\d*)$/);
+    if (match && match[1]) {
       const baseCode = match[1].toUpperCase();
       const count = match[2] ? parseInt(match[2], 10) : 1;
       for (let i = 0; i < count; i++) {
@@ -241,12 +241,14 @@ export default function EndOfDayPage() {
   const [selectedItems, setSelectedItems] = useState<Array<{ id: string, code: string }>>([]);
   const [itemSearch, setItemSearch] = useState("");
   const [itemQuantity, setItemQuantity] = useState(1);
+  const [is18C, setIs18C] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleSelectCode = (code: string) => {
+    const finalCode = is18C ? `18C-${code}` : code;
     const newItems = [];
     for (let i = 0; i < itemQuantity; i++) {
-      newItems.push({ id: Math.random().toString(36).substring(2, 9), code });
+      newItems.push({ id: Math.random().toString(36).substring(2, 9), code: finalCode });
     }
     setSelectedItems([
       ...selectedItems,
@@ -861,16 +863,31 @@ export default function EndOfDayPage() {
     if (!codeWithCount) return "";
     if (codeWithCount === 'BLCT') return 'Biscuit (BKT)'; // Backward compatibility
     
-    const match = codeWithCount.match(/^([A-Za-z]+)(\d*)$/);
+    let is18C = false;
+    let cleanCode = codeWithCount;
+    if (cleanCode.toUpperCase().startsWith("18C-")) {
+      is18C = true;
+      cleanCode = cleanCode.substring(4);
+    } else if (cleanCode.toUpperCase().startsWith("18C ")) {
+      is18C = true;
+      cleanCode = cleanCode.substring(4);
+    }
+
+    const match = cleanCode.match(/^([A-Za-z]+)(\d*)$/);
     if (match) {
       const baseCode = match[1].toUpperCase();
       const count = match[2] ? parseInt(match[2], 10) : 1;
       const found = ITEM_TYPES.find(item => item.code === baseCode);
-      const name = found ? found.name : baseCode;
-      return count > 1 ? `${name} ${count}` : name;
+      const baseName = found ? found.name : baseCode;
+      const prefixStr = is18C ? "18C " : "";
+      const fullName = `${prefixStr}${baseName}`;
+      return count > 1 ? `${fullName} ${count}` : fullName;
     }
-    const found = ITEM_TYPES.find(item => item.code === codeWithCount.toUpperCase());
-    return found ? found.name : codeWithCount;
+    
+    const found = ITEM_TYPES.find(item => item.code === cleanCode.toUpperCase());
+    const baseName = found ? found.name : cleanCode;
+    const prefixStr = is18C ? "18C " : "";
+    return `${prefixStr}${baseName}`;
   };
 
   const handleExportExcel = () => {
@@ -1668,7 +1685,7 @@ export default function EndOfDayPage() {
             </DialogHeader>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-5">
+          <div className="flex-1 overflow-y-auto px-6 py-2 pb-36 space-y-5">
             <div className="grid gap-5 pb-4">
               
               {/* Branch Selection (Visible ONLY to Admin) */}
@@ -1793,9 +1810,9 @@ export default function EndOfDayPage() {
               <div className="grid gap-2 relative">
                 <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawned Gold Item Categories</Label>
                 
-                {/* Search Input and Quantity */}
-                <div className="flex gap-2 relative">
-                  <div className="relative flex-1">
+                {/* Search Input, Quantity & 18C Toggle */}
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 relative items-center">
+                  <div className="relative flex-1 min-w-[180px]">
                     <Input 
                       type="text"
                       value={itemSearch} 
@@ -1812,7 +1829,9 @@ export default function EndOfDayPage() {
                       <Search className="h-4 w-4" />
                     </div>
                   </div>
-                  <div className="relative w-24">
+
+                  {/* Quantity Input */}
+                  <div className="relative w-20 shrink-0">
                     <Input 
                       type="number"
                       min="1"
@@ -1822,11 +1841,32 @@ export default function EndOfDayPage() {
                       title="Quantity (e.g. 5 Rings)"
                     />
                   </div>
+
+                  {/* 18 C Checkbox Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIs18C(!is18C)}
+                    className={cn(
+                      "h-11 px-3.5 rounded-xl font-black text-xs border transition-all flex items-center gap-1.5 shrink-0 cursor-pointer select-none",
+                      is18C 
+                        ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20" 
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    )}
+                    title="Toggle 18 Karat Gold Category"
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={is18C} 
+                      onChange={() => {}} 
+                      className="w-3.5 h-3.5 accent-amber-600 pointer-events-none"
+                    />
+                    <span>18 C</span>
+                  </button>
                 </div>
 
                 {/* Dropdown */}
                 {isDropdownOpen && (
-                  <div className="absolute left-0 top-[70px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto glass animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                  <div className="absolute left-0 top-[70px] z-50 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto animate-in fade-in-50 slide-in-from-top-1 duration-150">
                     {ITEM_TYPES.filter(it => 
                       it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
                       it.name.toLowerCase().includes(itemSearch.toLowerCase())
@@ -1837,19 +1877,23 @@ export default function EndOfDayPage() {
                         it.code.toLowerCase().includes(itemSearch.toLowerCase()) || 
                         it.name.toLowerCase().includes(itemSearch.toLowerCase())
                       ).map(it => {
-                        const isSelected = selectedItems.some(item => item.code === it.code);
+                        const targetCheckCode = is18C ? `18C-${it.code}` : it.code;
+                        const isSelected = selectedItems.some(item => item.code === targetCheckCode || item.code === it.code);
                         return (
                           <button
                             key={it.code}
                             type="button"
-                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700 cursor-pointer"
+                            className="w-full text-left px-4 py-3 hover:bg-slate-50 font-semibold text-sm transition-colors flex items-center justify-between text-slate-700 cursor-pointer border-b border-slate-100 last:border-0"
                             onMouseDown={(e) => {
                               e.preventDefault();
                               handleSelectCode(it.code);
                             }}
                           >
-                            <span>{it.name}</span>
-                            {isSelected && <CheckCircle className="h-4 w-4 text-blue-600" />}
+                            <span className="flex items-center gap-2">
+                              {is18C && <span className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-1.5 py-0.5 rounded text-[10px]">18C</span>}
+                              {it.name}
+                            </span>
+                            {isSelected && <CheckCircle className="h-4 w-4 text-blue-600 shrink-0" />}
                           </button>
                         );
                       })
@@ -1861,17 +1905,28 @@ export default function EndOfDayPage() {
                 {selectedItems.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
                     {selectedItems.map(item => {
-                      const found = ITEM_TYPES.find(it => it.code === item.code);
+                      const isItem18C = item.code.toUpperCase().startsWith("18C-");
+                      const rawCode = isItem18C ? item.code.substring(4) : item.code;
+                      const found = ITEM_TYPES.find(it => it.code === rawCode);
+                      const displayName = (isItem18C ? "18C " : "") + (found ? found.name : item.code);
                       return (
                         <div 
                           key={item.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200/50 rounded-lg text-xs font-bold transition-all shadow-sm"
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm border",
+                            isItem18C 
+                              ? "bg-amber-50 text-amber-900 border-amber-200/70"
+                              : "bg-blue-50 text-blue-800 border-blue-200/50"
+                          )}
                         >
-                          <span>{found ? found.name : item.code}</span>
+                          <span>{displayName}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(item.id)}
-                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-0.5 rounded transition-colors"
+                            className={cn(
+                              "p-0.5 rounded transition-colors",
+                              isItem18C ? "text-amber-600 hover:bg-amber-100" : "text-blue-500 hover:bg-blue-100 text-blue-700"
+                            )}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
