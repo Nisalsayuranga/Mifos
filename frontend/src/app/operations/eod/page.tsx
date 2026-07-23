@@ -67,6 +67,69 @@ const ITEM_TYPES = [
   { code: 'SPJ', name: 'Spring Gyspy (SPJ)' }
 ];
 
+// Helper to compress item type codes into short format (e.g., EAR, EAR, EAR -> EAR3, or PR, PR -> PR2)
+const compressItemTypeString = (str: string): string => {
+  if (!str) return "";
+  const tokens = str.split(/[, ]+/).map(t => t.trim()).filter(Boolean);
+  if (tokens.length === 0) return "";
+
+  const counts: { [code: string]: number } = {};
+  const order: string[] = [];
+
+  for (const token of tokens) {
+    const match = token.match(/^([A-Za-z]+)(\d*)$/);
+    if (match) {
+      const baseCode = match[1].toUpperCase();
+      const num = match[2] ? parseInt(match[2], 10) : 1;
+      if (!counts[baseCode]) {
+        counts[baseCode] = 0;
+        order.push(baseCode);
+      }
+      counts[baseCode] += num;
+    } else {
+      const upperToken = token.toUpperCase();
+      if (!counts[upperToken]) {
+        counts[upperToken] = 0;
+        order.push(upperToken);
+      }
+      counts[upperToken] += 1;
+    }
+  }
+
+  return order.map(code => {
+    const count = counts[code];
+    return count > 1 ? `${code}${count}` : code;
+  }).join(", ");
+};
+
+// Helper to expand compressed string (e.g. EAR3, PR2) into array of individual item objects
+const expandItemTypeCodes = (str: string): Array<{ id: string, code: string }> => {
+  if (!str) return [];
+  const tokens = str.split(/[, ]+/).map(t => t.trim()).filter(Boolean);
+  const result: Array<{ id: string, code: string }> = [];
+
+  for (const token of tokens) {
+    const match = token.match(/^([A-Za-z]+)(\d*)$/);
+    if (match) {
+      const baseCode = match[1].toUpperCase();
+      const count = match[2] ? parseInt(match[2], 10) : 1;
+      for (let i = 0; i < count; i++) {
+        result.push({
+          id: Math.random().toString(36).substring(2, 9),
+          code: baseCode
+        });
+      }
+    } else {
+      result.push({
+        id: Math.random().toString(36).substring(2, 9),
+        code: token.toUpperCase()
+      });
+    }
+  }
+
+  return result;
+};
+
 export default function EndOfDayPage() {
   // Navigation / Tabs
   const [activeTab, setActiveTab] = useState<'reconciliation' | 'stock'>('reconciliation');
@@ -429,12 +492,8 @@ export default function EndOfDayPage() {
     setDate(item.date);
     setSelectedAddBranch(item.branch_id || "");
     
-    // Parse item_type comma-separated string into selectedItems tags
-    const codes = (item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean);
-    setSelectedItems(codes.map((code: string) => ({
-      id: Math.random().toString(36).substring(2, 9),
-      code
-    })));
+    // Parse item_type string into selectedItems tags
+    setSelectedItems(expandItemTypeCodes(item.item_type || ""));
     
     setIsEditingActive(true);
     setShowAddModal(true);
@@ -494,7 +553,7 @@ export default function EndOfDayPage() {
       price: parseFloat(price) || 0,
       weight: parseFloat(weight) || 0,
       date: date,
-      item_type: selectedItems.map(item => item.code).join(", "),
+      item_type: compressItemTypeString(selectedItems.map(item => item.code).join(", ")),
       status: 'Active',
       branch_id: targetBranch
     };
@@ -798,10 +857,20 @@ export default function EndOfDayPage() {
     }
   };
 
-  const getItemName = (code: string) => {
-    if (code === 'BLCT') return 'Biscuit (BKT)'; // Backward compatibility
-    const found = ITEM_TYPES.find(item => item.code === code);
-    return found ? found.name : code;
+  const getItemName = (codeWithCount: string) => {
+    if (!codeWithCount) return "";
+    if (codeWithCount === 'BLCT') return 'Biscuit (BKT)'; // Backward compatibility
+    
+    const match = codeWithCount.match(/^([A-Za-z]+)(\d*)$/);
+    if (match) {
+      const baseCode = match[1].toUpperCase();
+      const count = match[2] ? parseInt(match[2], 10) : 1;
+      const found = ITEM_TYPES.find(item => item.code === baseCode);
+      const name = found ? found.name : baseCode;
+      return count > 1 ? `${name} (x${count})` : name;
+    }
+    const found = ITEM_TYPES.find(item => item.code === codeWithCount.toUpperCase());
+    return found ? found.name : codeWithCount;
   };
 
   const handleExportExcel = () => {
@@ -866,7 +935,7 @@ export default function EndOfDayPage() {
         const custAddrStr = cust ? cust.address : '';
         const custAddr2Str = cust ? (cust.address_2 || '') : '';
 
-        csvLines.push(`"${item.bill_no}","${custNameStr}","${custTpStr}","${custNicStr}","${custAddrStr}","${custAddr2Str}","${formattedPrice}","${formattedWeight}","${formattedDate}","${item.item_type || ''}"`);
+        csvLines.push(`"${item.bill_no}","${custNameStr}","${custTpStr}","${custNicStr}","${custAddrStr}","${custAddr2Str}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
       });
 
       csvLines.push(`"No of Packets = ${items.length}"`);
@@ -945,7 +1014,7 @@ export default function EndOfDayPage() {
             <td style="text-align: right;">${formattedPrice}</td>
             <td style="text-align: right;">${formattedWeight}</td>
             <td style="text-align: center;">${formattedDate}</td>
-            <td style="text-align: left;">${item.item_type || ''}</td>
+            <td style="text-align: left;">${compressItemTypeString(item.item_type || '')}</td>
           </tr>
         `;
       }).join('');
@@ -1512,13 +1581,13 @@ export default function EndOfDayPage() {
                         )}
                         <TableCell className="px-6 py-4 font-bold text-slate-700 text-xs">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {(item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean).map((code: string) => (
+                            {compressItemTypeString(item.item_type || "").split(", ").map((code: string) => (
                               <span key={code} className="bg-slate-100 text-slate-800 border border-slate-200/50 font-black px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wide">
                                 {code}
                               </span>
                             ))}
                             <span className="text-slate-700 font-bold ml-1 whitespace-normal break-words">
-                              {(item.item_type || "").split(",").map((c: string) => c.trim()).filter(Boolean).map((code: string) => getItemName(code)).join(" + ")}
+                              {compressItemTypeString(item.item_type || "").split(", ").map((code: string) => getItemName(code)).join(" + ")}
                             </span>
                           </div>
                         </TableCell>
