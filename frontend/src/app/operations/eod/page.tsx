@@ -913,7 +913,7 @@ export default function EndOfDayPage() {
     activeGroups.forEach(pref => {
       const items = grouped[pref];
       csvLines.push(`"=== SECTION: ${pref} ==="`);
-      csvLines.push(`"Bill No","Customer Name","Phone (TP)","NIC","Address","Address 2","Price","Weight","Date","Items"`);
+      csvLines.push(`"Bill No","Price","Weight","Date","Items"`);
 
       items.forEach(item => {
         const d = new Date(item.date);
@@ -928,14 +928,7 @@ export default function EndOfDayPage() {
         const formattedWeight = `${g}g${mg}`;
         const formattedPrice = (parseFloat(item.price) || 0).toLocaleString();
 
-        const cust = getCustomerForBill(item.bill_no);
-        const custNameStr = cust ? cust.name : '';
-        const custTpStr = cust ? cust.tp : '';
-        const custNicStr = cust ? (cust.nic || '') : '';
-        const custAddrStr = cust ? cust.address : '';
-        const custAddr2Str = cust ? (cust.address_2 || '') : '';
-
-        csvLines.push(`"${item.bill_no}","${custNameStr}","${custTpStr}","${custNicStr}","${custAddrStr}","${custAddr2Str}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
+        csvLines.push(`"${item.bill_no}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
       });
 
       csvLines.push(`"No of Packets = ${items.length}"`);
