@@ -1250,6 +1250,8 @@ export default function ClientsPage() {
             </Button>
           </div>
         </DialogContent>
+      </Dialog>
+
       {/* MODAL: DIGITAL LOAN AGREEMENT SIGNER */}
       <Dialog open={showAgreementModal} onOpenChange={setShowAgreementModal}>
         <DialogContent className="sm:max-w-[500px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[90vh] flex flex-col">
