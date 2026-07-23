@@ -867,7 +867,7 @@ export default function EndOfDayPage() {
       const count = match[2] ? parseInt(match[2], 10) : 1;
       const found = ITEM_TYPES.find(item => item.code === baseCode);
       const name = found ? found.name : baseCode;
-      return count > 1 ? `${name} (x${count})` : name;
+      return count > 1 ? `${name} ${count}` : name;
     }
     const found = ITEM_TYPES.find(item => item.code === codeWithCount.toUpperCase());
     return found ? found.name : codeWithCount;
@@ -1927,7 +1927,7 @@ export default function EndOfDayPage() {
             {selectedItemForWithdrawal && (
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 grid grid-cols-2 gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
                 <div>Bill No: <span className="text-slate-900 font-black">{selectedItemForWithdrawal.bill_no}</span></div>
-                <div>Item: <span className="text-slate-900 font-black">{selectedItemForWithdrawal.item_type}</span></div>
+                <div>Item: <span className="text-slate-900 font-black">{compressItemTypeString(selectedItemForWithdrawal.item_type || "")}</span></div>
                 <div>Weight: <span className="text-slate-900 font-black">{parseFloat(selectedItemForWithdrawal.weight).toFixed(3)} g</span></div>
                 <div>Value: <span className="text-slate-900 font-black">Rs. {selectedItemForWithdrawal.price.toLocaleString()}</span></div>
               </div>
