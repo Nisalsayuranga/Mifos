@@ -1901,40 +1901,61 @@ export default function EndOfDayPage() {
                   </div>
                 )}
 
-                {/* Selected Tags Display */}
-                {selectedItems.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
-                    {selectedItems.map(item => {
-                      const isItem18C = item.code.toUpperCase().startsWith("18C-");
-                      const rawCode = isItem18C ? item.code.substring(4) : item.code;
-                      const found = ITEM_TYPES.find(it => it.code === rawCode);
-                      const displayName = (isItem18C ? "18C " : "") + (found ? found.name : item.code);
-                      return (
-                        <div 
-                          key={item.id}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm border",
-                            isItem18C 
-                              ? "bg-amber-50 text-amber-900 border-amber-200/70"
-                              : "bg-blue-50 text-blue-800 border-blue-200/50"
-                          )}
-                        >
-                          <span>{displayName}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(item.id)}
+                {/* Selected Tags Display (Grouped by Code with Quantity) */}
+                {selectedItems.length > 0 && (() => {
+                  const groupedMap: { [code: string]: { code: string; count: number; items: any[] } } = {};
+                  const groupOrder: string[] = [];
+
+                  selectedItems.forEach(item => {
+                    const c = item.code;
+                    if (!groupedMap[c]) {
+                      groupedMap[c] = { code: c, count: 0, items: [] };
+                      groupOrder.push(c);
+                    }
+                    groupedMap[c].count += 1;
+                    groupedMap[c].items.push(item);
+                  });
+
+                  return (
+                    <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
+                      {groupOrder.map(codeGroup => {
+                        const group = groupedMap[codeGroup];
+                        const isItem18C = group.code.toUpperCase().startsWith("18C-");
+                        const rawCode = isItem18C ? group.code.substring(4) : group.code;
+                        const found = ITEM_TYPES.find(it => it.code === rawCode);
+                        const baseName = found ? found.name : group.code;
+                        const displayName = (isItem18C ? "18C " : "") + baseName + (group.count > 1 ? ` ${group.count}` : "");
+
+                        return (
+                          <div 
+                            key={group.code}
                             className={cn(
-                              "p-0.5 rounded transition-colors",
-                              isItem18C ? "text-amber-600 hover:bg-amber-100" : "text-blue-500 hover:bg-blue-100 text-blue-700"
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm border select-none",
+                              isItem18C 
+                                ? "bg-amber-50 text-amber-900 border-amber-200/70"
+                                : "bg-blue-50 text-blue-800 border-blue-200/50"
                             )}
                           >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                            <span>{displayName}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedItems(selectedItems.filter(item => item.code !== group.code));
+                              }}
+                              className={cn(
+                                "p-0.5 rounded transition-colors cursor-pointer",
+                                isItem18C ? "text-amber-600 hover:bg-amber-100" : "text-blue-500 hover:bg-blue-100 text-blue-700"
+                              )}
+                              title={`Remove ${displayName}`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
