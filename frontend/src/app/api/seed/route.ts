@@ -18,7 +18,6 @@ const branchData = [
   { name: "Borella",      id: "BRL", email: "branch.brl@rupasinghe.com", password: "Borella123" },
   { name: "Kotikawatta",  id: "KOT", email: "branch.kot@rupasinghe.com", password: "Kotikawatta123" },
   { name: "Dematagoda",   id: "DMT", email: "branch.dmt@rupasinghe.com", password: "Dematagoda123" },
-  { name: "Wattala",      id: "WAT", email: "branch.wat@rupasinghe.com", password: "Wattala123" },
   { name: "Wattala 2",    id: "W2",  email: "branch.w2@rupasinghe.com",  password: "Wattala2123" },
   { name: "Wattala 3",    id: "W3",  email: "branch.w3@rupasinghe.com",  password: "Wattala3123" },
   { name: "Wattala 4",    id: "W4",  email: "branch.w4@rupasinghe.com",  password: "Wattala4123" },

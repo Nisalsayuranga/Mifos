@@ -22,9 +22,7 @@ $branchesToSeed = @(
     [PSCustomObject]@{ id = "KIR"; name = "Kiribathgoda" },
     [PSCustomObject]@{ id = "KOT"; name = "Kotikawatta" },
     [PSCustomObject]@{ id = "KTW"; name = "Kottawa" },
-    [PSCustomObject]@{ id = "MRG"; name = "Maharagama" },
     [PSCustomObject]@{ id = "PND"; name = "Panadura" },
-    [PSCustomObject]@{ id = "WAT"; name = "Wattala" },
     [PSCustomObject]@{ id = "HQ";  name = "Head Office" }
 )
 
@@ -49,7 +47,6 @@ $branchData = @(
     [PSCustomObject]@{ name = "Borella";      id = "BRL"; email = "branch.brl@rupasinghe.com"; password = "Borella123" },
     [PSCustomObject]@{ name = "Kotikawatta";  id = "KOT"; email = "branch.kot@rupasinghe.com"; password = "Kotikawatta123" },
     [PSCustomObject]@{ name = "Dematagoda";   id = "DMT"; email = "branch.dmt@rupasinghe.com"; password = "Dematagoda123" },
-    [PSCustomObject]@{ name = "Wattala";      id = "WAT"; email = "branch.wat@rupasinghe.com"; password = "Wattala123" },
     [PSCustomObject]@{ name = "Wattala 2";    id = "W2";  email = "branch.w2@rupasinghe.com";  password = "Wattala2123" },
     [PSCustomObject]@{ name = "Wattala 3";    id = "W3";  email = "branch.w3@rupasinghe.com";  password = "Wattala3123" },
     [PSCustomObject]@{ name = "Wattala 4";    id = "W4";  email = "branch.w4@rupasinghe.com";  password = "Wattala4123" },
