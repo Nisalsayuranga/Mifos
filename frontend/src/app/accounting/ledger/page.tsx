@@ -31,6 +31,14 @@ interface ExpenseRow {
   amount: number | string;
 }
 
+interface StaffShiftItem {
+  id: string;
+  name: string;
+  checkIn: string;
+  checkOut: string;
+  status: 'PRESENT' | 'ABSENT';
+}
+
 const BRANCHES = [
   { id: 'BRL', name: 'Borella' },
   { id: 'KOT', name: 'Kotikawatta' },
@@ -88,6 +96,41 @@ function MainLedgerContent() {
   const [userClosingBalance, setUserClosingBalance] = useState<string | number>('');
   const [actualCashCount, setActualCashCount] = useState<string | number>('');
   const [staffShift, setStaffShift] = useState('');
+
+  // Structured Staff Shifts / Attendance
+  const [shiftList, setShiftList] = useState<StaffShiftItem[]>([]);
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newCheckIn, setNewCheckIn] = useState('08:00');
+  const [newCheckOut, setNewCheckOut] = useState('17:30');
+  const [newShiftStatus, setNewShiftStatus] = useState<'PRESENT' | 'ABSENT'>('PRESENT');
+
+  const handleAddShift = () => {
+    if (!newStaffName.trim()) return;
+    const item: StaffShiftItem = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: newStaffName.trim(),
+      checkIn: newCheckIn,
+      checkOut: newCheckOut,
+      status: newShiftStatus
+    };
+    setShiftList(prev => [...prev, item]);
+    setNewStaffName('');
+  };
+
+  const handleRemoveShift = (id: string) => {
+    setShiftList(prev => prev.filter(s => s.id !== id));
+  };
+
+  const formattedShiftString = useMemo(() => {
+    return shiftList.map(s => {
+      const timeStr = `${s.checkIn}-${s.checkOut}`;
+      return s.status === 'ABSENT' ? `${s.name} (${timeStr} / AB)` : `${s.name} (${timeStr})`;
+    }).join(', ');
+  }, [shiftList]);
+
+  useEffect(() => {
+    setStaffShift(formattedShiftString);
+  }, [formattedShiftString]);
 
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
@@ -509,18 +552,94 @@ function MainLedgerContent() {
               />
             </div>
 
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-blue-600" />
-                Staff Shifts / Attendance
+            {/* Interactive Staff Shifts & Attendance Builder */}
+            <div className="space-y-3 md:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-blue-600" />
+                  Staff Shifts / Attendance (සේවක පැමිණීම)
+                </span>
+                <span className="text-[11px] font-bold text-slate-500">{shiftList.length} Staff Logged</span>
               </label>
-              <input
-                type="text"
-                placeholder="e.g. Achini (8.00-5.30), Dahami (8.00-5.30 / AB)"
-                value={staffShift}
-                onChange={(e) => setStaffShift(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-slate-900 font-medium text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-slate-400"
-              />
+
+              {/* Add Shift Control Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <div className="sm:col-span-4">
+                  <input
+                    type="text"
+                    placeholder="Staff Name (e.g. Achini, Dahami)"
+                    value={newStaffName}
+                    onChange={(e) => setNewStaffName(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-slate-500">In:</span>
+                  <input
+                    type="text"
+                    placeholder="08:00"
+                    value={newCheckIn}
+                    onChange={(e) => setNewCheckIn(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 font-mono text-center font-bold"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-slate-500">Out:</span>
+                  <input
+                    type="text"
+                    placeholder="17:30"
+                    value={newCheckOut}
+                    onChange={(e) => setNewCheckOut(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 font-mono text-center font-bold"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 flex items-center gap-1">
+                  <select
+                    value={newShiftStatus}
+                    onChange={(e: any) => setNewShiftStatus(e.target.value)}
+                    className="bg-white border border-slate-300 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-800"
+                  >
+                    <option value="PRESENT">Present</option>
+                    <option value="ABSENT">Absent (AB)</option>
+                  </select>
+                  <Button
+                    onClick={handleAddShift}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-8 px-2.5 text-xs shrink-0"
+                  >
+                    + Check-In
+                  </Button>
+                </div>
+              </div>
+
+              {/* Active Shift Log Pills */}
+              {shiftList.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                  {shiftList.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition ${
+                        s.status === 'ABSENT'
+                          ? 'bg-rose-50 border-rose-200 text-rose-800'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full inline-block bg-current" />
+                      <span>{s.name}</span>
+                      <span className="font-mono text-[11px] opacity-85">({s.checkIn} - {s.checkOut}{s.status === 'ABSENT' ? ' / AB' : ''})</span>
+                      <button
+                        onClick={() => handleRemoveShift(s.id)}
+                        className="hover:bg-slate-200/60 p-0.5 rounded-full text-slate-500 hover:text-slate-900 transition"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
