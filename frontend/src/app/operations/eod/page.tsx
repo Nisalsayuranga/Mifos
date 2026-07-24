@@ -456,7 +456,11 @@ export default function EndOfDayPage() {
         .eq('status', 'Active')
         .order('date', { ascending: false });
       if (error) throw error;
-      setOldStockItems(sortStockItems(data || []));
+      const formatted = (data || []).map(item => ({
+        ...item,
+        branch_id: item.branch_id || (item.bill_no?.toUpperCase().includes('DL') ? 'DL' : 'HQ')
+      }));
+      setOldStockItems(sortStockItems(formatted));
     } catch (err: any) {
       console.warn("Failed to load old stock items:", err);
       setOldStockItems([]);
@@ -1242,6 +1246,8 @@ export default function EndOfDayPage() {
   // Filter and search stock
   const filteredStock = stockFilter === 'OldData'
     ? oldStockItems.filter(item => {
+        const matchesBranch = !selectedBranch || selectedBranch === 'ALL' || item.branch_id === selectedBranch;
+        if (!matchesBranch) return false;
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase().trim();
         return (
@@ -1591,7 +1597,8 @@ export default function EndOfDayPage() {
               <Building2 className="w-3.5 h-3.5" /> Branch Distribution:
             </span>
             {branches.map((b: any) => {
-              const count = stockItems.filter(item => item.branch_id === b.id && item.status === stockFilter).length;
+              const currentList = stockFilter === 'OldData' ? oldStockItems : stockItems;
+              const count = currentList.filter(item => item.branch_id === b.id && (stockFilter === 'OldData' ? item.status === 'Active' : item.status === stockFilter)).length;
               return (
                 <div 
                   key={b.id}
