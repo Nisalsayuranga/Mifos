@@ -40,9 +40,9 @@ const navGroups = [
       { name: 'Customers', href: '/clients', icon: Users },
       { name: 'Pawnes', href: '/loans', icon: Wallet },
       { name: 'Accounts', href: '/savings', icon: PiggyBank },
-      { name: 'Records', href: '/accounting/ledger', icon: FileText },
-      { name: 'Ledger Entry', href: '/accounting/ledger/entry', icon: FileSpreadsheet },
-      { name: 'Ledger Matrix', href: '/accounting/ledger/matrix', icon: Layers },
+      { name: 'Records', href: '/accounting/ledger?tab=journal', icon: FileText },
+      { name: 'Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
+      { name: 'Ledger Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
     ]
   },
   {
