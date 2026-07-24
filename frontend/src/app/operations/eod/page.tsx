@@ -458,7 +458,7 @@ export default function EndOfDayPage() {
       if (error) throw error;
       const formatted = (data || []).map(item => ({
         ...item,
-        branch_id: item.branch_id || (item.bill_no?.toUpperCase().includes('DL') ? 'DL' : 'HQ')
+        branch_id: item.branch_id || 'OLD'
       }));
       setOldStockItems(sortStockItems(formatted));
     } catch (err: any) {
