@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Building2, Calendar, Calculator, CheckCircle2, AlertTriangle, 
   FileSpreadsheet, Plus, Trash2, Save, RefreshCw, ShieldCheck, UserCheck, Scale,
-  BarChart3, Layers, Download, Filter, X, FileText
+  Layers, FileText, ArrowDownRight, ArrowUpRight, DollarSign, Wallet
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -13,16 +13,18 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface TransactionRow {
-  loan_no: string;
-  cash_loan: number | string;
-  insurance_rs: number | string;
-  weight_g: number | string;
-  weight_mg: number | string;
-  item_code: string;
-  redeem_no: string;
-  interest_rs: number | string;
-  cash_received: number | string;
+interface TransactionItem {
+  id: string;
+  type: 'LOAN' | 'REDEEM';
+  billNo: string;
+  cashAmount: number;
+  insuranceRs: number;
+  weightG: number;
+  weightMg: number;
+  itemCode: string;
+  redeemNo: string;
+  interestRs: number;
+  category: 'M' | 'A' | 'R';
   remarks: string;
 }
 
@@ -87,53 +89,35 @@ function MainLedgerContent() {
   const [openingBalance, setOpeningBalance] = useState<string | number>('');
   const [transferIn, setTransferIn] = useState<string | number>('');
   const [transferOut, setTransferOut] = useState<string | number>('');
-  const [loanIssuedTotal, setLoanIssuedTotal] = useState<string | number>('');
-  const [redemptionTotal, setRedemptionTotal] = useState<string | number>('');
-  const [interestRecTotal, setInterestRecTotal] = useState<string | number>('');
   const [recoveryTotal, setRecoveryTotal] = useState<string | number>('');
-  const [insuranceTotal, setInsuranceTotal] = useState<string | number>('');
-  const [expensesTotal, setExpensesTotal] = useState<string | number>('');
   const [userClosingBalance, setUserClosingBalance] = useState<string | number>('');
-  const [actualCashCount, setActualCashCount] = useState<string | number>('');
   const [staffShift, setStaffShift] = useState('');
 
-  // Structured Staff Shifts / Attendance
+  // Structured Transactions (One by One Add)
+  const [transactionList, setTransactionList] = useState<TransactionItem[]>([]);
+  
+  // Single Entry Form Fields
+  const [txType, setTxType] = useState<'LOAN' | 'REDEEM'>('LOAN');
+  const [txBillNo, setTxBillNo] = useState('');
+  const [txCashAmount, setTxCashAmount] = useState('');
+  const [txInsuranceRs, setTxInsuranceRs] = useState('');
+  const [txWeightG, setTxWeightG] = useState('');
+  const [txWeightMg, setTxWeightMg] = useState('');
+  const [txItemCode, setTxItemCode] = useState('');
+  const [txRedeemNo, setTxRedeemNo] = useState('');
+  const [txInterestRs, setTxInterestRs] = useState('');
+  const [txCategory, setTxCategory] = useState<'M' | 'A' | 'R'>('R');
+  const [txRemarks, setTxRemarks] = useState('');
+
+  // Itemized Expenses
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+
+  // Staff Shifts
   const [shiftList, setShiftList] = useState<StaffShiftItem[]>([]);
   const [newStaffName, setNewStaffName] = useState('');
   const [newCheckIn, setNewCheckIn] = useState('08:00');
   const [newCheckOut, setNewCheckOut] = useState('17:30');
   const [newShiftStatus, setNewShiftStatus] = useState<'PRESENT' | 'ABSENT'>('PRESENT');
-
-  const handleAddShift = () => {
-    if (!newStaffName.trim()) return;
-    const item: StaffShiftItem = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: newStaffName.trim(),
-      checkIn: newCheckIn,
-      checkOut: newCheckOut,
-      status: newShiftStatus
-    };
-    setShiftList(prev => [...prev, item]);
-    setNewStaffName('');
-  };
-
-  const handleRemoveShift = (id: string) => {
-    setShiftList(prev => prev.filter(s => s.id !== id));
-  };
-
-  const formattedShiftString = useMemo(() => {
-    return shiftList.map(s => {
-      const timeStr = `${s.checkIn}-${s.checkOut}`;
-      return s.status === 'ABSENT' ? `${s.name} (${timeStr} / AB)` : `${s.name} (${timeStr})`;
-    }).join(', ');
-  }, [shiftList]);
-
-  useEffect(() => {
-    setStaffShift(formattedShiftString);
-  }, [formattedShiftString]);
-
-  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
 
   const [previousClosing, setPreviousClosing] = useState<number | null>(null);
   const [previousDate, setPreviousDate] = useState<string | null>(null);
@@ -159,6 +143,109 @@ function MainLedgerContent() {
     }
   }, []);
 
+  // Sync Staff Shift string
+  const formattedShiftString = useMemo(() => {
+    return shiftList.map(s => {
+      const timeStr = `${s.checkIn}-${s.checkOut}`;
+      return s.status === 'ABSENT' ? `${s.name} (${timeStr} / AB)` : `${s.name} (${timeStr})`;
+    }).join(', ');
+  }, [shiftList]);
+
+  useEffect(() => {
+    setStaffShift(formattedShiftString);
+  }, [formattedShiftString]);
+
+  const handleAddShift = () => {
+    if (!newStaffName.trim()) return;
+    setShiftList(prev => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(2, 9),
+        name: newStaffName.trim(),
+        checkIn: newCheckIn,
+        checkOut: newCheckOut,
+        status: newShiftStatus
+      }
+    ]);
+    setNewStaffName('');
+  };
+
+  const handleRemoveShift = (id: string) => {
+    setShiftList(prev => prev.filter(s => s.id !== id));
+  };
+
+  // Add Transaction Row (One by One)
+  const handleAddTransaction = () => {
+    if (!txBillNo.trim() && !txCashAmount) {
+      alert("Please enter at least Bill/Loan No or Amount!");
+      return;
+    }
+
+    const newItem: TransactionItem = {
+      id: Math.random().toString(36).substring(2, 9),
+      type: txType,
+      billNo: txBillNo.trim() || 'N/A',
+      cashAmount: Number(txCashAmount) || 0,
+      insuranceRs: Number(txInsuranceRs) || 0,
+      weightG: Number(txWeightG) || 0,
+      weightMg: Number(txWeightMg) || 0,
+      itemCode: txItemCode.trim().toUpperCase(),
+      redeemNo: txRedeemNo.trim(),
+      interestRs: Number(txInterestRs) || 0,
+      category: txCategory,
+      remarks: txRemarks.trim()
+    };
+
+    setTransactionList(prev => [newItem, ...prev]);
+
+    // Reset Form Fields
+    setTxBillNo('');
+    setTxCashAmount('');
+    setTxInsuranceRs('');
+    setTxWeightG('');
+    setTxWeightMg('');
+    setTxItemCode('');
+    setTxRedeemNo('');
+    setTxInterestRs('');
+    setTxRemarks('');
+  };
+
+  const handleRemoveTransaction = (id: string) => {
+    setTransactionList(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Auto-calculated Totals from Transaction List
+  const totalLoansIssued = useMemo(() => {
+    return transactionList.filter(t => t.type === 'LOAN').reduce((sum, t) => sum + t.cashAmount, 0);
+  }, [transactionList]);
+
+  const totalRedemptions = useMemo(() => {
+    return transactionList.filter(t => t.type === 'REDEEM').reduce((sum, t) => sum + t.cashAmount, 0);
+  }, [transactionList]);
+
+  const totalInterestCollected = useMemo(() => {
+    return transactionList.reduce((sum, t) => sum + t.interestRs, 0);
+  }, [transactionList]);
+
+  const totalInsuranceCollected = useMemo(() => {
+    return transactionList.reduce((sum, t) => sum + t.insuranceRs, 0);
+  }, [transactionList]);
+
+  const totalExpensesSum = useMemo(() => {
+    return expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [expenses]);
+
+  // Excel Formula Closing Balance Calculation
+  const calculatedClosing = useMemo(() => {
+    const op = Number(openingBalance) || 0;
+    const ti = Number(transferIn) || 0;
+    const to = Number(transferOut) || 0;
+    const rec = Number(recoveryTotal) || 0;
+
+    return Number((op + ti - to - totalLoansIssued + totalRedemptions + totalInterestCollected + rec + totalInsuranceCollected - totalExpensesSum).toFixed(2));
+  }, [openingBalance, transferIn, transferOut, totalLoansIssued, totalRedemptions, totalInterestCollected, recoveryTotal, totalInsuranceCollected, totalExpensesSum]);
+
+  // Fetch Ledger Data
   const fetchLedgerData = async () => {
     setLoadingLedger(true);
     setFeedback(null);
@@ -182,39 +269,41 @@ function MainLedgerContent() {
           setOpeningBalance(l.opening_balance || '');
           setTransferIn(l.transfer_in || '');
           setTransferOut(l.transfer_out || '');
-          setLoanIssuedTotal(l.loan_issued_total || '');
-          setRedemptionTotal(l.redemption_total || '');
-          setInterestRecTotal(l.interest_rec_total || '');
           setRecoveryTotal(l.recovery_total || '');
-          setInsuranceTotal(l.insurance_total || '');
-          setExpensesTotal(l.expenses_total || '');
           setUserClosingBalance(l.closing_balance || '');
-          setActualCashCount(l.actual_cash_count !== null ? l.actual_cash_count : '');
-          setStaffShift(l.staff_shift || '');
 
-          setTransactions(data.transactions || []);
+          // Map Transactions
+          if (data.transactions && Array.isArray(data.transactions)) {
+            const mapped: TransactionItem[] = data.transactions.map((t: any) => ({
+              id: t.id || Math.random().toString(),
+              type: Number(t.cash_received || 0) > 0 ? 'REDEEM' : 'LOAN',
+              billNo: t.loan_no || t.bill_no || '',
+              cashAmount: Number(t.cash_loan || t.amount || t.cash_received || 0),
+              insuranceRs: Number(t.insurance_rs || 0),
+              weightG: Number(t.weight_g || 0),
+              weightMg: Number(t.weight_mg || 0),
+              itemCode: t.item_code || '',
+              redeemNo: t.redeem_no || '',
+              interestRs: Number(t.interest_rs || 0),
+              category: (t.remarks === 'M' || t.remarks === 'A') ? t.remarks : 'R',
+              remarks: t.remarks || ''
+            }));
+            setTransactionList(mapped);
+          } else {
+            setTransactionList([]);
+          }
+
           setExpenses(data.expenses || []);
         } else {
           setCpBalance('');
           setOpeningBalance(data.previous_closing !== null ? data.previous_closing : '');
           setTransferIn('');
           setTransferOut('');
-          setLoanIssuedTotal('');
-          setRedemptionTotal('');
-          setInterestRecTotal('');
           setRecoveryTotal('');
-          setInsuranceTotal('');
-          setExpensesTotal('');
           setUserClosingBalance('');
-          setActualCashCount('');
-          setStaffShift('');
-          setTransactions([]);
+          setTransactionList([]);
           setExpenses([]);
         }
-      } else {
-        // Non-JSON response (e.g. server error HTML)
-        setPreviousClosing(null);
-        setPreviousDate(null);
       }
     } catch (err: any) {
       console.error("Fetch ledger error:", err);
@@ -229,112 +318,6 @@ function MainLedgerContent() {
     }
   }, [activeTab, selectedBranch, ledgerDate]);
 
-  const calculatedClosing = useMemo(() => {
-    const op = Number(openingBalance) || 0;
-    const ti = Number(transferIn) || 0;
-    const to = Number(transferOut) || 0;
-    const loans = Number(loanIssuedTotal) || 0;
-    const red = Number(redemptionTotal) || 0;
-    const int = Number(interestRecTotal) || 0;
-    const rec = Number(recoveryTotal) || 0;
-    const ins = Number(insuranceTotal) || 0;
-    const exp = Number(expensesTotal) || 0;
-
-    return Number((op + ti - to - loans + red + int + rec + ins - exp).toFixed(2));
-  }, [openingBalance, transferIn, transferOut, loanIssuedTotal, redemptionTotal, interestRecTotal, recoveryTotal, insuranceTotal, expensesTotal]);
-
-  const userClosingNum = Number(userClosingBalance) || 0;
-  const isMathBalanced = Math.abs(userClosingNum - calculatedClosing) < 0.01;
-  const mathDiff = Number((userClosingNum - calculatedClosing).toFixed(2));
-
-  const isContinuityMismatch = useMemo(() => {
-    if (previousClosing === null) return false;
-    const op = Number(openingBalance) || 0;
-    return Math.abs(op - previousClosing) > 0.01;
-  }, [openingBalance, previousClosing]);
-
-  const detailedExpensesSum = useMemo(() => {
-    return expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  }, [expenses]);
-
-  // Auto sum detailed transaction table into summary figures
-  const detailedLoansSum = useMemo(() => {
-    return transactions.reduce((sum, t) => sum + (Number(t.cash_loan) || 0), 0);
-  }, [transactions]);
-
-  const detailedRedemptionsSum = useMemo(() => {
-    return transactions.reduce((sum, t) => sum + (Number(t.cash_received) || 0), 0);
-  }, [transactions]);
-
-  const detailedInterestSum = useMemo(() => {
-    return transactions.reduce((sum, t) => sum + (Number(t.interest_rs) || 0), 0);
-  }, [transactions]);
-
-  const detailedInsuranceSum = useMemo(() => {
-    return transactions.reduce((sum, t) => sum + (Number(t.insurance_rs) || 0), 0);
-  }, [transactions]);
-
-  useEffect(() => {
-    if (expenses.length > 0) {
-      setExpensesTotal(detailedExpensesSum);
-    }
-  }, [detailedExpensesSum, expenses.length]);
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      if (detailedLoansSum > 0) setLoanIssuedTotal(detailedLoansSum);
-      if (detailedRedemptionsSum > 0) setRedemptionTotal(detailedRedemptionsSum);
-      if (detailedInterestSum > 0) setInterestRecTotal(detailedInterestSum);
-      if (detailedInsuranceSum > 0) setInsuranceTotal(detailedInsuranceSum);
-    }
-  }, [detailedLoansSum, detailedRedemptionsSum, detailedInterestSum, detailedInsuranceSum, transactions.length]);
-
-  const addTransactionRow = () => {
-    setTransactions(prev => [
-      ...prev,
-      {
-        loan_no: '',
-        cash_loan: '',
-        insurance_rs: '',
-        weight_g: '',
-        weight_mg: '',
-        item_code: '',
-        redeem_no: '',
-        interest_rs: '',
-        cash_received: '',
-        remarks: ''
-      }
-    ]);
-  };
-
-  const removeTransactionRow = (index: number) => {
-    setTransactions(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateTransactionRow = (index: number, field: keyof TransactionRow, val: any) => {
-    setTransactions(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: val };
-      return updated;
-    });
-  };
-
-  const addExpenseRow = () => {
-    setExpenses(prev => [...prev, { description: '', amount: '' }]);
-  };
-
-  const removeExpenseRow = (index: number) => {
-    setExpenses(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateExpenseRow = (index: number, field: keyof ExpenseRow, val: any) => {
-    setExpenses(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: val };
-      return updated;
-    });
-  };
-
   const handleSaveLedger = async () => {
     setSavingLedger(true);
     setFeedback(null);
@@ -346,18 +329,28 @@ function MainLedgerContent() {
       opening_balance: openingBalance,
       transfer_in: transferIn,
       transfer_out: transferOut,
-      loan_issued_total: loanIssuedTotal,
-      redemption_total: redemptionTotal,
-      interest_rec_total: interestRecTotal,
+      loan_issued_total: totalLoansIssued,
+      redemption_total: totalRedemptions,
+      interest_rec_total: totalInterestCollected,
       recovery_total: recoveryTotal,
-      insurance_total: insuranceTotal,
-      expenses_total: expensesTotal,
-      closing_balance: userClosingBalance,
-      actual_cash_count: actualCashCount !== '' ? actualCashCount : null,
+      insurance_total: totalInsuranceCollected,
+      expenses_total: totalExpensesSum,
+      closing_balance: userClosingBalance || calculatedClosing,
       staff_shift: staffShift,
       created_by: currentUser?.email || 'Teller',
-      status: isMathBalanced ? 'APPROVED' : 'FLAGGED',
-      transactions,
+      status: 'APPROVED',
+      transactions: transactionList.map(t => ({
+        loan_no: t.billNo,
+        cash_loan: t.type === 'LOAN' ? t.cashAmount : 0,
+        insurance_rs: t.insuranceRs,
+        weight_g: t.weightG,
+        weight_mg: t.weightMg,
+        item_code: t.itemCode,
+        redeem_no: t.redeemNo,
+        interest_rs: t.interestRs,
+        cash_received: t.type === 'REDEEM' ? t.cashAmount : 0,
+        remarks: t.remarks || t.category
+      })),
       expenses
     };
 
@@ -372,17 +365,10 @@ function MainLedgerContent() {
       if (data.error) {
         setFeedback({ type: 'error', message: data.error });
       } else {
-        if (data.math_status === 'MISMATCH') {
-          setFeedback({
-            type: 'warning',
-            message: `Ledger saved as FLAGGED! Manual Closing differs from Calculated Closing by LKR ${data.math_mismatch_amount}`
-          });
-        } else {
-          setFeedback({
-            type: 'success',
-            message: `Daily Ledger for ${selectedBranch} on ${ledgerDate} saved successfully with 100% Math Balance!`
-          });
-        }
+        setFeedback({
+          type: 'success',
+          message: `Daily Ledger for ${selectedBranch} on ${ledgerDate} updated and saved successfully!`
+        });
         fetchLedgerData();
       }
     } catch (err: any) {
@@ -390,6 +376,17 @@ function MainLedgerContent() {
     } finally {
       setSavingLedger(false);
     }
+  };
+
+  // Expense Handlers
+  const addExpenseRow = () => setExpenses(prev => [...prev, { description: '', amount: '' }]);
+  const removeExpenseRow = (idx: number) => setExpenses(prev => prev.filter((_, i) => i !== idx));
+  const updateExpenseRow = (idx: number, field: keyof ExpenseRow, val: any) => {
+    setExpenses(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: val };
+      return updated;
+    });
   };
 
   // ==========================================
@@ -409,9 +406,8 @@ function MainLedgerContent() {
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (data.error) {
-          setMatrixError(data.error);
-        } else {
+        if (data.error) setMatrixError(data.error);
+        else {
           setMatrixBranches(data.branches || []);
           setMatrixData(data.matrix || {});
         }
@@ -424,9 +420,7 @@ function MainLedgerContent() {
   };
 
   useEffect(() => {
-    if (activeTab === 'matrix') {
-      fetchMatrix();
-    }
+    if (activeTab === 'matrix') fetchMatrix();
   }, [activeTab, selectedYear]);
 
   const grandTotalEntered = Object.values(matrixData).reduce((sum, b: any) => sum + (b.total_entered || 0), 0);
@@ -437,11 +431,6 @@ function MainLedgerContent() {
   // ==========================================
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [loadingJournal, setLoadingJournal] = useState(false);
-  const [showAddJournalModal, setShowAddJournalModal] = useState(false);
-  const [filterJournalDate, setFilterJournalDate] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [newRef, setNewRef] = useState("");
-  const [lines, setLines] = useState([{ account: "", debit: "", credit: "" }, { account: "", debit: "", credit: "" }]);
 
   const loadJournalEntries = async () => {
     setLoadingJournal(true);
@@ -456,49 +445,8 @@ function MainLedgerContent() {
   };
 
   useEffect(() => {
-    if (activeTab === 'journal') {
-      loadJournalEntries();
-    }
+    if (activeTab === 'journal') loadJournalEntries();
   }, [activeTab]);
-
-  const handleAddJournalLine = () => setLines([...lines, { account: "", debit: "", credit: "" }]);
-  
-  const updateJournalLine = (index: number, field: string, value: string) => {
-    const newLines = [...lines];
-    newLines[index] = { ...newLines[index], [field]: value };
-    setLines(newLines);
-  };
-
-  const handleJournalSubmit = async () => {
-    try {
-      const res = await fetch('/api/ledger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: new Date().toISOString().split('T')[0],
-          description: newDesc,
-          reference: newRef,
-          entries: lines
-        })
-      });
-      if (res.ok) {
-        setShowAddJournalModal(false);
-        setNewDesc(""); setNewRef("");
-        setLines([{ account: "", debit: "", credit: "" }, { account: "", debit: "", credit: "" }]);
-        loadJournalEntries();
-      } else {
-        const errorData = await res.json();
-        alert("Transaction Failed: " + errorData.error);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("System Error");
-    }
-  };
-
-  const filteredJournalEntries = filterJournalDate ? journalEntries.filter(e => e.date === filterJournalDate) : journalEntries;
-  const totalJournalDebit = filteredJournalEntries.reduce((sum, e) => sum + parseFloat(e.total_debit || 0), 0);
-  const totalJournalCredit = filteredJournalEntries.reduce((sum, e) => sum + parseFloat(e.total_credit || 0), 0);
 
   const handleTabSwitch = (tab: 'entry' | 'matrix' | 'journal') => {
     setActiveTab(tab);
@@ -508,37 +456,33 @@ function MainLedgerContent() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20">
       
-      {/* Crisp White Header Bar matching Mifos Design System */}
+      {/* Header Bar */}
       <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
             <FileSpreadsheet className="w-8 h-8 text-blue-600" />
-            Pawning Ledger & Audit System
+            Daily Transaction Ledger & Summary
           </h1>
           <p className="text-slate-500 font-medium text-sm mt-1">
-            Manage multi-branch daily paper log records, 11-branch completion matrix, and general journal logs.
+            Excel-Style Pawning Daily Financial Entry & Automatic Cash Flow Calculator
           </p>
         </div>
 
-        {/* Clean Light Tab Switcher Pills */}
+        {/* Tab Switcher Pills */}
         <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-full md:w-auto overflow-x-auto">
           <button
             onClick={() => handleTabSwitch('entry')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
-              activeTab === 'entry'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              activeTab === 'entry' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Daily Ledger Entry
+            Daily Entry Sheet
           </button>
           <button
             onClick={() => handleTabSwitch('matrix')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
-              activeTab === 'matrix'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              activeTab === 'matrix' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
             <Layers className="w-4 h-4" />
@@ -547,9 +491,7 @@ function MainLedgerContent() {
           <button
             onClick={() => handleTabSwitch('journal')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
-              activeTab === 'journal'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              activeTab === 'journal' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -559,7 +501,7 @@ function MainLedgerContent() {
       </div>
 
       {/* ========================================== */}
-      {/* TAB 1: DAILY LEDGER ENTRY CONTENT          */}
+      {/* TAB 1: DAILY LEDGER ENTRY SHEET CONTENT    */}
       {/* ========================================== */}
       {activeTab === 'entry' && (
         <div className="space-y-6">
@@ -574,18 +516,18 @@ function MainLedgerContent() {
             </div>
           )}
 
-          {/* Clean Controls Card */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
-            <div className="space-y-1.5">
+          {/* Top Bar Controls: Branch & Date & CP & Attendance */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-white border border-slate-200 p-5 rounded-xl shadow-sm items-end">
+            <div className="md:col-span-3 space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Building2 className="w-4 h-4 text-blue-600" />
-                Branch Selection
+                Branch
               </label>
               <select
                 value={selectedBranch}
                 onChange={(e) => setSelectedBranch(e.target.value)}
                 disabled={!isHqUser}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-75"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-75"
               >
                 {BRANCHES.map(b => (
                   <option key={b.id} value={b.id}>
@@ -595,7 +537,7 @@ function MainLedgerContent() {
               </select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="md:col-span-3 space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-blue-600" />
                 Ledger Date
@@ -604,558 +546,415 @@ function MainLedgerContent() {
                 type="date"
                 value={ledgerDate}
                 onChange={(e) => setLedgerDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
 
-            {/* Interactive Staff Shifts & Attendance Builder */}
-            <div className="space-y-3 md:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <UserCheck className="w-4 h-4 text-blue-600" />
-                  Staff Shifts / Attendance (සේවක පැමිණීම)
-                </span>
-                <span className="text-[11px] font-bold text-slate-500">{shiftList.length} Staff Logged</span>
+            <div className="md:col-span-2 space-y-1.5">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={cpBalance}
+                onChange={(e) => setCpBalance(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm text-right"
+              />
+            </div>
+
+            <div className="md:col-span-4 space-y-1.5">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-blue-600" />
+                Staff Attendance
               </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Staff Name"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900"
+                />
+                <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs px-3">
+                  + Add Staff
+                </Button>
+              </div>
+            </div>
 
-              {/* Add Shift Control Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                <div className="sm:col-span-4">
-                  <input
-                    type="text"
-                    placeholder="Staff Name (e.g. Achini, Dahami)"
-                    value={newStaffName}
-                    onChange={(e) => setNewStaffName(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
+            {shiftList.length > 0 && (
+              <div className="md:col-span-12 flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                {shiftList.map(s => (
+                  <span key={s.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-full text-xs font-bold">
+                    <span>{s.name} ({s.checkIn}-{s.checkOut})</span>
+                    <button onClick={() => handleRemoveShift(s.id)} className="text-slate-400 hover:text-slate-800">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
-                <div className="sm:col-span-3 flex items-center gap-1">
-                  <span className="text-[10px] font-bold text-slate-500">In:</span>
-                  <input
-                    type="text"
-                    placeholder="08:00"
-                    value={newCheckIn}
-                    onChange={(e) => setNewCheckIn(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 font-mono text-center font-bold"
-                  />
-                </div>
+          {/* SECTION 1: ONE-BY-ONE TRANSACTION ADDITION FORM (EXCEL STYLE) */}
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-blue-600" />
+                  Add Loan or Redemption Bill (එක් එක් ගනුදෙනුව එකතු කරන්න)
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Select transaction type, enter bill details and click &quot;+ Add Transaction Row&quot;
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <button
+                  onClick={() => setTxType('LOAN')}
+                  className={`px-3 py-1.5 rounded-md font-bold text-xs transition ${
+                    txType === 'LOAN' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Loan Issued (ණය)
+                </button>
+                <button
+                  onClick={() => setTxType('REDEEM')}
+                  className={`px-3 py-1.5 rounded-md font-bold text-xs transition ${
+                    txType === 'REDEEM' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Redemption (බේරුම්)
+                </button>
+              </div>
+            </div>
 
-                <div className="sm:col-span-3 flex items-center gap-1">
-                  <span className="text-[10px] font-bold text-slate-500">Out:</span>
-                  <input
-                    type="text"
-                    placeholder="17:30"
-                    value={newCheckOut}
-                    onChange={(e) => setNewCheckOut(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 font-mono text-center font-bold"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 flex items-center gap-1">
-                  <select
-                    value={newShiftStatus}
-                    onChange={(e: any) => setNewShiftStatus(e.target.value)}
-                    className="bg-white border border-slate-300 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-800"
-                  >
-                    <option value="PRESENT">Present</option>
-                    <option value="ABSENT">Absent (AB)</option>
-                  </select>
-                  <Button
-                    onClick={handleAddShift}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-8 px-2.5 text-xs shrink-0"
-                  >
-                    + Check-In
-                  </Button>
-                </div>
+            {/* Input Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-12 gap-3 items-end bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Bill / Loan No</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1R 256"
+                  value={txBillNo}
+                  onChange={(e) => setTxBillNo(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900"
+                />
               </div>
 
-              {/* Active Shift Log Pills */}
-              {shiftList.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
-                  {shiftList.map((s) => (
-                    <span
-                      key={s.id}
-                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition ${
-                        s.status === 'ABSENT'
-                          ? 'bg-rose-50 border-rose-200 text-rose-800'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full inline-block bg-current" />
-                      <span>{s.name}</span>
-                      <span className="font-mono text-[11px] opacity-85">({s.checkIn} - {s.checkOut}{s.status === 'ABSENT' ? ' / AB' : ''})</span>
-                      <button
-                        onClick={() => handleRemoveShift(s.id)}
-                        className="hover:bg-slate-200/60 p-0.5 rounded-full text-slate-500 hover:text-slate-900 transition"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ))}
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">
+                  {txType === 'LOAN' ? 'Cash Loan (LKR)' : 'Redeem Cash (LKR)'}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={txCashAmount}
+                  onChange={(e) => setTxCashAmount(e.target.value)}
+                  className={`w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-right ${
+                    txType === 'LOAN' ? 'text-rose-700' : 'text-emerald-700'
+                  }`}
+                />
+              </div>
+
+              <div className="md:col-span-1 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Insurance</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  value={txInsuranceRs}
+                  onChange={(e) => setTxInsuranceRs(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-mono font-bold text-right text-emerald-700"
+                />
+              </div>
+
+              <div className="md:col-span-1 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Weight g</label>
+                <input
+                  type="number"
+                  placeholder="25"
+                  value={txWeightG}
+                  onChange={(e) => setTxWeightG(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-center text-slate-900"
+                />
+              </div>
+
+              <div className="md:col-span-1 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Weight mg</label>
+                <input
+                  type="number"
+                  placeholder="060"
+                  value={txWeightMg}
+                  onChange={(e) => setTxWeightMg(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-center text-slate-800"
+                />
+              </div>
+
+              <div className="md:col-span-1 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Code</label>
+                <input
+                  type="text"
+                  placeholder="CH"
+                  value={txItemCode}
+                  onChange={(e) => setTxItemCode(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-center uppercase text-slate-900"
+                />
+              </div>
+
+              {txType === 'REDEEM' && (
+                <div className="md:col-span-1 space-y-1">
+                  <label className="text-[11px] font-extrabold text-slate-700 uppercase">Interest Rs</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="1641.26"
+                    value={txInterestRs}
+                    onChange={(e) => setTxInterestRs(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-mono font-bold text-right text-emerald-700"
+                  />
+                </div>
+              )}
+
+              <div className="md:col-span-1 space-y-1">
+                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Category</label>
+                <select
+                  value={txCategory}
+                  onChange={(e: any) => setTxCategory(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-slate-900"
+                >
+                  <option value="R">R (Regular)</option>
+                  <option value="M">M (Main)</option>
+                  <option value="A">A (Additional)</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <Button
+                  onClick={handleAddTransaction}
+                  className={`w-full font-bold h-9 text-xs gap-1.5 text-white ${
+                    txType === 'LOAN' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  + Add {txType === 'LOAN' ? 'Loan' : 'Redeem'}
+                </Button>
+              </div>
+            </div>
+
+            {/* SECTION 2: ADDED TRANSACTIONS TABLE (MATCHES EXCEL SHEET) */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-blue-600" />
+                  Daily Transactions Log Sheet ({transactionList.length} Items Added)
+                </h3>
+              </div>
+
+              {transactionList.length === 0 ? (
+                <div className="p-8 border border-dashed border-slate-300 rounded-xl text-center bg-slate-50/50">
+                  <p className="text-sm font-bold text-slate-600">No transactions added for {ledgerDate} yet.</p>
+                  <p className="text-xs text-slate-400 mt-1">Use the form above to add loans and redemptions one by one.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Loan / Bill No</th>
+                        <th className="py-2.5 px-3 text-right">Cash Loan (LKR)</th>
+                        <th className="py-2.5 px-3 text-right">Insurance (LKR)</th>
+                        <th className="py-2.5 px-3 text-center">Weight</th>
+                        <th className="py-2.5 px-3 text-center">Code</th>
+                        <th className="py-2.5 px-3 text-right">Interest (LKR)</th>
+                        <th className="py-2.5 px-3 text-right">Cash Redeem (LKR)</th>
+                        <th className="py-2.5 px-3 text-center">Category</th>
+                        <th className="py-2.5 px-3 w-[50px] text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 font-medium">
+                      {transactionList.map((t) => (
+                        <tr key={t.id} className="hover:bg-slate-50 transition">
+                          <td className="py-2.5 px-3">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
+                              t.type === 'LOAN' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {t.type}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{t.billNo}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-700">
+                            {t.type === 'LOAN' ? `LKR ${t.cashAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                            {t.insuranceRs > 0 ? `LKR ${t.insuranceRs.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-800">
+                            {t.weightG > 0 || t.weightMg > 0 ? `${t.weightG}g ${t.weightMg}mg` : '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-900 uppercase">{t.itemCode || '-'}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                            {t.interestRs > 0 ? `LKR ${t.interestRs.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                            {t.type === 'REDEEM' ? `LKR ${t.cashAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-800">{t.category}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button onClick={() => handleRemoveTransaction(t.id)} className="text-rose-600 hover:bg-rose-50 p-1 rounded">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-100 font-black font-mono text-xs border-t-2 border-slate-300">
+                        <td colSpan={2} className="py-3 px-3 uppercase text-slate-800">EXCEL TOTALS:</td>
+                        <td className="py-3 px-3 text-right text-rose-700">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3 px-3 text-right text-emerald-700">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td colSpan={2}></td>
+                        <td className="py-3 px-3 text-right text-emerald-700">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3 px-3 text-right text-emerald-700">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Top Paper Ledger Transactions Sheet (Red Circled Section) */}
-          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-blue-600" />
-                  Daily Paper Transactions Log (ඉහළ ගනුදෙනු ලැයිස්තුව Grid)
-                </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Enter individual loans issued, redemptions, weights, codes & interest items as written in top red section of ledger book.
-                </p>
-              </div>
-              <Button
-                onClick={addTransactionRow}
-                variant="outline"
-                className="font-bold text-xs gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
-              >
-                <Plus className="w-4 h-4 text-blue-600" />
-                + Add Transaction Bill Line
-              </Button>
-            </div>
-
-            {transactions.length === 0 ? (
-              <div className="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-center">
-                <p className="text-xs text-slate-500 font-medium">No individual transaction bills entered yet.</p>
-                <p className="text-[11px] text-slate-400">Click &quot;+ Add Transaction Bill Line&quot; to enter Loan No, Cash, Weight, Redeem No, Interest & Insurance.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
-                      <th className="py-2.5 px-2 min-w-[90px]">Loan No</th>
-                      <th className="py-2.5 px-2 min-w-[100px] text-right">Cash (Loan)</th>
-                      <th className="py-2.5 px-2 min-w-[80px] text-right">Insurance</th>
-                      <th className="py-2.5 px-2 min-w-[70px] text-center">Weight g</th>
-                      <th className="py-2.5 px-2 min-w-[70px] text-center">Weight mg</th>
-                      <th className="py-2.5 px-2 min-w-[70px] text-center">Code</th>
-                      <th className="py-2.5 px-2 min-w-[90px]">Redeem No</th>
-                      <th className="py-2.5 px-2 min-w-[100px] text-right">Interest Rs</th>
-                      <th className="py-2.5 px-2 min-w-[100px] text-right">Cash (Redeem)</th>
-                      <th className="py-2.5 px-2 min-w-[70px] text-center">Type</th>
-                      <th className="py-2.5 px-2 w-[40px]"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {transactions.map((t, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition">
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="text"
-                            placeholder="e.g. 1R 256"
-                            value={t.loan_no}
-                            onChange={(e) => updateTransactionRow(idx, 'loan_no', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="23590"
-                            value={t.cash_loan}
-                            onChange={(e) => updateTransactionRow(idx, 'cash_loan', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-rose-700"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0"
-                            value={t.insurance_rs}
-                            onChange={(e) => updateTransactionRow(idx, 'insurance_rs', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="number"
-                            placeholder="25"
-                            value={t.weight_g}
-                            onChange={(e) => updateTransactionRow(idx, 'weight_g', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-900"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="number"
-                            placeholder="060"
-                            value={t.weight_mg}
-                            onChange={(e) => updateTransactionRow(idx, 'weight_mg', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center text-xs text-slate-800"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="text"
-                            placeholder="CH"
-                            value={t.item_code}
-                            onChange={(e) => updateTransactionRow(idx, 'item_code', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs uppercase text-slate-900"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="text"
-                            placeholder="1R 175"
-                            value={t.redeem_no}
-                            onChange={(e) => updateTransactionRow(idx, 'redeem_no', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="1641.26"
-                            value={t.interest_rs}
-                            onChange={(e) => updateTransactionRow(idx, 'interest_rs', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="32825"
-                            value={t.cash_received}
-                            onChange={(e) => updateTransactionRow(idx, 'cash_received', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
-                          />
-                        </td>
-                        <td className="py-2 px-1.5">
-                          <input
-                            type="text"
-                            placeholder="R"
-                            value={t.remarks}
-                            onChange={(e) => updateTransactionRow(idx, 'remarks', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-800"
-                          />
-                        </td>
-                        <td className="py-2 px-1 text-center">
-                          <button
-                            onClick={() => removeTransactionRow(idx)}
-                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-100 font-extrabold font-mono text-xs border-t-2 border-slate-300">
-                      <td className="py-2 px-2 uppercase text-slate-700">TOTALS:</td>
-                      <td className="py-2 px-2 text-right text-rose-700">LKR {detailedLoansSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-2 px-2 text-right text-emerald-700">LKR {detailedInsuranceSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td colSpan={4} className="py-2 px-2 text-center text-slate-500 font-normal">Auto-summed to summary box below ↓</td>
-                      <td className="py-2 px-2 text-right text-emerald-700">LKR {detailedInterestSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-2 px-2 text-right text-emerald-700">LKR {detailedRedemptionsSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                      <td colSpan={2}></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
-
+          {/* SECTION 3: AUTOMATIC DAILY CASH SUMMARY & CATEGORY BREAKDOWN (EXCEL FORMULA CARD) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Side: Paper Ledger Form */}
-            <div className="lg:col-span-8 bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                  <Calculator className="w-5 h-5 text-blue-600" />
-                  Daily Cash Ledger Figures
-                </h2>
-                <div className="flex items-center gap-2 text-xs text-slate-600 font-mono">
-                  <span className="font-bold">CP Balance:</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={cpBalance}
-                    onChange={(e) => setCpBalance(e.target.value)}
-                    className="w-32 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-slate-900 font-bold text-right"
-                  />
-                </div>
-              </div>
+            <div className="lg:col-span-7 bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-3">
+                <Calculator className="w-5 h-5 text-blue-600" />
+                Daily Cash Summary (දිනපතා මුදල් සාරාංශය)
+              </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center text-xs text-slate-700 font-bold uppercase">
-                    <span>Opening Balance (ආරම්භක)</span>
-                    {previousClosing !== null && (
-                      <span className="text-slate-500 text-[10px]">Prev: LKR {previousClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                    )}
-                  </div>
+              <div className="space-y-2 text-xs font-bold">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                  <span className="text-slate-700">Opening Balance (ආරම්භක ශේෂය):</span>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
                     value={openingBalance}
                     onChange={(e) => setOpeningBalance(e.target.value)}
-                    className={`w-full bg-slate-50 border rounded-lg px-3.5 py-2 text-slate-900 font-bold text-right text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                      isContinuityMismatch ? 'border-amber-500 text-amber-900 bg-amber-50/50' : 'border-slate-300'
-                    }`}
+                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-slate-900"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs text-emerald-700 font-extrabold uppercase">Transfer In (+)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={transferIn}
-                      onChange={(e) => setTransferIn(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-emerald-700 font-bold text-right focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-rose-700 font-extrabold uppercase">Transfer Out (-)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={transferOut}
-                      onChange={(e) => setTransferOut(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-rose-700 font-bold text-right focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs text-rose-700 font-extrabold uppercase">Loans Issued Total (-)</label>
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                  <span className="text-emerald-700">Transfer In (+):</span>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
-                    value={loanIssuedTotal}
-                    onChange={(e) => setLoanIssuedTotal(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-rose-700 font-bold text-right text-lg focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                    value={transferIn}
+                    onChange={(e) => setTransferIn(e.target.value)}
+                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-emerald-700"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs text-emerald-700 font-extrabold uppercase">Redemptions Total (+)</label>
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                  <span className="text-rose-700">Transfer Out (-):</span>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
-                    value={redemptionTotal}
-                    onChange={(e) => setRedemptionTotal(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-emerald-700 font-bold text-right text-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    value={transferOut}
+                    onChange={(e) => setTransferOut(e.target.value)}
+                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-rose-700"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs text-emerald-700 font-extrabold uppercase">Interest Rec: Int (+)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={interestRecTotal}
-                    onChange={(e) => setInterestRecTotal(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-emerald-700 font-bold text-right focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                <div className="flex justify-between items-center p-2.5 bg-rose-50/50 rounded-lg border border-rose-200 text-rose-900">
+                  <span>Loan Issued Total (-) [Auto-Summed]:</span>
+                  <span className="font-mono text-sm">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs text-emerald-700 font-extrabold uppercase">Recovery Total (+)</label>
+                <div className="flex justify-between items-center p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-200 text-emerald-900">
+                  <span>Redemption Total (+) [Auto-Summed]:</span>
+                  <span className="font-mono text-sm">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between items-center p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-200 text-emerald-900">
+                  <span>Rec: Interest Total (+) [Auto-Summed]:</span>
+                  <span className="font-mono text-sm">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                  <span className="text-emerald-700">Recovery Total (+):</span>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
                     value={recoveryTotal}
                     onChange={(e) => setRecoveryTotal(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-emerald-700 font-bold text-right focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-emerald-700"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs text-emerald-700 font-extrabold uppercase">Insurance Total (+)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={insuranceTotal}
-                    onChange={(e) => setInsuranceTotal(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-emerald-700 font-bold text-right focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                <div className="flex justify-between items-center p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-200 text-emerald-900">
+                  <span>Insurance Rec (+) [Auto-Summed]:</span>
+                  <span className="font-mono text-sm">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs text-rose-700 font-extrabold uppercase">Daily Expenses Total (-)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={expensesTotal}
-                    onChange={(e) => setExpensesTotal(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-rose-700 font-bold text-right focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                  />
+                <div className="flex justify-between items-center p-2.5 bg-rose-50/50 rounded-lg border border-rose-200 text-rose-900">
+                  <span>Expenses Total (-) [Itemized Below]:</span>
+                  <span className="font-mono text-sm">LKR {totalExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="space-y-1 border-t border-slate-200 pt-3 md:col-span-2">
-                  <div className="flex justify-between items-center text-xs font-bold uppercase text-slate-700">
-                    <span>Closing Balance (ලෙජර් අවසාන ශේෂය)</span>
-                    <span className="text-blue-700 text-[11px] font-mono">Formula Result: LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={userClosingBalance}
-                    onChange={(e) => setUserClosingBalance(e.target.value)}
-                    className={`w-full border rounded-lg px-4 py-2.5 text-right text-xl font-black focus:ring-2 focus:outline-none ${
-                      userClosingBalance !== '' && !isMathBalanced
-                        ? 'bg-rose-50 border-rose-500 text-rose-900 focus:ring-rose-500'
-                        : 'bg-emerald-50/50 border-emerald-500 text-emerald-900 focus:ring-emerald-500'
-                    }`}
-                  />
+                <div className="flex justify-between items-center p-3.5 bg-emerald-100/70 border-2 border-emerald-400 rounded-xl text-emerald-950 text-base font-black">
+                  <span>Closing Balance (අවසාන ශේෂය):</span>
+                  <span className="font-mono text-lg">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="pt-2">
                 <Button
                   onClick={handleSaveLedger}
                   disabled={savingLedger || loadingLedger}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 px-6 gap-2"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 text-sm gap-2"
                 >
                   <Save className="w-5 h-5" />
-                  {savingLedger ? 'Saving...' : 'Save & Verify Ledger'}
+                  {savingLedger ? 'Updating & Saving...' : 'Update & Save Ledger for ' + ledgerDate}
                 </Button>
               </div>
             </div>
 
-            {/* Right Side: Clean Verification Engine Card */}
-            <div className="lg:col-span-4 space-y-6">
-              <div className={`p-6 rounded-xl border shadow-sm transition-all ${
-                userClosingBalance === ''
-                  ? 'bg-white border-slate-200 text-slate-700'
-                  : isMathBalanced
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-                  : 'bg-rose-50 border-rose-300 text-rose-950'
-              }`}>
-                <div className="flex items-center gap-3 border-b border-current/20 pb-4 mb-4">
-                  <ShieldCheck className="w-8 h-8 shrink-0" />
-                  <div>
-                    <h3 className="font-black text-base tracking-tight uppercase">
-                      {userClosingBalance === '' ? 'Awaiting Input' : isMathBalanced ? '100% Math Balanced' : 'Math Mismatch Alert'}
-                    </h3>
-                    <p className="text-xs opacity-80">Automatic Ledger Formula Verification</p>
-                  </div>
+            {/* Itemized Expenses & Category Breakdown Column */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Itemized Expenses (වියදම්)</h4>
+                  <Button onClick={addExpenseRow} variant="outline" size="sm" className="h-7 text-xs font-bold">+ Add Expense</Button>
                 </div>
 
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center font-mono">
-                    <span className="opacity-75 font-semibold">Calculated Closing:</span>
-                    <span className="font-bold text-base">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center font-mono">
-                    <span className="opacity-75 font-semibold">Entered Closing:</span>
-                    <span className="font-bold text-base">LKR {userClosingNum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                  </div>
-
-                  <div className="border-t border-current/20 pt-3 flex justify-between items-center font-bold">
-                    <span>Formula Discrepancy:</span>
-                    <span className={`text-base font-mono ${isMathBalanced ? 'text-emerald-700' : 'text-rose-700 underline'}`}>
-                      LKR {mathDiff.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-3">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Scale className="w-4 h-4 text-blue-600" />
-                  Date Continuity Verification
-                </h4>
-                {previousClosing !== null ? (
-                  <div className="text-xs space-y-2">
-                    <div className="flex justify-between text-slate-700">
-                      <span>Last Recorded Date ({previousDate}):</span>
-                      <span className="font-mono font-bold">LKR {previousClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    {isContinuityMismatch ? (
-                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 flex items-center gap-2 font-semibold">
-                        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
-                        <span>Opening balance differs from previous closing balance!</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 flex items-center gap-2 font-semibold">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                        <span>Opening balance matches previous day closing!</span>
-                      </div>
-                    )}
-                  </div>
+                {expenses.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No expenses added.</p>
                 ) : (
-                  <p className="text-xs text-slate-500 italic">No previous ledger entry found for continuity check.</p>
+                  <div className="space-y-2">
+                    {expenses.map((exp, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Tea, Cleaning, etc."
+                          value={exp.description}
+                          onChange={(e) => updateExpenseRow(idx, 'description', e.target.value)}
+                          className="flex-1 bg-slate-50 border rounded px-2.5 py-1 text-xs font-bold text-slate-900"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Amount"
+                          value={exp.amount}
+                          onChange={(e) => updateExpenseRow(idx, 'amount', e.target.value)}
+                          className="w-24 bg-slate-50 border rounded px-2 py-1 text-xs font-bold text-right"
+                        />
+                        <button onClick={() => removeExpenseRow(idx)} className="text-rose-600">×</button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-black text-slate-800">Daily Expenses Itemization (දිනපතා වියදම් ලැයිස්තුව)</h3>
-                <p className="text-xs text-slate-500 font-medium">Specify tea, garbage bags, stationary and other daily shop expenses.</p>
-              </div>
-              <Button
-                onClick={addExpenseRow}
-                variant="outline"
-                className="font-bold text-xs gap-1.5"
-              >
-                <Plus className="w-4 h-4 text-blue-600" />
-                Add Expense Item
-              </Button>
-            </div>
-
-            {expenses.length === 0 ? (
-              <p className="text-xs text-slate-500 italic py-2">No itemized expenses added. Click &quot;Add Expense Item&quot; to list items.</p>
-            ) : (
-              <div className="space-y-2">
-                {expenses.map((exp, idx) => (
-                  <div key={idx} className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                    <input
-                      type="text"
-                      placeholder="Description (e.g. Tea, Stapler pins)"
-                      value={exp.description}
-                      onChange={(e) => updateExpenseRow(idx, 'description', e.target.value)}
-                      className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-medium"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount (LKR)"
-                      value={exp.amount}
-                      onChange={(e) => updateExpenseRow(idx, 'amount', e.target.value)}
-                      className="w-40 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-bold text-right"
-                    />
-                    <button
-                      onClick={() => removeExpenseRow(idx)}
-                      className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex justify-end pt-2 text-xs font-bold text-slate-800 font-mono">
-                  Total Itemized Expenses: LKR {detailedExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1314,125 +1113,24 @@ function MainLedgerContent() {
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">General Ledger</h2>
               <p className="text-sm text-slate-500 font-medium mt-1">Record and view strict double-entry journal logs.</p>
             </div>
-            <Button onClick={() => setShowAddJournalModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-5 gap-2 w-full md:w-auto">
-              <Plus className="w-4 h-4" /> Add Journal Entry
-            </Button>
-          </div>
-
-          <Dialog open={showAddJournalModal} onOpenChange={setShowAddJournalModal}>
-            <DialogContent className="sm:max-w-[700px]">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold">New Journal Entry</DialogTitle>
-                <DialogDescription>Debits and Credits must balance identically to process.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-2">
-                     <Label className="font-bold">Date</Label>
-                     <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} readOnly className="bg-slate-50"/>
-                   </div>
-                   <div className="space-y-2">
-                     <Label className="font-bold">Reference Code</Label>
-                     <Input value={newRef} onChange={e => setNewRef(e.target.value)} placeholder="REF-001" />
-                   </div>
-                </div>
-                <div className="space-y-2">
-                   <Label className="font-bold">Description</Label>
-                   <Input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Loan disbursement from vault..." />
-                </div>
-                
-                <div className="border-t border-slate-100 pt-4 mt-2">
-                  <Label className="font-black text-slate-800 uppercase tracking-widest text-xs mb-4 block">Transaction Rows</Label>
-                  <div className="space-y-3">
-                    {lines.map((line, index) => (
-                       <div key={index} className="grid grid-cols-3 gap-3">
-                         <Input placeholder="General Account" value={line.account} onChange={e => updateJournalLine(index, 'account', e.target.value)} />
-                         <Input placeholder="Debit (Dr)" type="number" value={line.debit} onChange={e => updateJournalLine(index, 'debit', e.target.value)} />
-                         <Input placeholder="Credit (Cr)" type="number" value={line.credit} onChange={e => updateJournalLine(index, 'credit', e.target.value)} />
-                       </div>
-                    ))}
-                  </div>
-                  <Button variant="link" onClick={handleAddJournalLine} className="px-0 mt-2 font-bold text-blue-600">+ Add line</Button>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setShowAddJournalModal(false)}>Cancel</Button>
-                <Button onClick={handleJournalSubmit} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">Lock Entry</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm text-slate-800">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Entries</p>
-              <p className="text-3xl font-black text-slate-800">{filteredJournalEntries.length}</p>
-            </div>
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm text-slate-800">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Debit (Dr)</p>
-              <p className="text-3xl font-black text-slate-800">Rs. {totalJournalDebit.toLocaleString()}</p>
-            </div>
-            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm text-slate-800">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Credit (Cr)</p>
-              <p className="text-3xl font-black text-slate-800">Rs. {totalJournalCredit.toLocaleString()}</p>
-            </div>
-            <div className="bg-slate-900 rounded-xl p-5 shadow-xl shadow-slate-200/50">
-              <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-1">Trial Balance</p>
-              <p className={`text-3xl font-black ${Math.abs(totalJournalDebit - totalJournalCredit) < 0.1 ? 'text-white' : 'text-rose-500'}`}>
-                 Rs. {Math.abs(totalJournalDebit - totalJournalCredit).toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex gap-4 text-slate-800">
-             <div className="flex-1">
-                <Input type="date" value={filterJournalDate} onChange={(e) => setFilterJournalDate(e.target.value)} className="w-full md:w-64" />
-             </div>
-             {filterJournalDate && <Button variant="outline" onClick={() => setFilterJournalDate("")}><X className="w-4 h-4 mr-2"/> Clear Filter</Button>}
           </div>
 
           <div className="space-y-6">
             {loadingJournal ? (
                <p className="text-center font-bold text-slate-400">Loading ledger logs...</p>
-            ) : filteredJournalEntries.length === 0 ? (
+            ) : journalEntries.length === 0 ? (
                <p className="text-center font-bold text-slate-400">No journal entries found.</p>
-            ) : filteredJournalEntries.map((entry) => (
+            ) : journalEntries.map((entry) => (
               <div key={entry.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm text-slate-800">
                 <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                    <div>
                       <div className="flex items-center gap-3">
                          <span className="text-xs font-black bg-slate-200 text-slate-700 px-2 py-0.5 rounded uppercase">{entry.id}</span>
                          <span className="text-xs font-bold text-slate-500">{new Date(entry.date).toLocaleDateString()}</span>
-                         <span className="text-xs font-bold text-slate-500">Ref: {entry.reference || 'N/A'}</span>
                       </div>
                       <p className="text-sm font-semibold text-slate-800 mt-2">{entry.description}</p>
                    </div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-1 rounded">
-                      Auth by {entry.created_by}
-                   </span>
                 </div>
-                <Table>
-                   <TableHeader>
-                     <TableRow>
-                       <TableHead className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">Account</TableHead>
-                       <TableHead className="font-bold text-slate-700 uppercase text-[10px] tracking-wider text-right">Debit</TableHead>
-                       <TableHead className="font-bold text-slate-700 uppercase text-[10px] tracking-wider text-right">Credit</TableHead>
-                     </TableRow>
-                   </TableHeader>
-                   <TableBody>
-                     {entry.journal_entry_line && entry.journal_entry_line.map((line: any) => (
-                        <TableRow key={line.id}>
-                           <TableCell className="font-semibold text-slate-700">{line.account_name}</TableCell>
-                           <TableCell className="text-right font-black text-slate-800">{line.debit > 0 ? `Rs. ${line.debit.toLocaleString()}` : '-'}</TableCell>
-                           <TableCell className="text-right font-black text-slate-800">{line.credit > 0 ? `Rs. ${line.credit.toLocaleString()}` : '-'}</TableCell>
-                        </TableRow>
-                     ))}
-                     <TableRow className="bg-slate-50/50">
-                        <TableCell className="font-black text-slate-900 uppercase text-[10px] tracking-widest">Total Transaction Value</TableCell>
-                        <TableCell className="text-right font-black text-slate-900 text-lg border-t-2 border-slate-300">Rs. {entry.total_debit?.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-black text-slate-900 text-lg border-t-2 border-slate-300">Rs. {entry.total_credit?.toLocaleString()}</TableCell>
-                     </TableRow>
-                   </TableBody>
-                </Table>
               </div>
             ))}
           </div>
@@ -1448,7 +1146,7 @@ export default function LedgerPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="font-bold text-sm text-slate-700">Loading Pawning Ledger & Audit System...</p>
+          <p className="font-bold text-sm text-slate-700">Loading Daily Transaction Ledger...</p>
         </div>
       </div>
     }>
