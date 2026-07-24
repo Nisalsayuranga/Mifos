@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Building2, Calendar, Calculator, CheckCircle2, AlertTriangle, 
-  FileSpreadsheet, Plus, Trash2, Save, RefreshCw, UserCheck, Scale,
+  FileSpreadsheet, Plus, Trash2, Save, RefreshCw, UserCheck,
   Layers, FileText
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -417,10 +417,10 @@ function MainLedgerContent() {
   };
 
   return (
-    <div className="space-y-6 w-full max-w-7xl mx-auto pb-24 px-2 sm:px-4">
+    <div className="w-full min-w-0 space-y-6 pb-24">
       
       {/* Clean White Main Title Bar */}
-      <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
             <FileSpreadsheet className="w-7 h-7 text-blue-600 shrink-0" />
@@ -467,9 +467,9 @@ function MainLedgerContent() {
       {/* TAB 1: DAILY LEDGER ENTRY SHEET            */}
       {/* ========================================== */}
       {activeTab === 'entry' && (
-        <div className="space-y-6">
+        <div className="w-full space-y-6">
           {feedback && (
-            <div className={`p-4 rounded-xl border flex items-center gap-3 text-sm font-semibold ${
+            <div className={`p-4 rounded-xl border flex items-center gap-3 text-sm font-semibold w-full ${
               feedback.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
               feedback.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800' :
               'bg-rose-50 border-rose-200 text-rose-800'
@@ -480,9 +480,9 @@ function MainLedgerContent() {
           )}
 
           {/* Top Control Header Card */}
-          <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-1">
+          <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 w-full">
+              <div className="flex-1 min-w-[200px] space-y-1">
                 <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <Building2 className="w-4 h-4 text-blue-600" />
                   Branch
@@ -501,7 +501,7 @@ function MainLedgerContent() {
                 </select>
               </div>
 
-              <div className="space-y-1">
+              <div className="flex-1 min-w-[180px] space-y-1">
                 <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   Ledger Date
@@ -514,7 +514,7 @@ function MainLedgerContent() {
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="w-full md:w-48 space-y-1">
                 <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
                 <input
                   type="number"
@@ -526,18 +526,18 @@ function MainLedgerContent() {
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="flex-1 min-w-[240px] space-y-1">
                 <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <UserCheck className="w-4 h-4 text-blue-600" />
-                  Add Staff Attendance
+                  Staff Attendance
                 </label>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     placeholder="Staff Name (Achini)"
                     value={newStaffName}
                     onChange={(e) => setNewStaffName(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900"
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-900"
                   />
                   <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-3 text-xs shrink-0">
                     + Add
@@ -547,7 +547,7 @@ function MainLedgerContent() {
             </div>
 
             {shiftList.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200 w-full">
                 {shiftList.map(s => (
                   <span key={s.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-full text-xs font-bold">
                     <span>{s.name} ({s.checkIn}-{s.checkOut})</span>
@@ -558,8 +558,8 @@ function MainLedgerContent() {
             )}
           </div>
 
-          {/* SECTION 1: TOP DAILY TRANSACTIONS GRID (MATCHES RED CIRCLED LEDGER SHEET) */}
-          <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+          {/* SECTION 1: TOP DAILY TRANSACTIONS GRID (EXCEL SHEET DIRECT TABLE) */}
+          <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
                 <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
@@ -581,7 +581,7 @@ function MainLedgerContent() {
               </Button>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
               <table className="w-full text-left border-collapse text-xs min-w-[950px]">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
@@ -729,97 +729,97 @@ function MainLedgerContent() {
             </div>
           </div>
 
-          {/* SECTION 2: CLEAN 2-COLUMN DASHBOARD (CASH SUMMARY & EXPENSES) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* SECTION 2: CLEAN FULL-WIDTH STACKED SUMMARY & EXPENSES CARDS */}
+          <div className="w-full flex flex-col gap-6">
             
-            {/* Left Card: Daily Cash Summary (Formula Table) */}
-            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+            {/* Daily Cash Summary (Formula Table) */}
+            <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3">
                 <Calculator className="w-5 h-5 text-blue-600 shrink-0" />
                 Daily Cash Summary (දිනපතා මුදල් සාරාංශය)
               </h3>
 
-              <div className="space-y-2.5 text-xs font-bold">
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-slate-800">Opening Balance (ආරම්භක ශේෂය):</span>
+              <div className="space-y-3 text-xs font-bold w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-slate-800 font-bold">Opening Balance (ආරම්භක ශේෂය):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={openingBalance}
                     onChange={(e) => setOpeningBalance(e.target.value)}
-                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-slate-900"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-slate-900"
                   />
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-emerald-700">Transfer In (+):</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-emerald-700 font-bold">Transfer In (+):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={transferIn}
                     onChange={(e) => setTransferIn(e.target.value)}
-                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-emerald-700"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700"
                   />
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-rose-700">Transfer Out (-):</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-rose-700 font-bold">Transfer Out (-):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={transferOut}
                     onChange={(e) => setTransferOut(e.target.value)}
-                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-rose-700"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700"
                   />
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-rose-50 rounded-lg border border-rose-200 text-rose-900">
-                  <span>Loan Issued Total (-) [Auto-Sum]:</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-200 text-rose-900 gap-2">
+                  <span className="font-bold">Loan Issued Total (-) [Auto-Sum]:</span>
                   <span className="font-mono text-sm font-black">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
-                  <span>Redemption Total (+) [Auto-Sum]:</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
+                  <span className="font-bold">Redemption Total (+) [Auto-Sum]:</span>
                   <span className="font-mono text-sm font-black">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
-                  <span>Rec: Interest Total (+) [Auto-Sum]:</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
+                  <span className="font-bold">Rec: Interest Total (+) [Auto-Sum]:</span>
                   <span className="font-mono text-sm font-black">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-emerald-700">Recovery Total (+):</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-emerald-700 font-bold">Recovery Total (+):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={recoveryTotal}
                     onChange={(e) => setRecoveryTotal(e.target.value)}
-                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-emerald-700"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700"
                   />
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
-                  <span>Insurance Rec (+) [Auto-Sum]:</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
+                  <span className="font-bold">Insurance Rec (+) [Auto-Sum]:</span>
                   <span className="font-mono text-sm font-black">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-rose-50 rounded-lg border border-rose-200 text-rose-900">
-                  <span>Expenses Total (-) [Itemized]:</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-200 text-rose-900 gap-2">
+                  <span className="font-bold">Expenses Total (-) [Itemized Below]:</span>
                   <span className="font-mono text-sm font-black">LKR {totalExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-3.5 bg-emerald-100 border-2 border-emerald-400 rounded-xl text-emerald-950 text-base font-black">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-100 border-2 border-emerald-400 rounded-xl text-emerald-950 text-base font-black gap-2">
                   <span>Closing Balance (අවසාන ශේෂය):</span>
-                  <span className="font-mono text-lg">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span className="font-mono text-xl">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-3">
                 <Button
                   onClick={handleSaveLedger}
                   disabled={savingLedger || loadingLedger}
@@ -831,8 +831,8 @@ function MainLedgerContent() {
               </div>
             </div>
 
-            {/* Right Card: Itemized Expenses */}
-            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+            {/* Itemized Expenses Card */}
+            <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-base font-black text-slate-900">Itemized Expenses (දිනපතා වියදම්)</h3>
                 <Button onClick={handleAddExpenseRow} variant="outline" size="sm" className="h-8 text-xs font-bold border-blue-300 text-blue-700">
@@ -842,18 +842,18 @@ function MainLedgerContent() {
 
               {expenses.length === 0 ? (
                 <div className="p-6 border border-dashed border-slate-300 rounded-xl text-center bg-slate-50/50">
-                  <p className="text-xs text-slate-400 font-medium">No expenses added yet.</p>
+                  <p className="text-xs text-slate-400 font-medium">No expenses added yet. Click &quot;+ Add Expense Line&quot; to list tea, stationary, cleaning items.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {expenses.map((exp, idx) => (
-                    <div key={exp.id || idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <div key={exp.id || idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                       <input
                         type="text"
                         placeholder="Expense description (Tea, Stationary)"
                         value={exp.description}
                         onChange={(e) => handleUpdateExpenseRow(idx, 'description', e.target.value)}
-                        className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs font-bold text-slate-900"
+                        className="flex-1 bg-white border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-900"
                       />
                       <input
                         type="number"
@@ -861,9 +861,9 @@ function MainLedgerContent() {
                         placeholder="Amount"
                         value={exp.amount}
                         onChange={(e) => handleUpdateExpenseRow(idx, 'amount', e.target.value)}
-                        className="w-28 bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-right text-rose-700"
+                        className="w-full sm:w-36 bg-white border border-slate-300 rounded px-3 py-1.5 text-xs font-mono font-bold text-right text-rose-700"
                       />
-                      <button onClick={() => handleRemoveExpenseRow(idx)} className="text-rose-600 hover:bg-rose-100 p-1 rounded">
+                      <button onClick={() => handleRemoveExpenseRow(idx)} className="text-rose-600 hover:bg-rose-100 p-1.5 rounded self-end sm:self-auto">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -883,7 +883,7 @@ function MainLedgerContent() {
       {/* TAB 2: 11-BRANCH MATRIX                    */}
       {/* ========================================== */}
       {activeTab === 'matrix' && (
-        <div className="space-y-6">
+        <div className="w-full space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex items-center justify-between">
               <div>
@@ -920,7 +920,7 @@ function MainLedgerContent() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm w-full">
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-blue-600" />
@@ -957,8 +957,8 @@ function MainLedgerContent() {
                 {matrixError}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse text-xs min-w-[800px]">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                       <th className="py-3 px-4 sticky left-0 bg-slate-100 min-w-[140px] z-10">Branch</th>
@@ -1027,21 +1027,21 @@ function MainLedgerContent() {
       {/* TAB 3: GENERAL JOURNAL LEDGER LOGS         */}
       {/* ========================================== */}
       {activeTab === 'journal' && (
-        <div className="space-y-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-slate-200 gap-4 text-slate-800">
+        <div className="w-full space-y-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-slate-200 gap-4 text-slate-800 w-full">
             <div>
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">General Ledger</h2>
               <p className="text-sm text-slate-500 font-medium mt-1">Record and view strict double-entry journal logs.</p>
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 w-full">
             {loadingJournal ? (
                <p className="text-center font-bold text-slate-400">Loading ledger logs...</p>
             ) : journalEntries.length === 0 ? (
                <p className="text-center font-bold text-slate-400">No journal entries found.</p>
             ) : journalEntries.map((entry) => (
-              <div key={entry.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm text-slate-800">
+              <div key={entry.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm text-slate-800 w-full">
                 <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                    <div>
                       <div className="flex items-center gap-3">
