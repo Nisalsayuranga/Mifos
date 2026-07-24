@@ -4,31 +4,27 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Building2, Calendar, Calculator, CheckCircle2, AlertTriangle, 
-  FileSpreadsheet, Plus, Trash2, Save, RefreshCw, ShieldCheck, UserCheck, Scale,
-  Layers, FileText, ArrowDownRight, ArrowUpRight, DollarSign, Wallet
+  FileSpreadsheet, Plus, Trash2, Save, RefreshCw, UserCheck, Scale,
+  Layers, FileText
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface TransactionItem {
+interface TransactionRow {
   id: string;
-  type: 'LOAN' | 'REDEEM';
-  billNo: string;
-  cashAmount: number;
-  insuranceRs: number;
-  weightG: number;
-  weightMg: number;
-  itemCode: string;
-  redeemNo: string;
-  interestRs: number;
-  category: 'M' | 'A' | 'R';
+  loan_no: string;
+  cash_loan: number | string;
+  insurance_rs: number | string;
+  weight_g: number | string;
+  weight_mg: number | string;
+  item_code: string;
+  redeem_no: string;
+  interest_rs: number | string;
+  cash_received: number | string;
   remarks: string;
 }
 
 interface ExpenseRow {
+  id: string;
   description: string;
   amount: number | string;
 }
@@ -77,39 +73,24 @@ function MainLedgerContent() {
     else setActiveTab('entry');
   }, [tabParam]);
 
-  // ==========================================
-  // TAB 1: DAILY LEDGER ENTRY STATE & LOGIC
-  // ==========================================
+  // User State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isHqUser, setIsHqUser] = useState(false);
 
+  // Controls
   const [selectedBranch, setSelectedBranch] = useState(branchParam || 'BRL');
   const [ledgerDate, setLedgerDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [cpBalance, setCpBalance] = useState<string | number>('');
+
+  // Daily Cash Figures
   const [openingBalance, setOpeningBalance] = useState<string | number>('');
   const [transferIn, setTransferIn] = useState<string | number>('');
   const [transferOut, setTransferOut] = useState<string | number>('');
   const [recoveryTotal, setRecoveryTotal] = useState<string | number>('');
   const [userClosingBalance, setUserClosingBalance] = useState<string | number>('');
-  const [staffShift, setStaffShift] = useState('');
 
-  // Structured Transactions (One by One Add)
-  const [transactionList, setTransactionList] = useState<TransactionItem[]>([]);
-  
-  // Single Entry Form Fields
-  const [txType, setTxType] = useState<'LOAN' | 'REDEEM'>('LOAN');
-  const [txBillNo, setTxBillNo] = useState('');
-  const [txCashAmount, setTxCashAmount] = useState('');
-  const [txInsuranceRs, setTxInsuranceRs] = useState('');
-  const [txWeightG, setTxWeightG] = useState('');
-  const [txWeightMg, setTxWeightMg] = useState('');
-  const [txItemCode, setTxItemCode] = useState('');
-  const [txRedeemNo, setTxRedeemNo] = useState('');
-  const [txInterestRs, setTxInterestRs] = useState('');
-  const [txCategory, setTxCategory] = useState<'M' | 'A' | 'R'>('R');
-  const [txRemarks, setTxRemarks] = useState('');
-
-  // Itemized Expenses
+  // Transactions & Expenses
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
 
   // Staff Shifts
@@ -133,7 +114,6 @@ function MainLedgerContent() {
         setCurrentUser(u);
         const isAdmin = u.role === 'ADMIN' || u.branch_id === 'HQ' || u.branchId === 'HQ';
         setIsHqUser(isAdmin);
-
         if (!isAdmin && (u.branch_id || u.branchId)) {
           setSelectedBranch(u.branch_id || u.branchId);
         }
@@ -143,17 +123,13 @@ function MainLedgerContent() {
     }
   }, []);
 
-  // Sync Staff Shift string
-  const formattedShiftString = useMemo(() => {
+  // Sync Staff Shift String
+  const staffShiftString = useMemo(() => {
     return shiftList.map(s => {
       const timeStr = `${s.checkIn}-${s.checkOut}`;
       return s.status === 'ABSENT' ? `${s.name} (${timeStr} / AB)` : `${s.name} (${timeStr})`;
     }).join(', ');
   }, [shiftList]);
-
-  useEffect(() => {
-    setStaffShift(formattedShiftString);
-  }, [formattedShiftString]);
 
   const handleAddShift = () => {
     if (!newStaffName.trim()) return;
@@ -174,68 +150,77 @@ function MainLedgerContent() {
     setShiftList(prev => prev.filter(s => s.id !== id));
   };
 
-  // Add Transaction Row (One by One)
-  const handleAddTransaction = () => {
-    if (!txBillNo.trim() && !txCashAmount) {
-      alert("Please enter at least Bill/Loan No or Amount!");
-      return;
-    }
-
-    const newItem: TransactionItem = {
-      id: Math.random().toString(36).substring(2, 9),
-      type: txType,
-      billNo: txBillNo.trim() || 'N/A',
-      cashAmount: Number(txCashAmount) || 0,
-      insuranceRs: Number(txInsuranceRs) || 0,
-      weightG: Number(txWeightG) || 0,
-      weightMg: Number(txWeightMg) || 0,
-      itemCode: txItemCode.trim().toUpperCase(),
-      redeemNo: txRedeemNo.trim(),
-      interestRs: Number(txInterestRs) || 0,
-      category: txCategory,
-      remarks: txRemarks.trim()
-    };
-
-    setTransactionList(prev => [newItem, ...prev]);
-
-    // Reset Form Fields
-    setTxBillNo('');
-    setTxCashAmount('');
-    setTxInsuranceRs('');
-    setTxWeightG('');
-    setTxWeightMg('');
-    setTxItemCode('');
-    setTxRedeemNo('');
-    setTxInterestRs('');
-    setTxRemarks('');
+  // Transaction Table Row Handlers
+  const handleAddTransactionRow = () => {
+    setTransactions(prev => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(2, 9),
+        loan_no: '',
+        cash_loan: '',
+        insurance_rs: '',
+        weight_g: '',
+        weight_mg: '',
+        item_code: '',
+        redeem_no: '',
+        interest_rs: '',
+        cash_received: '',
+        remarks: ''
+      }
+    ]);
   };
 
-  const handleRemoveTransaction = (id: string) => {
-    setTransactionList(prev => prev.filter(t => t.id !== id));
+  const handleRemoveTransactionRow = (index: number) => {
+    setTransactions(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Auto-calculated Totals from Transaction List
+  const handleUpdateTransactionRow = (index: number, field: keyof TransactionRow, val: any) => {
+    setTransactions(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: val };
+      return updated;
+    });
+  };
+
+  // Expenses Handlers
+  const handleAddExpenseRow = () => {
+    setExpenses(prev => [...prev, { id: Math.random().toString(36).substring(2, 9), description: '', amount: '' }]);
+  };
+
+  const handleRemoveExpenseRow = (index: number) => {
+    setExpenses(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateExpenseRow = (index: number, field: keyof ExpenseRow, val: any) => {
+    setExpenses(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: val };
+      return updated;
+    });
+  };
+
+  // Auto-calculated Totals
   const totalLoansIssued = useMemo(() => {
-    return transactionList.filter(t => t.type === 'LOAN').reduce((sum, t) => sum + t.cashAmount, 0);
-  }, [transactionList]);
+    return transactions.reduce((sum, t) => sum + (Number(t.cash_loan) || 0), 0);
+  }, [transactions]);
 
   const totalRedemptions = useMemo(() => {
-    return transactionList.filter(t => t.type === 'REDEEM').reduce((sum, t) => sum + t.cashAmount, 0);
-  }, [transactionList]);
+    return transactions.reduce((sum, t) => sum + (Number(t.cash_received) || 0), 0);
+  }, [transactions]);
 
   const totalInterestCollected = useMemo(() => {
-    return transactionList.reduce((sum, t) => sum + t.interestRs, 0);
-  }, [transactionList]);
+    return transactions.reduce((sum, t) => sum + (Number(t.interest_rs) || 0), 0);
+  }, [transactions]);
 
   const totalInsuranceCollected = useMemo(() => {
-    return transactionList.reduce((sum, t) => sum + t.insuranceRs, 0);
-  }, [transactionList]);
+    return transactions.reduce((sum, t) => sum + (Number(t.insurance_rs) || 0), 0);
+  }, [transactions]);
 
   const totalExpensesSum = useMemo(() => {
     return expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [expenses]);
 
-  // Excel Formula Closing Balance Calculation
+  // Formula Closing Balance
   const calculatedClosing = useMemo(() => {
     const op = Number(openingBalance) || 0;
     const ti = Number(transferIn) || 0;
@@ -272,28 +257,33 @@ function MainLedgerContent() {
           setRecoveryTotal(l.recovery_total || '');
           setUserClosingBalance(l.closing_balance || '');
 
-          // Map Transactions
           if (data.transactions && Array.isArray(data.transactions)) {
-            const mapped: TransactionItem[] = data.transactions.map((t: any) => ({
+            setTransactions(data.transactions.map((t: any) => ({
               id: t.id || Math.random().toString(),
-              type: Number(t.cash_received || 0) > 0 ? 'REDEEM' : 'LOAN',
-              billNo: t.loan_no || t.bill_no || '',
-              cashAmount: Number(t.cash_loan || t.amount || t.cash_received || 0),
-              insuranceRs: Number(t.insurance_rs || 0),
-              weightG: Number(t.weight_g || 0),
-              weightMg: Number(t.weight_mg || 0),
-              itemCode: t.item_code || '',
-              redeemNo: t.redeem_no || '',
-              interestRs: Number(t.interest_rs || 0),
-              category: (t.remarks === 'M' || t.remarks === 'A') ? t.remarks : 'R',
+              loan_no: t.loan_no || t.bill_no || '',
+              cash_loan: t.cash_loan || t.amount || '',
+              insurance_rs: t.insurance_rs || '',
+              weight_g: t.weight_g || '',
+              weight_mg: t.weight_mg || '',
+              item_code: t.item_code || '',
+              redeem_no: t.redeem_no || '',
+              interest_rs: t.interest_rs || '',
+              cash_received: t.cash_received || '',
               remarks: t.remarks || ''
-            }));
-            setTransactionList(mapped);
+            })));
           } else {
-            setTransactionList([]);
+            setTransactions([]);
           }
 
-          setExpenses(data.expenses || []);
+          if (data.expenses && Array.isArray(data.expenses)) {
+            setExpenses(data.expenses.map((e: any) => ({
+              id: e.id || Math.random().toString(),
+              description: e.description || '',
+              amount: e.amount || ''
+            })));
+          } else {
+            setExpenses([]);
+          }
         } else {
           setCpBalance('');
           setOpeningBalance(data.previous_closing !== null ? data.previous_closing : '');
@@ -301,7 +291,7 @@ function MainLedgerContent() {
           setTransferOut('');
           setRecoveryTotal('');
           setUserClosingBalance('');
-          setTransactionList([]);
+          setTransactions([]);
           setExpenses([]);
         }
       }
@@ -336,21 +326,10 @@ function MainLedgerContent() {
       insurance_total: totalInsuranceCollected,
       expenses_total: totalExpensesSum,
       closing_balance: userClosingBalance || calculatedClosing,
-      staff_shift: staffShift,
+      staff_shift: staffShiftString,
       created_by: currentUser?.email || 'Teller',
       status: 'APPROVED',
-      transactions: transactionList.map(t => ({
-        loan_no: t.billNo,
-        cash_loan: t.type === 'LOAN' ? t.cashAmount : 0,
-        insurance_rs: t.insuranceRs,
-        weight_g: t.weightG,
-        weight_mg: t.weightMg,
-        item_code: t.itemCode,
-        redeem_no: t.redeemNo,
-        interest_rs: t.interestRs,
-        cash_received: t.type === 'REDEEM' ? t.cashAmount : 0,
-        remarks: t.remarks || t.category
-      })),
+      transactions,
       expenses
     };
 
@@ -367,7 +346,7 @@ function MainLedgerContent() {
       } else {
         setFeedback({
           type: 'success',
-          message: `Daily Ledger for ${selectedBranch} on ${ledgerDate} updated and saved successfully!`
+          message: `Daily Ledger for ${selectedBranch} on ${ledgerDate} saved successfully!`
         });
         fetchLedgerData();
       }
@@ -378,20 +357,7 @@ function MainLedgerContent() {
     }
   };
 
-  // Expense Handlers
-  const addExpenseRow = () => setExpenses(prev => [...prev, { description: '', amount: '' }]);
-  const removeExpenseRow = (idx: number) => setExpenses(prev => prev.filter((_, i) => i !== idx));
-  const updateExpenseRow = (idx: number, field: keyof ExpenseRow, val: any) => {
-    setExpenses(prev => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], [field]: val };
-      return updated;
-    });
-  };
-
-  // ==========================================
-  // TAB 2: 11-BRANCH MATRIX STATE & LOGIC
-  // ==========================================
+  // Matrix State
   const [selectedYear, setSelectedYear] = useState('2025');
   const [matrixData, setMatrixData] = useState<Record<string, any>>({});
   const [matrixBranches, setMatrixBranches] = useState<any[]>([]);
@@ -403,8 +369,7 @@ function MainLedgerContent() {
     setMatrixError(null);
     try {
       const res = await fetch(`/api/ledger/matrix?year=${selectedYear}`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
+      if (res.ok) {
         const data = await res.json();
         if (data.error) setMatrixError(data.error);
         else {
@@ -426,9 +391,7 @@ function MainLedgerContent() {
   const grandTotalEntered = Object.values(matrixData).reduce((sum, b: any) => sum + (b.total_entered || 0), 0);
   const grandTotalFlagged = Object.values(matrixData).reduce((sum, b: any) => sum + (b.total_flagged || 0), 0);
 
-  // ==========================================
-  // TAB 3: GENERAL JOURNAL LEDGER LOGIC
-  // ==========================================
+  // Journal Logs
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [loadingJournal, setLoadingJournal] = useState(false);
 
@@ -454,25 +417,25 @@ function MainLedgerContent() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-6 w-full max-w-7xl mx-auto pb-24 px-2 sm:px-4">
       
-      {/* Header Bar */}
-      <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Clean White Main Title Bar */}
+      <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-            <FileSpreadsheet className="w-8 h-8 text-blue-600" />
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+            <FileSpreadsheet className="w-7 h-7 text-blue-600 shrink-0" />
             Daily Transaction Ledger & Summary
           </h1>
-          <p className="text-slate-500 font-medium text-sm mt-1">
-            Excel-Style Pawning Daily Financial Entry & Automatic Cash Flow Calculator
+          <p className="text-slate-500 font-medium text-xs md:text-sm mt-0.5">
+            Exact Digital Twin of Paper Ledger Book & Excel Sheet (Daily Financial Ledger)
           </p>
         </div>
 
-        {/* Tab Switcher Pills */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-full md:w-auto overflow-x-auto">
+        {/* Clean Light Tab Switcher Pills */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-full md:w-auto">
           <button
             onClick={() => handleTabSwitch('entry')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
               activeTab === 'entry' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
@@ -481,7 +444,7 @@ function MainLedgerContent() {
           </button>
           <button
             onClick={() => handleTabSwitch('matrix')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
               activeTab === 'matrix' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
@@ -490,7 +453,7 @@ function MainLedgerContent() {
           </button>
           <button
             onClick={() => handleTabSwitch('journal')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
               activeTab === 'journal' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
@@ -501,7 +464,7 @@ function MainLedgerContent() {
       </div>
 
       {/* ========================================== */}
-      {/* TAB 1: DAILY LEDGER ENTRY SHEET CONTENT    */}
+      {/* TAB 1: DAILY LEDGER ENTRY SHEET            */}
       {/* ========================================== */}
       {activeTab === 'entry' && (
         <div className="space-y-6">
@@ -516,392 +479,341 @@ function MainLedgerContent() {
             </div>
           )}
 
-          {/* Top Bar Controls: Branch & Date & CP & Attendance */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-white border border-slate-200 p-5 rounded-xl shadow-sm items-end">
-            <div className="md:col-span-3 space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-blue-600" />
-                Branch
-              </label>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                disabled={!isHqUser}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-75"
-              >
-                {BRANCHES.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.id})
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Top Control Header Card */}
+          <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  Branch
+                </label>
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  disabled={!isHqUser}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-75"
+                >
+                  {BRANCHES.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="md:col-span-3 space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                Ledger Date
-              </label>
-              <input
-                type="date"
-                value={ledgerDate}
-                onChange={(e) => setLedgerDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={cpBalance}
-                onChange={(e) => setCpBalance(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm text-right"
-              />
-            </div>
-
-            <div className="md:col-span-4 space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-blue-600" />
-                Staff Attendance
-              </label>
-              <div className="flex items-center gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  Ledger Date
+                </label>
                 <input
-                  type="text"
-                  placeholder="Staff Name"
-                  value={newStaffName}
-                  onChange={(e) => setNewStaffName(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900"
+                  type="date"
+                  value={ledgerDate}
+                  onChange={(e) => setLedgerDate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
-                <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs px-3">
-                  + Add Staff
-                </Button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={cpBalance}
+                  onChange={(e) => setCpBalance(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-blue-600" />
+                  Add Staff Attendance
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Staff Name (Achini)"
+                    value={newStaffName}
+                    onChange={(e) => setNewStaffName(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900"
+                  />
+                  <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-3 text-xs shrink-0">
+                    + Add
+                  </Button>
+                </div>
               </div>
             </div>
 
             {shiftList.length > 0 && (
-              <div className="md:col-span-12 flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
                 {shiftList.map(s => (
                   <span key={s.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-full text-xs font-bold">
                     <span>{s.name} ({s.checkIn}-{s.checkOut})</span>
-                    <button onClick={() => handleRemoveShift(s.id)} className="text-slate-400 hover:text-slate-800">×</button>
+                    <button onClick={() => handleRemoveShift(s.id)} className="text-slate-400 hover:text-slate-800 text-sm font-black">×</button>
                   </span>
                 ))}
               </div>
             )}
           </div>
 
-          {/* SECTION 1: ONE-BY-ONE TRANSACTION ADDITION FORM (EXCEL STYLE) */}
-          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          {/* SECTION 1: TOP DAILY TRANSACTIONS GRID (MATCHES RED CIRCLED LEDGER SHEET) */}
+          <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
-                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-blue-600" />
-                  Add Loan or Redemption Bill (එක් එක් ගනුදෙනුව එකතු කරන්න)
+                <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-600 shrink-0" />
+                  Daily Paper Transactions Log Sheet (ඉහළ ගනුදෙනු ලැයිස්තුව Grid)
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Select transaction type, enter bill details and click &quot;+ Add Transaction Row&quot;
+                  Type individual loans & redemptions directly in rows below. Totals are auto-calculated at bottom.
                 </p>
               </div>
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
-                <button
-                  onClick={() => setTxType('LOAN')}
-                  className={`px-3 py-1.5 rounded-md font-bold text-xs transition ${
-                    txType === 'LOAN' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Loan Issued (ණය)
-                </button>
-                <button
-                  onClick={() => setTxType('REDEEM')}
-                  className={`px-3 py-1.5 rounded-md font-bold text-xs transition ${
-                    txType === 'REDEEM' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Redemption (බේරුම්)
-                </button>
-              </div>
+              <Button
+                onClick={handleAddTransactionRow}
+                variant="outline"
+                size="sm"
+                className="font-bold text-xs gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 shrink-0"
+              >
+                <Plus className="w-4 h-4 text-blue-600" />
+                + Add Bill Row
+              </Button>
             </div>
 
-            {/* Input Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-12 gap-3 items-end bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Bill / Loan No</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1R 256"
-                  value={txBillNo}
-                  onChange={(e) => setTxBillNo(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">
-                  {txType === 'LOAN' ? 'Cash Loan (LKR)' : 'Redeem Cash (LKR)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={txCashAmount}
-                  onChange={(e) => setTxCashAmount(e.target.value)}
-                  className={`w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-right ${
-                    txType === 'LOAN' ? 'text-rose-700' : 'text-emerald-700'
-                  }`}
-                />
-              </div>
-
-              <div className="md:col-span-1 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Insurance</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0"
-                  value={txInsuranceRs}
-                  onChange={(e) => setTxInsuranceRs(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-mono font-bold text-right text-emerald-700"
-                />
-              </div>
-
-              <div className="md:col-span-1 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Weight g</label>
-                <input
-                  type="number"
-                  placeholder="25"
-                  value={txWeightG}
-                  onChange={(e) => setTxWeightG(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-center text-slate-900"
-                />
-              </div>
-
-              <div className="md:col-span-1 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Weight mg</label>
-                <input
-                  type="number"
-                  placeholder="060"
-                  value={txWeightMg}
-                  onChange={(e) => setTxWeightMg(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-center text-slate-800"
-                />
-              </div>
-
-              <div className="md:col-span-1 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Code</label>
-                <input
-                  type="text"
-                  placeholder="CH"
-                  value={txItemCode}
-                  onChange={(e) => setTxItemCode(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-center uppercase text-slate-900"
-                />
-              </div>
-
-              {txType === 'REDEEM' && (
-                <div className="md:col-span-1 space-y-1">
-                  <label className="text-[11px] font-extrabold text-slate-700 uppercase">Interest Rs</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="1641.26"
-                    value={txInterestRs}
-                    onChange={(e) => setTxInterestRs(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-mono font-bold text-right text-emerald-700"
-                  />
-                </div>
-              )}
-
-              <div className="md:col-span-1 space-y-1">
-                <label className="text-[11px] font-extrabold text-slate-700 uppercase">Category</label>
-                <select
-                  value={txCategory}
-                  onChange={(e: any) => setTxCategory(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold text-slate-900"
-                >
-                  <option value="R">R (Regular)</option>
-                  <option value="M">M (Main)</option>
-                  <option value="A">A (Additional)</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <Button
-                  onClick={handleAddTransaction}
-                  className={`w-full font-bold h-9 text-xs gap-1.5 text-white ${
-                    txType === 'LOAN' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
-                  }`}
-                >
-                  <Plus className="w-4 h-4" />
-                  + Add {txType === 'LOAN' ? 'Loan' : 'Redeem'}
-                </Button>
-              </div>
-            </div>
-
-            {/* SECTION 2: ADDED TRANSACTIONS TABLE (MATCHES EXCEL SHEET) */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <FileSpreadsheet className="w-4 h-4 text-blue-600" />
-                  Daily Transactions Log Sheet ({transactionList.length} Items Added)
-                </h3>
-              </div>
-
-              {transactionList.length === 0 ? (
-                <div className="p-8 border border-dashed border-slate-300 rounded-xl text-center bg-slate-50/50">
-                  <p className="text-sm font-bold text-slate-600">No transactions added for {ledgerDate} yet.</p>
-                  <p className="text-xs text-slate-400 mt-1">Use the form above to add loans and redemptions one by one.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
-                        <th className="py-2.5 px-3">Type</th>
-                        <th className="py-2.5 px-3">Loan / Bill No</th>
-                        <th className="py-2.5 px-3 text-right">Cash Loan (LKR)</th>
-                        <th className="py-2.5 px-3 text-right">Insurance (LKR)</th>
-                        <th className="py-2.5 px-3 text-center">Weight</th>
-                        <th className="py-2.5 px-3 text-center">Code</th>
-                        <th className="py-2.5 px-3 text-right">Interest (LKR)</th>
-                        <th className="py-2.5 px-3 text-right">Cash Redeem (LKR)</th>
-                        <th className="py-2.5 px-3 text-center">Category</th>
-                        <th className="py-2.5 px-3 w-[50px] text-center">Action</th>
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left border-collapse text-xs min-w-[950px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
+                    <th className="py-2.5 px-2.5 min-w-[110px]">Loan No</th>
+                    <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Loan)</th>
+                    <th className="py-2.5 px-2.5 min-w-[90px] text-right">Insurance</th>
+                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight g</th>
+                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight mg</th>
+                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Code</th>
+                    <th className="py-2.5 px-2.5 min-w-[110px]">Redeem No</th>
+                    <th className="py-2.5 px-2.5 min-w-[110px] text-right">Interest Rs</th>
+                    <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Redeem)</th>
+                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Type</th>
+                    <th className="py-2.5 px-2 w-[40px] text-center"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="py-8 text-center text-slate-400 font-medium">
+                        No transactions added yet. Click &quot;+ Add Bill Row&quot; above to add rows.
+                      </td>
+                    </tr>
+                  ) : (
+                    transactions.map((t, idx) => (
+                      <tr key={t.id || idx} className="hover:bg-slate-50/80 transition">
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="text"
+                            placeholder="1R 256"
+                            value={t.loan_no}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'loan_no', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="23590"
+                            value={t.cash_loan}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'cash_loan', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-rose-700"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0"
+                            value={t.insurance_rs}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'insurance_rs', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            placeholder="25"
+                            value={t.weight_g}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'weight_g', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-900"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            placeholder="060"
+                            value={t.weight_mg}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'weight_mg', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center text-xs text-slate-800"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="text"
+                            placeholder="CH"
+                            value={t.item_code}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'item_code', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs uppercase text-slate-900"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="text"
+                            placeholder="1R 175"
+                            value={t.redeem_no}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'redeem_no', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="1641.26"
+                            value={t.interest_rs}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'interest_rs', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="32825"
+                            value={t.cash_received}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'cash_received', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="text"
+                            placeholder="R"
+                            value={t.remarks}
+                            onChange={(e) => handleUpdateTransactionRow(idx, 'remarks', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-800"
+                          />
+                        </td>
+                        <td className="py-1.5 px-1 text-center">
+                          <button
+                            onClick={() => handleRemoveTransactionRow(idx)}
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 font-medium">
-                      {transactionList.map((t) => (
-                        <tr key={t.id} className="hover:bg-slate-50 transition">
-                          <td className="py-2.5 px-3">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
-                              t.type === 'LOAN' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-                            }`}>
-                              {t.type}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{t.billNo}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-700">
-                            {t.type === 'LOAN' ? `LKR ${t.cashAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                            {t.insuranceRs > 0 ? `LKR ${t.insuranceRs.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-800">
-                            {t.weightG > 0 || t.weightMg > 0 ? `${t.weightG}g ${t.weightMg}mg` : '-'}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-900 uppercase">{t.itemCode || '-'}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                            {t.interestRs > 0 ? `LKR ${t.interestRs.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                            {t.type === 'REDEEM' ? `LKR ${t.cashAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-800">{t.category}</td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button onClick={() => handleRemoveTransaction(t.id)} className="text-rose-600 hover:bg-rose-50 p-1 rounded">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-100 font-black font-mono text-xs border-t-2 border-slate-300">
-                        <td colSpan={2} className="py-3 px-3 uppercase text-slate-800">EXCEL TOTALS:</td>
-                        <td className="py-3 px-3 text-right text-rose-700">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td className="py-3 px-3 text-right text-emerald-700">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td colSpan={2}></td>
-                        <td className="py-3 px-3 text-right text-emerald-700">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td className="py-3 px-3 text-right text-emerald-700">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 font-extrabold font-mono text-xs border-t-2 border-slate-300">
+                    <td className="py-2.5 px-2.5 uppercase text-slate-800 font-black">TOTALS:</td>
+                    <td className="py-2.5 px-2.5 text-right text-rose-700">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-2.5 text-right text-emerald-700">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td colSpan={4} className="py-2.5 px-2.5 text-center text-slate-500 font-normal">Auto-calculated formula sum ↓</td>
+                    <td className="py-2.5 px-2.5 text-right text-emerald-700">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-2.5 text-right text-emerald-700">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
 
-          {/* SECTION 3: AUTOMATIC DAILY CASH SUMMARY & CATEGORY BREAKDOWN (EXCEL FORMULA CARD) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-7 bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-3">
-                <Calculator className="w-5 h-5 text-blue-600" />
+          {/* SECTION 2: CLEAN 2-COLUMN DASHBOARD (CASH SUMMARY & EXPENSES) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Left Card: Daily Cash Summary (Formula Table) */}
+            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3">
+                <Calculator className="w-5 h-5 text-blue-600 shrink-0" />
                 Daily Cash Summary (දිනපතා මුදල් සාරාංශය)
               </h3>
 
-              <div className="space-y-2 text-xs font-bold">
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
-                  <span className="text-slate-700">Opening Balance (ආරම්භක ශේෂය):</span>
+              <div className="space-y-2.5 text-xs font-bold">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-800">Opening Balance (ආරම්භක ශේෂය):</span>
                   <input
                     type="number"
                     step="0.01"
+                    placeholder="0.00"
                     value={openingBalance}
                     onChange={(e) => setOpeningBalance(e.target.value)}
-                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-slate-900"
+                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-slate-900"
                   />
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-emerald-700">Transfer In (+):</span>
                   <input
                     type="number"
                     step="0.01"
+                    placeholder="0.00"
                     value={transferIn}
                     onChange={(e) => setTransferIn(e.target.value)}
-                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-emerald-700"
+                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-emerald-700"
                   />
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-rose-700">Transfer Out (-):</span>
                   <input
                     type="number"
                     step="0.01"
+                    placeholder="0.00"
                     value={transferOut}
                     onChange={(e) => setTransferOut(e.target.value)}
-                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-rose-700"
+                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-rose-700"
                   />
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-rose-50/50 rounded-lg border border-rose-200 text-rose-900">
-                  <span>Loan Issued Total (-) [Auto-Summed]:</span>
-                  <span className="font-mono text-sm">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center p-2.5 bg-rose-50 rounded-lg border border-rose-200 text-rose-900">
+                  <span>Loan Issued Total (-) [Auto-Sum]:</span>
+                  <span className="font-mono text-sm font-black">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-200 text-emerald-900">
-                  <span>Redemption Total (+) [Auto-Summed]:</span>
-                  <span className="font-mono text-sm">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
+                  <span>Redemption Total (+) [Auto-Sum]:</span>
+                  <span className="font-mono text-sm font-black">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-200 text-emerald-900">
-                  <span>Rec: Interest Total (+) [Auto-Summed]:</span>
-                  <span className="font-mono text-sm">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
+                  <span>Rec: Interest Total (+) [Auto-Sum]:</span>
+                  <span className="font-mono text-sm font-black">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-emerald-700">Recovery Total (+):</span>
                   <input
                     type="number"
                     step="0.01"
+                    placeholder="0.00"
                     value={recoveryTotal}
                     onChange={(e) => setRecoveryTotal(e.target.value)}
-                    className="w-36 bg-white border rounded px-2 py-1 text-right font-mono text-sm font-bold text-emerald-700"
+                    className="w-36 bg-white border border-slate-300 rounded px-2.5 py-1 text-right font-mono text-sm font-bold text-emerald-700"
                   />
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-emerald-50/50 rounded-lg border border-emerald-200 text-emerald-900">
-                  <span>Insurance Rec (+) [Auto-Summed]:</span>
-                  <span className="font-mono text-sm">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
+                  <span>Insurance Rec (+) [Auto-Sum]:</span>
+                  <span className="font-mono text-sm font-black">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-2.5 bg-rose-50/50 rounded-lg border border-rose-200 text-rose-900">
-                  <span>Expenses Total (-) [Itemized Below]:</span>
-                  <span className="font-mono text-sm">LKR {totalExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center p-2.5 bg-rose-50 rounded-lg border border-rose-200 text-rose-900">
+                  <span>Expenses Total (-) [Itemized]:</span>
+                  <span className="font-mono text-sm font-black">LKR {totalExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-3.5 bg-emerald-100/70 border-2 border-emerald-400 rounded-xl text-emerald-950 text-base font-black">
+                <div className="flex justify-between items-center p-3.5 bg-emerald-100 border-2 border-emerald-400 rounded-xl text-emerald-950 text-base font-black">
                   <span>Closing Balance (අවසාන ශේෂය):</span>
                   <span className="font-mono text-lg">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -911,56 +823,64 @@ function MainLedgerContent() {
                 <Button
                   onClick={handleSaveLedger}
                   disabled={savingLedger || loadingLedger}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 text-sm gap-2"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 text-sm gap-2 rounded-xl shadow-sm"
                 >
                   <Save className="w-5 h-5" />
-                  {savingLedger ? 'Updating & Saving...' : 'Update & Save Ledger for ' + ledgerDate}
+                  {savingLedger ? 'Saving Ledger...' : 'Update & Save Ledger for ' + ledgerDate}
                 </Button>
               </div>
             </div>
 
-            {/* Itemized Expenses & Category Breakdown Column */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Itemized Expenses (වියදම්)</h4>
-                  <Button onClick={addExpenseRow} variant="outline" size="sm" className="h-7 text-xs font-bold">+ Add Expense</Button>
-                </div>
-
-                {expenses.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">No expenses added.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {expenses.map((exp, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Tea, Cleaning, etc."
-                          value={exp.description}
-                          onChange={(e) => updateExpenseRow(idx, 'description', e.target.value)}
-                          className="flex-1 bg-slate-50 border rounded px-2.5 py-1 text-xs font-bold text-slate-900"
-                        />
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Amount"
-                          value={exp.amount}
-                          onChange={(e) => updateExpenseRow(idx, 'amount', e.target.value)}
-                          className="w-24 bg-slate-50 border rounded px-2 py-1 text-xs font-bold text-right"
-                        />
-                        <button onClick={() => removeExpenseRow(idx)} className="text-rose-600">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {/* Right Card: Itemized Expenses */}
+            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 className="text-base font-black text-slate-900">Itemized Expenses (දිනපතා වියදම්)</h3>
+                <Button onClick={handleAddExpenseRow} variant="outline" size="sm" className="h-8 text-xs font-bold border-blue-300 text-blue-700">
+                  + Add Expense Line
+                </Button>
               </div>
+
+              {expenses.length === 0 ? (
+                <div className="p-6 border border-dashed border-slate-300 rounded-xl text-center bg-slate-50/50">
+                  <p className="text-xs text-slate-400 font-medium">No expenses added yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {expenses.map((exp, idx) => (
+                    <div key={exp.id || idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      <input
+                        type="text"
+                        placeholder="Expense description (Tea, Stationary)"
+                        value={exp.description}
+                        onChange={(e) => handleUpdateExpenseRow(idx, 'description', e.target.value)}
+                        className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs font-bold text-slate-900"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Amount"
+                        value={exp.amount}
+                        onChange={(e) => handleUpdateExpenseRow(idx, 'amount', e.target.value)}
+                        className="w-28 bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-right text-rose-700"
+                      />
+                      <button onClick={() => handleRemoveExpenseRow(idx)} className="text-rose-600 hover:bg-rose-100 p-1 rounded">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex justify-end pt-2 text-xs font-bold text-slate-800 font-mono">
+                    Total Expenses: LKR {totalExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              )}
             </div>
+
           </div>
         </div>
       )}
 
       {/* ========================================== */}
-      {/* TAB 2: 11-BRANCH MATRIX CONTENT            */}
+      {/* TAB 2: 11-BRANCH MATRIX                    */}
       {/* ========================================== */}
       {activeTab === 'matrix' && (
         <div className="space-y-6">
@@ -1104,7 +1024,7 @@ function MainLedgerContent() {
       )}
 
       {/* ========================================== */}
-      {/* TAB 3: GENERAL JOURNAL LEDGER CONTENT     */}
+      {/* TAB 3: GENERAL JOURNAL LEDGER LOGS         */}
       {/* ========================================== */}
       {activeTab === 'journal' && (
         <div className="space-y-6">
