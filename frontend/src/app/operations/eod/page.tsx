@@ -2037,7 +2037,7 @@ export default function EndOfDayPage() {
                               }}
                               className={cn(
                                 "p-0.5 rounded transition-colors cursor-pointer",
-                                isItem18C ? "text-amber-600 hover:bg-amber-100" : "text-blue-500 hover:bg-blue-100 text-blue-700"
+                                isItem18K ? "text-amber-600 hover:bg-amber-100" : "text-blue-500 hover:bg-blue-100 text-blue-700"
                               )}
                               title={`Remove ${displayName}`}
                             >
