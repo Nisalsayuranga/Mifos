@@ -14,13 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface TransactionRow {
-  transaction_type: 'LOAN_ISSUED' | 'REDEMPTION';
-  bill_no: string;
-  amount: number | string;
+  loan_no: string;
+  cash_loan: number | string;
+  insurance_rs: number | string;
   weight_g: number | string;
   weight_mg: number | string;
-  insurance_rs: number | string;
   item_code: string;
+  redeem_no: string;
   interest_rs: number | string;
   cash_received: number | string;
   remarks: string;
@@ -257,11 +257,67 @@ function MainLedgerContent() {
     return expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   }, [expenses]);
 
+  // Auto sum detailed transaction table into summary figures
+  const detailedLoansSum = useMemo(() => {
+    return transactions.reduce((sum, t) => sum + (Number(t.cash_loan) || 0), 0);
+  }, [transactions]);
+
+  const detailedRedemptionsSum = useMemo(() => {
+    return transactions.reduce((sum, t) => sum + (Number(t.cash_received) || 0), 0);
+  }, [transactions]);
+
+  const detailedInterestSum = useMemo(() => {
+    return transactions.reduce((sum, t) => sum + (Number(t.interest_rs) || 0), 0);
+  }, [transactions]);
+
+  const detailedInsuranceSum = useMemo(() => {
+    return transactions.reduce((sum, t) => sum + (Number(t.insurance_rs) || 0), 0);
+  }, [transactions]);
+
   useEffect(() => {
     if (expenses.length > 0) {
       setExpensesTotal(detailedExpensesSum);
     }
   }, [detailedExpensesSum, expenses.length]);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      if (detailedLoansSum > 0) setLoanIssuedTotal(detailedLoansSum);
+      if (detailedRedemptionsSum > 0) setRedemptionTotal(detailedRedemptionsSum);
+      if (detailedInterestSum > 0) setInterestRecTotal(detailedInterestSum);
+      if (detailedInsuranceSum > 0) setInsuranceTotal(detailedInsuranceSum);
+    }
+  }, [detailedLoansSum, detailedRedemptionsSum, detailedInterestSum, detailedInsuranceSum, transactions.length]);
+
+  const addTransactionRow = () => {
+    setTransactions(prev => [
+      ...prev,
+      {
+        loan_no: '',
+        cash_loan: '',
+        insurance_rs: '',
+        weight_g: '',
+        weight_mg: '',
+        item_code: '',
+        redeem_no: '',
+        interest_rs: '',
+        cash_received: '',
+        remarks: ''
+      }
+    ]);
+  };
+
+  const removeTransactionRow = (index: number) => {
+    setTransactions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateTransactionRow = (index: number, field: keyof TransactionRow, val: any) => {
+    setTransactions(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: val };
+      return updated;
+    });
+  };
 
   const addExpenseRow = () => {
     setExpenses(prev => [...prev, { description: '', amount: '' }]);
@@ -641,6 +697,175 @@ function MainLedgerContent() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Top Paper Ledger Transactions Sheet (Red Circled Section) */}
+          <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+                  Daily Paper Transactions Log (ඉහළ ගනුදෙනු ලැයිස්තුව Grid)
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Enter individual loans issued, redemptions, weights, codes & interest items as written in top red section of ledger book.
+                </p>
+              </div>
+              <Button
+                onClick={addTransactionRow}
+                variant="outline"
+                className="font-bold text-xs gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                <Plus className="w-4 h-4 text-blue-600" />
+                + Add Transaction Bill Line
+              </Button>
+            </div>
+
+            {transactions.length === 0 ? (
+              <div className="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-center">
+                <p className="text-xs text-slate-500 font-medium">No individual transaction bills entered yet.</p>
+                <p className="text-[11px] text-slate-400">Click &quot;+ Add Transaction Bill Line&quot; to enter Loan No, Cash, Weight, Redeem No, Interest & Insurance.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
+                      <th className="py-2.5 px-2 min-w-[90px]">Loan No</th>
+                      <th className="py-2.5 px-2 min-w-[100px] text-right">Cash (Loan)</th>
+                      <th className="py-2.5 px-2 min-w-[80px] text-right">Insurance</th>
+                      <th className="py-2.5 px-2 min-w-[70px] text-center">Weight g</th>
+                      <th className="py-2.5 px-2 min-w-[70px] text-center">Weight mg</th>
+                      <th className="py-2.5 px-2 min-w-[70px] text-center">Code</th>
+                      <th className="py-2.5 px-2 min-w-[90px]">Redeem No</th>
+                      <th className="py-2.5 px-2 min-w-[100px] text-right">Interest Rs</th>
+                      <th className="py-2.5 px-2 min-w-[100px] text-right">Cash (Redeem)</th>
+                      <th className="py-2.5 px-2 min-w-[70px] text-center">Type</th>
+                      <th className="py-2.5 px-2 w-[40px]"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {transactions.map((t, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/80 transition">
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="text"
+                            placeholder="e.g. 1R 256"
+                            value={t.loan_no}
+                            onChange={(e) => updateTransactionRow(idx, 'loan_no', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="23590"
+                            value={t.cash_loan}
+                            onChange={(e) => updateTransactionRow(idx, 'cash_loan', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-rose-700"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0"
+                            value={t.insurance_rs}
+                            onChange={(e) => updateTransactionRow(idx, 'insurance_rs', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="number"
+                            placeholder="25"
+                            value={t.weight_g}
+                            onChange={(e) => updateTransactionRow(idx, 'weight_g', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-900"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="number"
+                            placeholder="060"
+                            value={t.weight_mg}
+                            onChange={(e) => updateTransactionRow(idx, 'weight_mg', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center text-xs text-slate-800"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="text"
+                            placeholder="CH"
+                            value={t.item_code}
+                            onChange={(e) => updateTransactionRow(idx, 'item_code', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs uppercase text-slate-900"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="text"
+                            placeholder="1R 175"
+                            value={t.redeem_no}
+                            onChange={(e) => updateTransactionRow(idx, 'redeem_no', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="1641.26"
+                            value={t.interest_rs}
+                            onChange={(e) => updateTransactionRow(idx, 'interest_rs', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="32825"
+                            value={t.cash_received}
+                            onChange={(e) => updateTransactionRow(idx, 'cash_received', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
+                          />
+                        </td>
+                        <td className="py-2 px-1.5">
+                          <input
+                            type="text"
+                            placeholder="R"
+                            value={t.remarks}
+                            onChange={(e) => updateTransactionRow(idx, 'remarks', e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-800"
+                          />
+                        </td>
+                        <td className="py-2 px-1 text-center">
+                          <button
+                            onClick={() => removeTransactionRow(idx)}
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100 font-extrabold font-mono text-xs border-t-2 border-slate-300">
+                      <td className="py-2 px-2 uppercase text-slate-700">TOTALS:</td>
+                      <td className="py-2 px-2 text-right text-rose-700">LKR {detailedLoansSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 px-2 text-right text-emerald-700">LKR {detailedInsuranceSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td colSpan={4} className="py-2 px-2 text-center text-slate-500 font-normal">Auto-summed to summary box below ↓</td>
+                      <td className="py-2 px-2 text-right text-emerald-700">LKR {detailedInterestSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 px-2 text-right text-emerald-700">LKR {detailedRedemptionsSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
