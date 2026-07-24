@@ -40,7 +40,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, oldSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 // Stock item abbreviations
@@ -160,8 +160,13 @@ export default function EndOfDayPage() {
   const [stockItems, setStockItems] = useState<any[]>([]);
   const [loadingStock, setLoadingStock] = useState(false);
   const [isUsingSupabase, setIsUsingSupabase] = useState(false);
-  const [stockFilter, setStockFilter] = useState<'Active' | 'Withdrawn'>('Active');
+  const [stockFilter, setStockFilter] = useState<'Active' | 'Withdrawn' | 'OldData'>('Active');
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Old DB Stock State
+  const [oldStockItems, setOldStockItems] = useState<any[]>([]);
+  const [oldStockCustomers, setOldStockCustomers] = useState<any[]>([]);
+  const [loadingOldStock, setLoadingOldStock] = useState(false);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -442,10 +447,42 @@ export default function EndOfDayPage() {
     }
   };
 
+  const loadOldStockData = async () => {
+    setLoadingOldStock(true);
+    try {
+      const { data, error } = await oldSupabase
+        .from('stock_items')
+        .select('*')
+        .eq('status', 'Active')
+        .order('date', { ascending: false });
+      if (error) throw error;
+      setOldStockItems(sortStockItems(data || []));
+    } catch (err: any) {
+      console.warn("Failed to load old stock items:", err);
+      setOldStockItems([]);
+    } finally {
+      setLoadingOldStock(false);
+    }
+  };
+
+  const loadOldCustomerData = async () => {
+    try {
+      const { data, error } = await oldSupabase
+        .from('stock_customers')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      setOldStockCustomers(data || []);
+    } catch (err) {
+      setOldStockCustomers([]);
+    }
+  };
+
   // Load stock when tab, branch or search query changes
   useEffect(() => {
     if (activeTab === 'stock') {
       loadStockData();
+      loadOldStockData();
     }
   }, [activeTab, selectedBranch, currentUser, searchQuery]);
 
@@ -453,6 +490,7 @@ export default function EndOfDayPage() {
   useEffect(() => {
     if (activeTab === 'stock') {
       loadCustomerData();
+      loadOldCustomerData();
     }
   }, [activeTab, selectedBranch, currentUser]);
 
@@ -651,7 +689,14 @@ export default function EndOfDayPage() {
   const getCustomerForBill = (billNo: string) => {
     if (!billNo) return null;
     const cleanBill = billNo.trim().toLowerCase();
-    return stockCustomers.find(c => {
+    const foundInNew = stockCustomers.find(c => {
+      if (!c.bill_numbers) return false;
+      const bills = c.bill_numbers.split(",").map((b: string) => b.trim().toLowerCase());
+      return bills.includes(cleanBill);
+    });
+    if (foundInNew) return foundInNew;
+
+    return oldStockCustomers.find(c => {
       if (!c.bill_numbers) return false;
       const bills = c.bill_numbers.split(",").map((b: string) => b.trim().toLowerCase());
       return bills.includes(cleanBill);
@@ -1184,15 +1229,38 @@ export default function EndOfDayPage() {
   const totalActiveWeight = activeStockList.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
   const totalActiveValue = activeStockList.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
 
+  // Calculate statistics for Old Data stock
+  const oldActiveList = oldStockItems;
+  const totalOldCount = oldActiveList.length;
+  const totalOldWeight = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
+  const totalOldValue = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+
+  const displayCount = stockFilter === 'OldData' ? totalOldCount : totalActiveCount;
+  const displayWeight = stockFilter === 'OldData' ? totalOldWeight : totalActiveWeight;
+  const displayValue = stockFilter === 'OldData' ? totalOldValue : totalActiveValue;
+
   // Filter and search stock
-  const filteredStock = stockItems.filter(item => {
-    const matchesStatus = item.status === stockFilter;
-    const matchesSearch = 
-      item.bill_no.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      item.item_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      getItemName(item.item_type).toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredStock = stockFilter === 'OldData'
+    ? oldStockItems.filter(item => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          (item.bill_no || "").toLowerCase().includes(q) || 
+          (item.item_type || "").toLowerCase().includes(q) ||
+          getItemName(item.item_type || "").toLowerCase().includes(q)
+        );
+      })
+    : stockItems.filter(item => {
+        const matchesStatus = item.status === stockFilter;
+        if (!matchesStatus) return false;
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          (item.bill_no || "").toLowerCase().includes(q) || 
+          (item.item_type || "").toLowerCase().includes(q) ||
+          getItemName(item.item_type || "").toLowerCase().includes(q)
+        );
+      });
 
   // Strict sort by prefix order: A -> 1R -> 3M -> 3R -> 6R -> 12R -> 6M -> Others
   const sortedStock = sortStockItems(filteredStock);
@@ -1387,8 +1455,10 @@ export default function EndOfDayPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vault Stock Count</p>
-                <p className="text-2xl font-black text-slate-800 mt-0.5">{totalActiveCount} Items</p>
-                <p className="text-[10px] text-slate-500 font-bold mt-0.5">Currently stored in inventory</p>
+                <p className="text-2xl font-black text-slate-800 mt-0.5">{displayCount} Items</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                  {stockFilter === 'OldData' ? "Historical active vault items" : "Currently stored in inventory"}
+                </p>
               </div>
             </div>
 
@@ -1398,7 +1468,7 @@ export default function EndOfDayPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Weight</p>
-                <p className="text-2xl font-black text-slate-800 mt-0.5">{totalActiveWeight.toFixed(3)} g</p>
+                <p className="text-2xl font-black text-slate-800 mt-0.5">{displayWeight.toFixed(3)} g</p>
                 <p className="text-[10px] text-slate-500 font-bold mt-0.5">Cumulative gold weight</p>
               </div>
             </div>
@@ -1409,7 +1479,7 @@ export default function EndOfDayPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Appraised Value</p>
-                <p className="text-2xl font-black text-slate-800 mt-0.5">Rs. {totalActiveValue.toLocaleString()}</p>
+                <p className="text-2xl font-black text-slate-800 mt-0.5">Rs. {displayValue.toLocaleString()}</p>
                 <p className="text-[10px] text-slate-500 font-bold mt-0.5">Cumulative value of stock</p>
               </div>
             </div>
@@ -1419,11 +1489,11 @@ export default function EndOfDayPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col md:flex-row items-center justify-between gap-4">
             
             {/* Filter Toggle Buttons */}
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full md:w-fit shrink-0">
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full md:w-fit shrink-0 gap-1">
               <button 
                 onClick={() => setStockFilter('Active')}
                 className={cn(
-                  "flex-1 md:flex-initial px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  "flex-1 md:flex-initial px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer",
                   stockFilter === 'Active' ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-500 hover:text-slate-800"
                 )}
               >
@@ -1432,11 +1502,28 @@ export default function EndOfDayPage() {
               <button 
                 onClick={() => setStockFilter('Withdrawn')}
                 className={cn(
-                  "flex-1 md:flex-initial px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  "flex-1 md:flex-initial px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer",
                   stockFilter === 'Withdrawn' ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-500 hover:text-slate-800"
                 )}
               >
                 Withdrawn ({stockItems.filter(item => item.status === 'Withdrawn').length})
+              </button>
+              <button 
+                onClick={() => setStockFilter('OldData')}
+                className={cn(
+                  "flex-1 md:flex-initial px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                  stockFilter === 'OldData' 
+                    ? "bg-amber-500 text-white shadow-sm shadow-amber-500/20 font-bold" 
+                    : "text-amber-800 bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/50"
+                )}
+              >
+                <span>Old Data</span>
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-black",
+                  stockFilter === 'OldData' ? "bg-amber-600 text-white" : "bg-amber-200/80 text-amber-900"
+                )}>
+                  {totalOldCount}
+                </span>
               </button>
             </div>
 
@@ -1523,7 +1610,7 @@ export default function EndOfDayPage() {
 
           {/* Stock Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[300px]">
-            {loadingStock ? (
+            {(stockFilter === 'OldData' ? loadingOldStock : loadingStock) ? (
               <div className="flex flex-col items-center justify-center h-80 gap-3 text-slate-400">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                 <span className="font-bold text-xs uppercase tracking-widest">Fetching Vault Items...</span>
@@ -1610,7 +1697,13 @@ export default function EndOfDayPage() {
                         <TableCell className="px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">
                           {new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </TableCell>
-                        {item.status === 'Withdrawn' ? (
+                        {stockFilter === 'OldData' ? (
+                          <TableCell className="px-6 py-4 text-right">
+                            <span className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-wider shadow-2xs">
+                              OLD DATA
+                            </span>
+                          </TableCell>
+                        ) : item.status === 'Withdrawn' ? (
                           <>
                             <TableCell className="px-6 py-4 font-bold text-rose-600 text-xs uppercase tracking-wider">
                               {new Date(item.withdrawal_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
