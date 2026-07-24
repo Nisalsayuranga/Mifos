@@ -928,7 +928,7 @@ function MainLedgerContent() {
                                 >
                                   <span>{count}</span>
                                   {flagged > 0 && (
-                                    <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" title={`${flagged} flagged days`} />
+                                    <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
                                   )}
                                 </button>
                               </td>
