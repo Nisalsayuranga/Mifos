@@ -35,6 +35,9 @@ mvnw.cmd
 **/*.pem
 **/*.key
 **/*.token
+*.xlsx
+*.zip
+ledger/
 
 # OS
 Thumbs.db

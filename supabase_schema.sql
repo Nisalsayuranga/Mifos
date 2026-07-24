@@ -224,3 +224,87 @@ drop policy if exists "Public stock_customers update" on public.stock_customers;
 create policy "Public stock_customers select" on public.stock_customers for select using (true);
 create policy "Public stock_customers insert" on public.stock_customers for insert with check (true);
 create policy "Public stock_customers update" on public.stock_customers for update using (true);
+
+-- 11. Create daily_ledgers table
+create table if not exists public.daily_ledgers (
+    id uuid default gen_random_uuid() primary key,
+    branch_id text references public.branches(id) on delete cascade not null,
+    ledger_date date not null,
+    cp_balance numeric(12, 2) default 0.00,
+    opening_balance numeric(12, 2) not null default 0.00,
+    transfer_in numeric(12, 2) not null default 0.00,
+    transfer_out numeric(12, 2) not null default 0.00,
+    loan_issued_total numeric(12, 2) not null default 0.00,
+    redemption_total numeric(12, 2) not null default 0.00,
+    interest_rec_total numeric(12, 2) not null default 0.00,
+    recovery_total numeric(12, 2) not null default 0.00,
+    insurance_total numeric(12, 2) not null default 0.00,
+    expenses_total numeric(12, 2) not null default 0.00,
+    closing_balance numeric(12, 2) not null default 0.00,
+    actual_cash_count numeric(12, 2),
+    variance numeric(12, 2) default 0.00,
+    staff_shift text,
+    status text not null default 'APPROVED', -- 'DRAFT', 'APPROVED', 'FLAGGED'
+    created_by text,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    constraint unique_branch_ledger_date unique (branch_id, ledger_date)
+);
+
+-- 12. Create daily_ledger_transactions table
+create table if not exists public.daily_ledger_transactions (
+    id uuid default gen_random_uuid() primary key,
+    ledger_id uuid references public.daily_ledgers(id) on delete cascade not null,
+    transaction_type text not null, -- 'LOAN_ISSUED', 'REDEMPTION'
+    bill_no text not null,
+    amount numeric(12, 2) not null default 0.00,
+    weight_g numeric(10, 3) default 0.000,
+    weight_mg numeric(10, 3) default 0.000,
+    insurance_rs numeric(12, 2) default 0.00,
+    item_code text,
+    interest_rs numeric(12, 2) default 0.00,
+    cash_received numeric(12, 2) default 0.00,
+    remarks text,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 13. Create daily_ledger_expenses table
+create table if not exists public.daily_ledger_expenses (
+    id uuid default gen_random_uuid() primary key,
+    ledger_id uuid references public.daily_ledgers(id) on delete cascade not null,
+    description text not null,
+    amount numeric(12, 2) not null default 0.00,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS and add public policies for daily_ledgers, transactions & expenses
+alter table public.daily_ledgers enable row level security;
+drop policy if exists "Public daily_ledgers select" on public.daily_ledgers;
+drop policy if exists "Public daily_ledgers insert" on public.daily_ledgers;
+drop policy if exists "Public daily_ledgers update" on public.daily_ledgers;
+drop policy if exists "Public daily_ledgers delete" on public.daily_ledgers;
+create policy "Public daily_ledgers select" on public.daily_ledgers for select using (true);
+create policy "Public daily_ledgers insert" on public.daily_ledgers for insert with check (true);
+create policy "Public daily_ledgers update" on public.daily_ledgers for update using (true);
+create policy "Public daily_ledgers delete" on public.daily_ledgers for delete using (true);
+
+alter table public.daily_ledger_transactions enable row level security;
+drop policy if exists "Public daily_ledger_transactions select" on public.daily_ledger_transactions;
+drop policy if exists "Public daily_ledger_transactions insert" on public.daily_ledger_transactions;
+drop policy if exists "Public daily_ledger_transactions update" on public.daily_ledger_transactions;
+drop policy if exists "Public daily_ledger_transactions delete" on public.daily_ledger_transactions;
+create policy "Public daily_ledger_transactions select" on public.daily_ledger_transactions for select using (true);
+create policy "Public daily_ledger_transactions insert" on public.daily_ledger_transactions for insert with check (true);
+create policy "Public daily_ledger_transactions update" on public.daily_ledger_transactions for update using (true);
+create policy "Public daily_ledger_transactions delete" on public.daily_ledger_transactions for delete using (true);
+
+alter table public.daily_ledger_expenses enable row level security;
+drop policy if exists "Public daily_ledger_expenses select" on public.daily_ledger_expenses;
+drop policy if exists "Public daily_ledger_expenses insert" on public.daily_ledger_expenses;
+drop policy if exists "Public daily_ledger_expenses update" on public.daily_ledger_expenses;
+drop policy if exists "Public daily_ledger_expenses delete" on public.daily_ledger_expenses;
+create policy "Public daily_ledger_expenses select" on public.daily_ledger_expenses for select using (true);
+create policy "Public daily_ledger_expenses insert" on public.daily_ledger_expenses for insert with check (true);
+create policy "Public daily_ledger_expenses update" on public.daily_ledger_expenses for update using (true);
+create policy "Public daily_ledger_expenses delete" on public.daily_ledger_expenses for delete using (true);
+

@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   UserCircle,
   PiggyBank,
-  CheckSquare
+  CheckSquare,
+  FileSpreadsheet,
+  Layers
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -39,6 +41,8 @@ const navGroups = [
       { name: 'Pawnes', href: '/loans', icon: Wallet },
       { name: 'Accounts', href: '/savings', icon: PiggyBank },
       { name: 'Records', href: '/accounting/ledger', icon: FileText },
+      { name: 'Ledger Entry', href: '/accounting/ledger/entry', icon: FileSpreadsheet },
+      { name: 'Ledger Matrix', href: '/accounting/ledger/matrix', icon: Layers },
     ]
   },
   {
