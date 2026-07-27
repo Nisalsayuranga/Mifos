@@ -8,9 +8,25 @@ import { Menu } from 'lucide-react';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // Auto-collapse on tablet (md = 768px), expand on desktop (lg = 1024px)
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const isLoginPage = pathname === '/login';
+
+  // Detect screen size on mount and set initial collapsed state
+  useEffect(() => {
+    const checkSize = () => {
+      // Tablet: md (768px) to lg (1024px) → auto-collapse sidebar
+      if (window.innerWidth < 1024 && window.innerWidth >= 768) {
+        setIsCollapsed(true);
+      } else if (window.innerWidth >= 1024) {
+        setIsCollapsed(false);
+      }
+    };
+    checkSize();
+    window.addEventListener('resize', checkSize);
+    return () => window.removeEventListener('resize', checkSize);
+  }, []);
 
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -44,12 +60,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       />
 
       <main className={cn(
-        "flex-1 transition-all duration-300 min-h-screen flex flex-col w-full",
-        isCollapsed ? "md:ml-24" : "md:ml-72",
+        "flex-1 transition-all duration-300 min-h-screen flex flex-col w-full overflow-x-hidden",
+        isCollapsed ? "md:ml-24" : "md:ml-24 lg:ml-72",
         "ml-0"
       )}>
-        {/* Mobile Navbar Header */}
-        <header className="h-16 border-b border-slate-200 bg-white flex items-center px-4 justify-between sticky top-0 z-30 md:hidden shrink-0">
+        {/* Mobile/Tablet Navbar Header */}
+        <header className="h-14 border-b border-slate-200 bg-white flex items-center px-4 justify-between sticky top-0 z-30 md:hidden shrink-0">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setIsMobileOpen(true)}
@@ -64,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="flex-1 p-4 md:px-6 md:py-10 w-full overflow-x-hidden">
+        <div className="flex-1 p-3 md:p-4 lg:px-6 lg:py-8 w-full overflow-x-hidden">
           {children}
         </div>
       </main>

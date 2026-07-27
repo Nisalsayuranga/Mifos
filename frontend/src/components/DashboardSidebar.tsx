@@ -124,7 +124,7 @@ export default function DashboardSidebar({
     <aside 
       className={cn(
         "fixed left-0 top-0 h-screen bg-slate-950 text-slate-300 transition-all duration-500 ease-in-out z-50 flex flex-col shadow-2xl overflow-hidden border-r border-white/5 font-sans",
-        isCollapsed ? "md:w-24" : "md:w-72",
+        isCollapsed ? "md:w-24" : "md:w-24 lg:w-72",
         isMobileOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0"
       )}
     >

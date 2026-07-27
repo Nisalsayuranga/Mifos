@@ -673,20 +673,20 @@ function MainLedgerContent() {
             </div>
 
             <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
-              <table className="w-full text-left border-collapse text-xs min-w-[950px]">
+              <table className="w-full text-left border-collapse text-xs min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
-                    <th className="py-2.5 px-2.5 min-w-[120px]">Loan No</th>
-                    <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Loan)</th>
-                    <th className="py-2.5 px-2.5 min-w-[90px] text-right">Insurance</th>
-                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight g</th>
-                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight mg</th>
-                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Code</th>
-                    <th className="py-2.5 px-2.5 min-w-[120px]">Redeem No</th>
-                    <th className="py-2.5 px-2.5 min-w-[110px] text-right">Interest Rs</th>
-                    <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Redeem)</th>
-                    <th className="py-2.5 px-2.5 min-w-[75px] text-center">Type</th>
-                    <th className="py-2.5 px-2 w-[40px] text-center"></th>
+                    <th className="py-2 px-2 min-w-[100px]">Loan No</th>
+                    <th className="py-2 px-2 min-w-[90px] text-right">Cash (Loan)</th>
+                    <th className="py-2 px-2 min-w-[75px] text-right">Insurance</th>
+                    <th className="py-2 px-2 min-w-[60px] text-center">Wt.g</th>
+                    <th className="py-2 px-2 min-w-[60px] text-center">Wt.mg</th>
+                    <th className="py-2 px-2 min-w-[55px] text-center">Code</th>
+                    <th className="py-2 px-2 min-w-[100px]">Redeem No</th>
+                    <th className="py-2 px-2 min-w-[85px] text-right">Interest</th>
+                    <th className="py-2 px-2 min-w-[90px] text-right">Cash (Rdm)</th>
+                    <th className="py-2 px-2 min-w-[55px] text-center">Type</th>
+                    <th className="py-2 px-1.5 w-[32px] text-center"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
