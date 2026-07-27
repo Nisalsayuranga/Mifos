@@ -172,19 +172,26 @@ export async function POST(request: Request) {
     ]);
 
     if (Array.isArray(transactions) && transactions.length > 0) {
-      const txRows = transactions.map((t: any) => ({
-        ledger_id: ledgerId,
-        transaction_type: t.transaction_type || 'LOAN_ISSUED',
-        bill_no: t.bill_no || '',
-        amount: Number(t.amount) || 0,
-        weight_g: Number(t.weight_g) || 0,
-        weight_mg: Number(t.weight_mg) || 0,
-        insurance_rs: Number(t.insurance_rs) || 0,
-        item_code: t.item_code || '',
-        interest_rs: Number(t.interest_rs) || 0,
-        cash_received: Number(t.cash_received) || 0,
-        remarks: t.remarks || ''
-      }));
+      const txRows = transactions.map((t: any) => {
+        let finalRemarks = t.remarks || '';
+        if (t.type_ir === 'I') {
+          finalRemarks = `[I:${t.quantity || ''}] ${finalRemarks}`.trim();
+        }
+        
+        return {
+          ledger_id: ledgerId,
+          transaction_type: t.transaction_type || 'LOAN_ISSUED',
+          bill_no: t.loan_no || t.bill_no || '',
+          amount: Number(t.cash_loan) || Number(t.amount) || 0,
+          weight_g: Number(t.weight_g) || 0,
+          weight_mg: Number(t.weight_mg) || 0,
+          insurance_rs: Number(t.insurance_rs) || 0,
+          item_code: t.item_code || '',
+          interest_rs: Number(t.interest_rs) || 0,
+          cash_received: Number(t.cash_received) || 0,
+          remarks: finalRemarks
+        };
+      });
       await supabase.from('daily_ledger_transactions').insert(txRows);
     }
 

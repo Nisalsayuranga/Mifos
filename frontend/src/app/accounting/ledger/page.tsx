@@ -130,6 +130,7 @@ function MainLedgerContent() {
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [savingLedger, setSavingLedger] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
+  const [showSavedPopup, setShowSavedPopup] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -330,19 +331,36 @@ function MainLedgerContent() {
           setUserClosingBalance(l.closing_balance || '');
 
           if (data.transactions && Array.isArray(data.transactions)) {
-            setTransactions(data.transactions.map((t: any) => ({
-              id: t.id || Math.random().toString(),
-              loan_no: t.loan_no || t.bill_no || '',
-              cash_loan: t.cash_loan || t.amount || '',
-              insurance_rs: t.insurance_rs || '',
-              weight_g: t.weight_g || '',
-              weight_mg: t.weight_mg || '',
-              item_code: t.item_code || '',
-              redeem_no: t.redeem_no || '',
-              interest_rs: t.interest_rs || '',
-              cash_received: t.cash_received || '',
-              remarks: t.remarks || ''
-            })));
+            setTransactions(data.transactions.map((t: any) => {
+              let type_ir: 'I' | 'R' | '' = 'R';
+              let quantity = '';
+              let remarks = t.remarks || '';
+              
+              if (remarks.startsWith('[I:')) {
+                type_ir = 'I';
+                const match = remarks.match(/^\[I:(.*?)\]\s*(.*)$/);
+                if (match) {
+                  quantity = match[1];
+                  remarks = match[2];
+                }
+              }
+
+              return {
+                id: t.id || Math.random().toString(),
+                loan_no: t.bill_no || t.loan_no || '',
+                cash_loan: t.amount || t.cash_loan || '',
+                insurance_rs: t.insurance_rs || '',
+                weight_g: t.weight_g || '',
+                weight_mg: t.weight_mg || '',
+                item_code: t.item_code || '',
+                redeem_no: t.redeem_no || '',
+                interest_rs: t.interest_rs || '',
+                cash_received: t.cash_received || '',
+                type_ir,
+                quantity,
+                remarks
+              };
+            }));
           } else {
             setTransactions([]);
           }
@@ -427,10 +445,7 @@ function MainLedgerContent() {
       if (data.error) {
         setFeedback({ type: 'error', message: data.error });
       } else {
-        setFeedback({
-          type: 'success',
-          message: `Daily Ledger for ${selectedBranch} on ${ledgerDate} saved successfully!`
-        });
+        setShowSavedPopup(true);
         fetchLedgerData();
       }
     } catch (err: any) {
@@ -1297,6 +1312,30 @@ function MainLedgerContent() {
               </div>
             )}
           </div>
+
+          {/* Saved Success Modal */}
+          {showSavedPopup && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col items-center text-center p-6">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">Saved Done!</h3>
+                <p className="text-sm text-slate-500 font-medium mb-6">
+                  Ledger data has been successfully saved to the database.
+                </p>
+                <Button 
+                  onClick={() => {
+                    setShowSavedPopup(false);
+                    handleTabSwitch('matrix');
+                  }}
+                  className="w-full font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg"
+                >
+                  OK
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Matrix Branch Ledgers Modal */}
           {matrixBranchModalOpen && selectedMatrixBranch && (
