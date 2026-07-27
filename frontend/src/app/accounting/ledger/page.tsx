@@ -294,6 +294,8 @@ function MainLedgerContent() {
           setTransactions([]);
           setExpenses([]);
         }
+      } else {
+        console.warn("Fetch ledger returned non-JSON response:", res.status);
       }
     } catch (err: any) {
       console.error("Fetch ledger error:", err);
@@ -339,6 +341,15 @@ function MainLedgerContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      const contentType = res.headers.get('content-type');
+      if (!res.ok || !contentType || !contentType.includes('application/json')) {
+        setFeedback({
+          type: 'error',
+          message: `Save failed: Server returned status ${res.status}. Please check database connection.`
+        });
+        return;
+      }
+
       const data = await res.json();
 
       if (data.error) {
@@ -369,13 +380,16 @@ function MainLedgerContent() {
     setMatrixError(null);
     try {
       const res = await fetch(`/api/ledger/matrix?year=${selectedYear}`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.error) setMatrixError(data.error);
         else {
           setMatrixBranches(data.branches || []);
           setMatrixData(data.matrix || {});
         }
+      } else {
+        setMatrixError(`Matrix load error: Server returned status ${res.status}`);
       }
     } catch (err: any) {
       setMatrixError(err.message);
@@ -399,13 +413,17 @@ function MainLedgerContent() {
     setLoadingJournal(true);
     try {
       const res = await fetch('/api/ledger');
-      if (res.ok) setJournalEntries(await res.json());
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        setJournalEntries(await res.json());
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingJournal(false);
     }
   };
+
 
   useEffect(() => {
     if (activeTab === 'journal') loadJournalEntries();
