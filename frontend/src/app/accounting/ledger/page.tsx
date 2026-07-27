@@ -669,47 +669,13 @@ function MainLedgerContent() {
               <table className="w-full text-left border-collapse text-xs min-w-[950px]">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
-                    <th className="py-2.5 px-2.5 min-w-[140px]">
-                      <div className="flex flex-col gap-0.5">
-                        <span>Loan No</span>
-                        <div className="flex items-center gap-0.5 flex-wrap font-normal">
-                          {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
-                            <button
-                              key={pref}
-                              type="button"
-                              onClick={() => handleAddTransactionRowWithPrefix('loan_no', pref)}
-                              className="px-1 py-0.2 bg-blue-100 hover:bg-blue-600 hover:text-white text-blue-900 border border-blue-300 rounded text-[8px] font-black cursor-pointer transition-colors active:scale-95"
-                              title={`Add row with ${pref}`}
-                            >
-                              +{pref}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </th>
+                    <th className="py-2.5 px-2.5 min-w-[120px]">Loan No</th>
                     <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Loan)</th>
                     <th className="py-2.5 px-2.5 min-w-[90px] text-right">Insurance</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight g</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight mg</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Code</th>
-                    <th className="py-2.5 px-2.5 min-w-[140px]">
-                      <div className="flex flex-col gap-0.5">
-                        <span>Redeem No</span>
-                        <div className="flex items-center gap-0.5 flex-wrap font-normal">
-                          {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
-                            <button
-                              key={pref}
-                              type="button"
-                              onClick={() => handleAddTransactionRowWithPrefix('redeem_no', pref)}
-                              className="px-1 py-0.2 bg-emerald-100 hover:bg-emerald-600 hover:text-white text-emerald-900 border border-emerald-300 rounded text-[8px] font-black cursor-pointer transition-colors active:scale-95"
-                              title={`Add row with ${pref}`}
-                            >
-                              +{pref}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </th>
+                    <th className="py-2.5 px-2.5 min-w-[120px]">Redeem No</th>
                     <th className="py-2.5 px-2.5 min-w-[110px] text-right">Interest Rs</th>
                     <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Redeem)</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Type</th>
