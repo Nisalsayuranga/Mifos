@@ -447,6 +447,38 @@ function MainLedgerContent() {
   const [loadingMatrix, setLoadingMatrix] = useState(false);
   const [matrixError, setMatrixError] = useState<string | null>(null);
 
+  // Matrix Branch Modal State
+  const [matrixBranchModalOpen, setMatrixBranchModalOpen] = useState(false);
+  const [selectedMatrixBranch, setSelectedMatrixBranch] = useState<any | null>(null);
+  const [matrixBranchLedgers, setMatrixBranchLedgers] = useState<any[]>([]);
+  const [loadingMatrixLedgers, setLoadingMatrixLedgers] = useState(false);
+
+  const handleOpenBranchLedgers = async (branch: any) => {
+    setSelectedMatrixBranch(branch);
+    setMatrixBranchModalOpen(true);
+    setLoadingMatrixLedgers(true);
+    try {
+      const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        // filter by selectedYear
+        const filtered = (data.ledgers || []).filter((l: any) => l.ledger_date.startsWith(selectedYear));
+        setMatrixBranchLedgers(filtered);
+      }
+    } catch (err) {
+      console.error("Failed to load ledgers", err);
+    } finally {
+      setLoadingMatrixLedgers(false);
+    }
+  };
+
+  const handleEditLedgerFromMatrix = (date: string, branchId: string) => {
+    setSelectedBranch(branchId);
+    setLedgerDate(date);
+    setMatrixBranchModalOpen(false);
+    handleTabSwitch('entry');
+  };
+
   const fetchMatrix = async () => {
     setLoadingMatrix(true);
     setMatrixError(null);
@@ -1215,9 +1247,12 @@ function MainLedgerContent() {
                       const item = matrixData[b.id];
                       return (
                         <tr key={b.id} className="hover:bg-slate-50/80 transition">
-                          <td className="py-3 px-4 font-black text-slate-800 sticky left-0 bg-white z-10 flex items-center justify-between">
-                            <span>{b.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">({b.id})</span>
+                          <td 
+                            className="py-3 px-4 font-black text-slate-800 sticky left-0 bg-white z-10 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition"
+                            onClick={() => handleOpenBranchLedgers(b)}
+                          >
+                            <span className="group-hover:text-blue-600 transition-colors underline decoration-blue-300 decoration-dotted underline-offset-4">{b.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">({b.id})</span>
                           </td>
 
                           {MONTH_NAMES.map((_, mIdx) => {
@@ -1262,6 +1297,87 @@ function MainLedgerContent() {
               </div>
             )}
           </div>
+
+          {/* Matrix Branch Ledgers Modal */}
+          {matrixBranchModalOpen && selectedMatrixBranch && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-blue-600" />
+                      {selectedMatrixBranch.name} ({selectedMatrixBranch.id})
+                    </h3>
+                    <p className="text-sm text-slate-500 font-medium">
+                      All ledgers entered for {selectedYear}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setMatrixBranchModalOpen(false)}
+                    className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition"
+                  >
+                    <Trash2 className="w-5 h-5 rotate-45" style={{ display: 'none' }} />
+                    <span className="font-bold text-xl leading-none">×</span>
+                  </button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                  {loadingMatrixLedgers ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                      <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+                      <p className="font-bold">Loading ledgers for {selectedMatrixBranch.name}...</p>
+                    </div>
+                  ) : matrixBranchLedgers.length === 0 ? (
+                    <div className="text-center py-12 bg-white border border-dashed border-slate-300 rounded-xl">
+                      <p className="text-slate-500 font-bold">No ledgers found for {selectedYear}.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {matrixBranchLedgers.map((ledger) => (
+                        <div key={ledger.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-blue-300 transition-colors">
+                          <div>
+                            <div className="flex items-center gap-3 mb-1">
+                              <span className="font-mono font-black text-slate-900 text-lg">
+                                {ledger.ledger_date}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                ledger.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                                ledger.status === 'FLAGGED' ? 'bg-rose-100 text-rose-800' :
+                                'bg-amber-100 text-amber-800'
+                              }`}>
+                                {ledger.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
+                              <span>CP: {Number(ledger.cp_balance).toLocaleString()}</span>
+                              <span>Staff: {ledger.staff_shift?.split(',').length || 0} users</span>
+                              {Number(ledger.variance) !== 0 && (
+                                <span className="text-rose-600">Var: {Number(ledger.variance).toLocaleString()}</span>
+                              )}
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={() => handleEditLedgerFromMatrix(ledger.ledger_date, ledger.branch_id)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-600 hover:text-white"
+                          >
+                            Edit Data
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 border-t border-slate-200 bg-white flex justify-end">
+                  <Button onClick={() => setMatrixBranchModalOpen(false)} variant="outline" className="font-bold">
+                    Close Window
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
