@@ -501,49 +501,52 @@ function MainLedgerContent() {
   };
 
   return (
-    <div className="w-full min-w-0 space-y-6 pb-24">
+    <div className="w-full min-w-0 space-y-4 pb-24">
       
-      {/* Clean White Main Title Bar */}
-      <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Main Title Bar */}
+      <div className="w-full bg-white border border-slate-200 px-4 py-4 rounded-xl shadow-sm space-y-3">
+        {/* Title row */}
         <div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <FileSpreadsheet className="w-7 h-7 text-blue-600 shrink-0" />
-            Daily Transaction Ledger & Summary
+          <h1 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <FileSpreadsheet className="w-6 h-6 md:w-7 md:h-7 text-blue-600 shrink-0" />
+            Daily Transaction Ledger
           </h1>
-          <p className="text-slate-500 font-medium text-xs md:text-sm mt-0.5">
-            Exact Digital Twin of Paper Ledger Book & Excel Sheet (Daily Financial Ledger)
+          <p className="text-slate-500 font-medium text-[11px] md:text-sm mt-0.5 ml-8">
+            Digital Twin of Paper Ledger Book (Daily Financial Ledger)
           </p>
         </div>
 
-        {/* Clean Light Tab Switcher Pills */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-full md:w-auto">
-          <button
-            onClick={() => handleTabSwitch('entry')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
-              activeTab === 'entry' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Daily Entry Sheet
-          </button>
-          <button
-            onClick={() => handleTabSwitch('matrix')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
-              activeTab === 'matrix' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            11-Branch Matrix
-          </button>
-          <button
-            onClick={() => handleTabSwitch('journal')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
-              activeTab === 'journal' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            General Journal
-          </button>
+        {/* Tab switcher — own row, scrollable on small screens */}
+        <div className="overflow-x-auto -mx-1 px-1 pb-0.5">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-max min-w-full">
+            <button
+              onClick={() => handleTabSwitch('entry')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition whitespace-nowrap flex-1 ${
+                activeTab === 'entry' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+              Daily Entry Sheet
+            </button>
+            <button
+              onClick={() => handleTabSwitch('matrix')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition whitespace-nowrap flex-1 ${
+                activeTab === 'matrix' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              11-Branch Matrix
+            </button>
+            <button
+              onClick={() => handleTabSwitch('journal')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition whitespace-nowrap flex-1 ${
+                activeTab === 'journal' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              General Journal
+            </button>
+          </div>
         </div>
       </div>
 
@@ -564,18 +567,19 @@ function MainLedgerContent() {
           )}
 
           {/* Top Control Header Card */}
-          <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
-            <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 w-full">
-              <div className="flex-1 min-w-[200px] space-y-1">
-                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-blue-600" />
+          <div className="w-full bg-white border border-slate-200 p-4 rounded-xl shadow-sm space-y-3">
+            {/* Row 1: Branch + Date (always side by side) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5 text-blue-600" />
                   Branch
                 </label>
                 <select
                   value={selectedBranch}
                   onChange={(e) => setSelectedBranch(e.target.value)}
                   disabled={!isHqUser}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-75"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-75"
                 >
                   {BRANCHES.map(b => (
                     <option key={b.id} value={b.id}>
@@ -585,45 +589,48 @@ function MainLedgerContent() {
                 </select>
               </div>
 
-              <div className="flex-1 min-w-[180px] space-y-1">
-                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-blue-600" />
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-blue-600" />
                   Ledger Date
                 </label>
                 <input
                   type="date"
                   value={ledgerDate}
                   onChange={(e) => setLedgerDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
+            </div>
 
-              <div className="w-full md:w-48 space-y-1">
-                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
+            {/* Row 2: CP Balance + Staff Attendance */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="0.00"
                   value={cpBalance}
                   onChange={(e) => setCpBalance(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
-              <div className="flex-1 min-w-[240px] space-y-1">
-                <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <UserCheck className="w-4 h-4 text-blue-600" />
-                  Staff Attendance
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                  Staff
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <input
                     type="text"
-                    placeholder="Staff Name (Achini)"
+                    placeholder="Name..."
                     value={newStaffName}
                     onChange={(e) => setNewStaffName(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-900"
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900"
                   />
-                  <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-3 text-xs shrink-0">
+                  <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-2.5 text-xs shrink-0">
                     + Add
                   </Button>
                 </div>
@@ -631,11 +638,11 @@ function MainLedgerContent() {
             </div>
 
             {shiftList.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200 w-full">
+              <div className="flex flex-wrap gap-1.5 pt-2.5 border-t border-slate-200 w-full">
                 {shiftList.map(s => (
-                  <span key={s.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-full text-xs font-bold">
+                  <span key={s.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-900 rounded-full text-[11px] font-bold">
                     <span>{s.name} ({s.checkIn}-{s.checkOut})</span>
-                    <button onClick={() => handleRemoveShift(s.id)} className="text-slate-400 hover:text-slate-800 text-sm font-black">×</button>
+                    <button onClick={() => handleRemoveShift(s.id)} className="text-slate-400 hover:text-slate-800 text-sm font-black ml-0.5">×</button>
                   </span>
                 ))}
               </div>
@@ -643,15 +650,15 @@ function MainLedgerContent() {
           </div>
 
           {/* SECTION 1: TOP DAILY TRANSACTIONS GRID (EXCEL SHEET DIRECT TABLE) */}
-          <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-              <div>
-                <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-blue-600 shrink-0" />
-                  Daily Paper Transactions Log Sheet (ඉහළ ගනුදෙනු ලැයිස්තුව Grid)
+          <div className="w-full bg-white border border-slate-200 p-4 rounded-xl shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
+              <div className="min-w-0">
+                <h2 className="text-sm md:text-base font-black text-slate-900 flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="truncate">Daily Transactions Grid</span>
                 </h2>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Type individual loans & redemptions directly in rows below. Totals are auto-calculated at bottom.
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5 hidden sm:block">
+                  Type loans & redemptions in rows below. Totals auto-calculated.
                 </p>
               </div>
               <Button
