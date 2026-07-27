@@ -103,7 +103,9 @@ function MainLedgerContent() {
   // Daily Cash Figures
   const [openingBalance, setOpeningBalance] = useState<string | number>('');
   const [transferIn, setTransferIn] = useState<string | number>('');
+  const [transferInType, setTransferInType] = useState<'B2B' | 'B2O' | 'O2B' | ''>('');
   const [transferOut, setTransferOut] = useState<string | number>('');
+  const [transferOutType, setTransferOutType] = useState<'B2B' | 'B2O' | 'O2B' | ''>('');
   const [recoveryTotal, setRecoveryTotal] = useState<string | number>('');
   const [userClosingBalance, setUserClosingBalance] = useState<string | number>('');
 
@@ -326,9 +328,18 @@ function MainLedgerContent() {
           setCpBalance(l.cp_balance || '');
           setOpeningBalance(l.opening_balance || '');
           setTransferIn(l.transfer_in || '');
+          setTransferInType(l.transfer_in_type || '');
           setTransferOut(l.transfer_out || '');
+          setTransferOutType(l.transfer_out_type || '');
           setRecoveryTotal(l.recovery_total || '');
           setUserClosingBalance(l.closing_balance || '');
+          
+          // Restore manual values
+          setManualLoanTotal(l.loan_issued_total || '');
+          setManualRedeemTotal(l.redemption_total || '');
+          setManualInterestTotal(l.interest_rec_total || '');
+          setManualInsuranceTotal(l.insurance_total || '');
+          setManualExpensesTotal(l.expenses_total || '');
 
           if (data.transactions && Array.isArray(data.transactions)) {
             setTransactions(data.transactions.map((t: any) => {
@@ -378,9 +389,18 @@ function MainLedgerContent() {
           setCpBalance('');
           setOpeningBalance(data.previous_closing !== null ? data.previous_closing : '');
           setTransferIn('');
+          setTransferInType('');
           setTransferOut('');
+          setTransferOutType('');
           setRecoveryTotal('');
           setUserClosingBalance('');
+          
+          setManualLoanTotal('');
+          setManualRedeemTotal('');
+          setManualInterestTotal('');
+          setManualInsuranceTotal('');
+          setManualExpensesTotal('');
+          
           setTransactions([]);
           setExpenses([]);
         }
@@ -410,7 +430,9 @@ function MainLedgerContent() {
       cp_balance: cpBalance,
       opening_balance: openingBalance,
       transfer_in: transferIn,
+      transfer_in_type: transferInType,
       transfer_out: transferOut,
+      transfer_out_type: transferOutType,
       loan_issued_total: effectiveLoansIssued,
       redemption_total: effectiveRedemptions,
       interest_rec_total: effectiveInterest,
@@ -960,27 +982,63 @@ function MainLedgerContent() {
                 {/* 2. Cash In (Office) */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
                   <span className="text-emerald-700 font-bold">2. Cash In (Office) / Transfer In (+):</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={transferIn}
-                    onChange={(e) => setTransferIn(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                    <div className="flex items-center gap-1">
+                      {['B2B', 'B2O', 'O2B'].map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setTransferInType(transferInType === type ? '' : type as any)}
+                          className={`px-2 py-1 rounded text-[10px] font-black transition-all border ${
+                            transferInType === type
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : 'bg-white text-slate-500 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={transferIn}
+                      onChange={(e) => setTransferIn(e.target.value)}
+                      className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
                 </div>
 
                 {/* 3. Cash Out */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
                   <span className="text-rose-700 font-bold">3. Cash Out / Transfer Out (-):</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={transferOut}
-                    onChange={(e) => setTransferOut(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
+                    <div className="flex items-center gap-1">
+                      {['B2B', 'B2O', 'O2B'].map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setTransferOutType(transferOutType === type ? '' : type as any)}
+                          className={`px-2 py-1 rounded text-[10px] font-black transition-all border ${
+                            transferOutType === type
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              : 'bg-white text-slate-500 border-slate-300 hover:bg-rose-50 hover:text-rose-700'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={transferOut}
+                      onChange={(e) => setTransferOut(e.target.value)}
+                      className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
                 </div>
 
                 {/* 4. Loan */}
