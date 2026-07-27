@@ -52,7 +52,7 @@ const BRANCHES = [
   { id: 'HMG', name: 'Homagama' }
 ];
 
-const BILL_PREFIXES = ["1R", "2R", "3R", "1M", "2M", "3M", "6R", "12R", "6M", "SPCH", "CH", "A"];
+const BILL_PREFIXES = ["1R", "12R", "3R", "6R", "M", "A"];
 
 const applyBillPrefix = (currentVal: string, prefix: string) => {
   const trimmed = (currentVal || '').trim();
@@ -709,7 +709,7 @@ function MainLedgerContent() {
                               className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                             />
                             <div className="flex items-center gap-0.5 flex-wrap">
-                              {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
+                              {["1R", "12R", "3R", "6R", "M", "A"].map(pref => (
                                 <button
                                   key={pref}
                                   type="button"
@@ -780,7 +780,7 @@ function MainLedgerContent() {
                               className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                             <div className="flex items-center gap-0.5 flex-wrap">
-                              {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
+                              {["1R", "12R", "3R", "6R", "M", "A"].map(pref => (
                                 <button
                                   key={pref}
                                   type="button"
