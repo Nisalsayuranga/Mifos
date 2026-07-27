@@ -52,6 +52,22 @@ const BRANCHES = [
   { id: 'HMG', name: 'Homagama' }
 ];
 
+const BILL_PREFIXES = ["1R", "2R", "3R", "1M", "2M", "3M", "6R", "12R", "6M", "SPCH", "CH", "A"];
+
+const applyBillPrefix = (currentVal: string, prefix: string) => {
+  const trimmed = (currentVal || '').trim();
+  if (!trimmed) return `${prefix} `;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length > 1 && BILL_PREFIXES.includes(parts[0].toUpperCase())) {
+    return `${prefix} ${parts.slice(1).join(' ')}`;
+  }
+  if (parts.length > 1 && /^[0-9]*[A-Za-z]+[0-9]*$/i.test(parts[0])) {
+    return `${prefix} ${parts.slice(1).join(' ')}`;
+  }
+  return `${prefix} ${trimmed}`;
+};
+
+
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -181,6 +197,27 @@ function MainLedgerContent() {
       return updated;
     });
   };
+
+  const handleAddTransactionRowWithPrefix = (field: 'loan_no' | 'redeem_no', prefix: string) => {
+    setTransactions(prev => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(2, 9),
+        transaction_type: field === 'loan_no' ? 'LOAN_ISSUED' : 'REDEMPTION',
+        loan_no: field === 'loan_no' ? `${prefix} ` : '',
+        cash_loan: '',
+        insurance_rs: '',
+        weight_g: '',
+        weight_mg: '',
+        item_code: '',
+        redeem_no: field === 'redeem_no' ? `${prefix} ` : '',
+        interest_rs: '',
+        cash_received: '',
+        remarks: ''
+      }
+    ]);
+  };
+
 
   // Expenses Handlers
   const handleAddExpenseRow = () => {
@@ -603,13 +640,47 @@ function MainLedgerContent() {
               <table className="w-full text-left border-collapse text-xs min-w-[950px]">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
-                    <th className="py-2.5 px-2.5 min-w-[110px]">Loan No</th>
+                    <th className="py-2.5 px-2.5 min-w-[140px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span>Loan No</span>
+                        <div className="flex items-center gap-0.5 flex-wrap font-normal">
+                          {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
+                            <button
+                              key={pref}
+                              type="button"
+                              onClick={() => handleAddTransactionRowWithPrefix('loan_no', pref)}
+                              className="px-1 py-0.2 bg-blue-100 hover:bg-blue-600 hover:text-white text-blue-900 border border-blue-300 rounded text-[8px] font-black cursor-pointer transition-colors active:scale-95"
+                              title={`Add row with ${pref}`}
+                            >
+                              +{pref}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </th>
                     <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Loan)</th>
                     <th className="py-2.5 px-2.5 min-w-[90px] text-right">Insurance</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight g</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Weight mg</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Code</th>
-                    <th className="py-2.5 px-2.5 min-w-[110px]">Redeem No</th>
+                    <th className="py-2.5 px-2.5 min-w-[140px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span>Redeem No</span>
+                        <div className="flex items-center gap-0.5 flex-wrap font-normal">
+                          {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
+                            <button
+                              key={pref}
+                              type="button"
+                              onClick={() => handleAddTransactionRowWithPrefix('redeem_no', pref)}
+                              className="px-1 py-0.2 bg-emerald-100 hover:bg-emerald-600 hover:text-white text-emerald-900 border border-emerald-300 rounded text-[8px] font-black cursor-pointer transition-colors active:scale-95"
+                              title={`Add row with ${pref}`}
+                            >
+                              +{pref}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </th>
                     <th className="py-2.5 px-2.5 min-w-[110px] text-right">Interest Rs</th>
                     <th className="py-2.5 px-2.5 min-w-[110px] text-right">Cash (Redeem)</th>
                     <th className="py-2.5 px-2.5 min-w-[75px] text-center">Type</th>
@@ -626,14 +697,29 @@ function MainLedgerContent() {
                   ) : (
                     transactions.map((t, idx) => (
                       <tr key={t.id || idx} className="hover:bg-slate-50/80 transition">
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            placeholder="1R 256"
-                            value={t.loan_no}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'loan_no', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
-                          />
+                        <td className="py-1.5 px-2 min-w-[140px]">
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              placeholder="1R 256"
+                              value={t.loan_no}
+                              onChange={(e) => handleUpdateTransactionRow(idx, 'loan_no', e.target.value)}
+                              className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            />
+                            <div className="flex items-center gap-0.5 flex-wrap">
+                              {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
+                                <button
+                                  key={pref}
+                                  type="button"
+                                  onClick={() => handleUpdateTransactionRow(idx, 'loan_no', applyBillPrefix(t.loan_no, pref))}
+                                  className="px-1 py-0.2 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200 rounded text-[9px] font-black text-blue-800 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                                  title={`Click to set ${pref} prefix`}
+                                >
+                                  {pref}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-1.5 px-2">
                           <input
@@ -682,14 +768,29 @@ function MainLedgerContent() {
                             className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs uppercase text-slate-900"
                           />
                         </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            placeholder="1R 175"
-                            value={t.redeem_no}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'redeem_no', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900"
-                          />
+                        <td className="py-1.5 px-2 min-w-[140px]">
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              placeholder="1R 175"
+                              value={t.redeem_no}
+                              onChange={(e) => handleUpdateTransactionRow(idx, 'redeem_no', e.target.value)}
+                              className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            />
+                            <div className="flex items-center gap-0.5 flex-wrap">
+                              {["1R", "2R", "3R", "1M", "2M", "3M", "SPCH"].map(pref => (
+                                <button
+                                  key={pref}
+                                  type="button"
+                                  onClick={() => handleUpdateTransactionRow(idx, 'redeem_no', applyBillPrefix(t.redeem_no, pref))}
+                                  className="px-1 py-0.2 bg-emerald-50 hover:bg-emerald-600 hover:text-white border border-emerald-200 rounded text-[9px] font-black text-emerald-800 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                                  title={`Click to set ${pref} prefix`}
+                                >
+                                  {pref}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-1.5 px-2">
                           <input
