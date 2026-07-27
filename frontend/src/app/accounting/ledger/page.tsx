@@ -20,6 +20,8 @@ interface TransactionRow {
   redeem_no: string;
   interest_rs: number | string;
   cash_received: number | string;
+  type_ir: 'I' | 'R' | '';
+  quantity: number | string;
   remarks: string;
 }
 
@@ -188,6 +190,8 @@ function MainLedgerContent() {
         redeem_no: '',
         interest_rs: '',
         cash_received: '',
+        type_ir: 'R' as 'R',
+        quantity: '',
         remarks: ''
       }
     ]);
@@ -220,6 +224,8 @@ function MainLedgerContent() {
         redeem_no: field === 'redeem_no' ? `${prefix} ` : '',
         interest_rs: '',
         cash_received: '',
+        type_ir: 'R' as 'R',
+        quantity: '',
         remarks: ''
       }
     ]);
@@ -815,13 +821,43 @@ function MainLedgerContent() {
                           />
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            placeholder="R"
-                            value={t.remarks}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'remarks', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-800"
-                          />
+                          <div className="space-y-1">
+                            {/* I / R Toggle Buttons */}
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTransactionRow(idx, 'type_ir', 'I')}
+                                className={`flex-1 py-1 rounded font-black text-xs transition-all ${
+                                  t.type_ir === 'I'
+                                    ? 'bg-blue-600 text-white shadow-sm'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-blue-100 hover:text-blue-700 border border-slate-300'
+                                }`}
+                              >
+                                I
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTransactionRow(idx, 'type_ir', 'R')}
+                                className={`flex-1 py-1 rounded font-black text-xs transition-all ${
+                                  t.type_ir === 'R' || t.type_ir === ''
+                                    ? 'bg-emerald-600 text-white shadow-sm'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700 border border-slate-300'
+                                }`}
+                              >
+                                R
+                              </button>
+                            </div>
+                            {/* Quantity — only show for type I */}
+                            {t.type_ir === 'I' && (
+                              <input
+                                type="number"
+                                placeholder="Qty"
+                                value={t.quantity}
+                                onChange={(e) => handleUpdateTransactionRow(idx, 'quantity', e.target.value)}
+                                className="w-full bg-white border border-blue-300 rounded px-1.5 py-1 text-center font-bold text-xs text-blue-800 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                              />
+                            )}
+                          </div>
                         </td>
                         <td className="py-1.5 px-1 text-center">
                           <button
