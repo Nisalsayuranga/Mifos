@@ -105,6 +105,13 @@ function MainLedgerContent() {
   const [recoveryTotal, setRecoveryTotal] = useState<string | number>('');
   const [userClosingBalance, setUserClosingBalance] = useState<string | number>('');
 
+  // Manual Summary Totals (Direct paper ledger entry overrides)
+  const [manualLoanTotal, setManualLoanTotal] = useState<string | number>('');
+  const [manualRedeemTotal, setManualRedeemTotal] = useState<string | number>('');
+  const [manualInterestTotal, setManualInterestTotal] = useState<string | number>('');
+  const [manualInsuranceTotal, setManualInsuranceTotal] = useState<string | number>('');
+  const [manualExpensesTotal, setManualExpensesTotal] = useState<string | number>('');
+
   // Transactions & Expenses
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
@@ -257,6 +264,27 @@ function MainLedgerContent() {
     return expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [expenses]);
 
+  // Effective totals (Use transaction grid auto-sum if available, otherwise manual direct entry)
+  const effectiveLoansIssued = useMemo(() => {
+    return transactions.length > 0 ? totalLoansIssued : (Number(manualLoanTotal) || 0);
+  }, [transactions.length, totalLoansIssued, manualLoanTotal]);
+
+  const effectiveRedemptions = useMemo(() => {
+    return transactions.length > 0 ? totalRedemptions : (Number(manualRedeemTotal) || 0);
+  }, [transactions.length, totalRedemptions, manualRedeemTotal]);
+
+  const effectiveInterest = useMemo(() => {
+    return transactions.length > 0 ? totalInterestCollected : (Number(manualInterestTotal) || 0);
+  }, [transactions.length, totalInterestCollected, manualInterestTotal]);
+
+  const effectiveInsurance = useMemo(() => {
+    return transactions.length > 0 ? totalInsuranceCollected : (Number(manualInsuranceTotal) || 0);
+  }, [transactions.length, totalInsuranceCollected, manualInsuranceTotal]);
+
+  const effectiveExpenses = useMemo(() => {
+    return expenses.length > 0 ? totalExpensesSum : (Number(manualExpensesTotal) || 0);
+  }, [expenses.length, totalExpensesSum, manualExpensesTotal]);
+
   // Formula Closing Balance
   const calculatedClosing = useMemo(() => {
     const op = Number(openingBalance) || 0;
@@ -264,8 +292,9 @@ function MainLedgerContent() {
     const to = Number(transferOut) || 0;
     const rec = Number(recoveryTotal) || 0;
 
-    return Number((op + ti - to - totalLoansIssued + totalRedemptions + totalInterestCollected + rec + totalInsuranceCollected - totalExpensesSum).toFixed(2));
-  }, [openingBalance, transferIn, transferOut, totalLoansIssued, totalRedemptions, totalInterestCollected, recoveryTotal, totalInsuranceCollected, totalExpensesSum]);
+    return Number((op + ti - to - effectiveLoansIssued + effectiveRedemptions + effectiveInterest + rec + effectiveInsurance - effectiveExpenses).toFixed(2));
+  }, [openingBalance, transferIn, transferOut, effectiveLoansIssued, effectiveRedemptions, effectiveInterest, recoveryTotal, effectiveInsurance, effectiveExpenses]);
+
 
   // Fetch Ledger Data
   const fetchLedgerData = async () => {
@@ -358,12 +387,12 @@ function MainLedgerContent() {
       opening_balance: openingBalance,
       transfer_in: transferIn,
       transfer_out: transferOut,
-      loan_issued_total: totalLoansIssued,
-      redemption_total: totalRedemptions,
-      interest_rec_total: totalInterestCollected,
+      loan_issued_total: effectiveLoansIssued,
+      redemption_total: effectiveRedemptions,
+      interest_rec_total: effectiveInterest,
       recovery_total: recoveryTotal,
-      insurance_total: totalInsuranceCollected,
-      expenses_total: totalExpensesSum,
+      insurance_total: effectiveInsurance,
+      expenses_total: effectiveExpenses,
       closing_balance: userClosingBalance || calculatedClosing,
       staff_shift: staffShiftString,
       created_by: currentUser?.email || 'Teller',
@@ -858,82 +887,167 @@ function MainLedgerContent() {
                 Daily Cash Summary (දිනපතා මුදල් සාරාංශය)
               </h3>
 
-              <div className="space-y-3 text-xs font-bold w-full">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-slate-800 font-bold">Opening Balance (ආරම්භක ශේෂය):</span>
+              <div className="space-y-2.5 text-xs font-bold w-full">
+                {/* 1. O/Balance */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-slate-800 font-bold">1. O/Balance (ආරම්භක ශේෂය):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={openingBalance}
                     onChange={(e) => setOpeningBalance(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-slate-900"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-emerald-700 font-bold">Transfer In (+):</span>
+                {/* 2. Cash In (Office) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-emerald-700 font-bold">2. Cash In (Office) / Transfer In (+):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={transferIn}
                     onChange={(e) => setTransferIn(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-rose-700 font-bold">Transfer Out (-):</span>
+                {/* 3. Cash Out */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-rose-700 font-bold">3. Cash Out / Transfer Out (-):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={transferOut}
                     onChange={(e) => setTransferOut(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500"
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-200 text-rose-900 gap-2">
-                  <span className="font-bold">Loan Issued Total (-) [Auto-Sum]:</span>
-                  <span className="font-mono text-sm font-black">LKR {totalLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                {/* 4. Loan */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-rose-50/70 rounded-lg border border-rose-200 text-rose-900 gap-2">
+                  <span className="font-bold flex items-center gap-1.5">
+                    4. Loan (ණය ලබාදීම් එකතුව) (-):
+                    {transactions.length > 0 ? (
+                      <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
+                    )}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transactions.length > 0 ? totalLoansIssued : manualLoanTotal}
+                    onChange={(e) => setManualLoanTotal(e.target.value)}
+                    disabled={transactions.length > 0}
+                    className="w-full sm:w-48 bg-white border border-rose-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/80"
+                  />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
-                  <span className="font-bold">Redemption Total (+) [Auto-Sum]:</span>
-                  <span className="font-mono text-sm font-black">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                {/* 5. Redeem */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
+                  <span className="font-bold flex items-center gap-1.5">
+                    5. Redeem (මුදාගැනීම් එකතුව) (+):
+                    {transactions.length > 0 ? (
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
+                    )}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transactions.length > 0 ? totalRedemptions : manualRedeemTotal}
+                    onChange={(e) => setManualRedeemTotal(e.target.value)}
+                    disabled={transactions.length > 0}
+                    className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
+                  />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
-                  <span className="font-bold">Rec: Interest Total (+) [Auto-Sum]:</span>
-                  <span className="font-mono text-sm font-black">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                {/* 6. Receive */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
+                  <span className="font-bold flex items-center gap-1.5">
+                    6. Receive (පොලී/ලැබීම්) (+):
+                    {transactions.length > 0 ? (
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
+                    )}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transactions.length > 0 ? totalInterestCollected : manualInterestTotal}
+                    onChange={(e) => setManualInterestTotal(e.target.value)}
+                    disabled={transactions.length > 0}
+                    className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
+                  />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-emerald-700 font-bold">Recovery Total (+):</span>
+                {/* 7. Recovery */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
+                  <span className="text-emerald-700 font-bold">7. Recovery (පරණ පොලී/අයකරගැනීම්) (+):</span>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     value={recoveryTotal}
                     onChange={(e) => setRecoveryTotal(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700"
+                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
-                  <span className="font-bold">Insurance Rec (+) [Auto-Sum]:</span>
-                  <span className="font-mono text-sm font-black">LKR {totalInsuranceCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                {/* 8. Insurance */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
+                  <span className="font-bold flex items-center gap-1.5">
+                    8. Insurance (රක්ෂණ ගාස්තු) (+):
+                    {transactions.length > 0 ? (
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
+                    )}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transactions.length > 0 ? totalInsuranceCollected : manualInsuranceTotal}
+                    onChange={(e) => setManualInsuranceTotal(e.target.value)}
+                    disabled={transactions.length > 0}
+                    className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
+                  />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-200 text-rose-900 gap-2">
-                  <span className="font-bold">Expenses Total (-) [Itemized Below]:</span>
-                  <span className="font-mono text-sm font-black">LKR {totalExpensesSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                {/* 9. Expenses */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-rose-50/70 rounded-lg border border-rose-200 text-rose-900 gap-2">
+                  <span className="font-bold flex items-center gap-1.5">
+                    9. Expenses (වියදම්) (-):
+                    {expenses.length > 0 ? (
+                      <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Itemized List</span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
+                    )}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={expenses.length > 0 ? totalExpensesSum : manualExpensesTotal}
+                    onChange={(e) => setManualExpensesTotal(e.target.value)}
+                    disabled={expenses.length > 0}
+                    className="w-full sm:w-48 bg-white border border-rose-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/80"
+                  />
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-100 border-2 border-emerald-400 rounded-xl text-emerald-950 text-base font-black gap-2">
-                  <span>Closing Balance (අවසාන ශේෂය):</span>
+                {/* 10. L/Balance */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-100 border-2 border-emerald-500 rounded-xl text-emerald-950 text-base font-black gap-2 shadow-xs">
+                  <span>10. L/Balance (අවසාන ශේෂය - Formula Sum):</span>
                   <span className="font-mono text-xl">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
