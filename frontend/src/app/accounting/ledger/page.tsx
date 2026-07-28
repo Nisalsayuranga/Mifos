@@ -278,24 +278,24 @@ function MainLedgerContent() {
 
   // Effective totals (Use transaction grid auto-sum if available, otherwise manual direct entry)
   const effectiveLoansIssued = useMemo(() => {
-    return transactions.length > 0 ? totalLoansIssued : (Number(manualLoanTotal) || 0);
-  }, [transactions.length, totalLoansIssued, manualLoanTotal]);
+    return totalLoansIssued > 0 ? totalLoansIssued : (Number(manualLoanTotal) || 0);
+  }, [totalLoansIssued, manualLoanTotal]);
 
   const effectiveRedemptions = useMemo(() => {
-    return transactions.length > 0 ? totalRedemptions : (Number(manualRedeemTotal) || 0);
-  }, [transactions.length, totalRedemptions, manualRedeemTotal]);
+    return totalRedemptions > 0 ? totalRedemptions : (Number(manualRedeemTotal) || 0);
+  }, [totalRedemptions, manualRedeemTotal]);
 
   const effectiveInterest = useMemo(() => {
-    return transactions.length > 0 ? totalInterestCollected : (Number(manualInterestTotal) || 0);
-  }, [transactions.length, totalInterestCollected, manualInterestTotal]);
+    return totalInterestCollected > 0 ? totalInterestCollected : (Number(manualInterestTotal) || 0);
+  }, [totalInterestCollected, manualInterestTotal]);
 
   const effectiveInsurance = useMemo(() => {
-    return transactions.length > 0 ? totalInsuranceCollected : (Number(manualInsuranceTotal) || 0);
-  }, [transactions.length, totalInsuranceCollected, manualInsuranceTotal]);
+    return totalInsuranceCollected > 0 ? totalInsuranceCollected : (Number(manualInsuranceTotal) || 0);
+  }, [totalInsuranceCollected, manualInsuranceTotal]);
 
   const effectiveExpenses = useMemo(() => {
-    return expenses.length > 0 ? totalExpensesSum : (Number(manualExpensesTotal) || 0);
-  }, [expenses.length, totalExpensesSum, manualExpensesTotal]);
+    return totalExpensesSum > 0 ? totalExpensesSum : (Number(manualExpensesTotal) || 0);
+  }, [totalExpensesSum, manualExpensesTotal]);
 
   // Formula Closing Balance
   const calculatedClosing = useMemo(() => {
@@ -1079,7 +1079,7 @@ function MainLedgerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-rose-50/70 rounded-lg border border-rose-200 text-rose-900 gap-2">
                   <span className="font-bold flex items-center gap-1.5">
                     4. Loan (ණය ලබාදීම් එකතුව) (-):
-                    {transactions.length > 0 ? (
+                    {totalLoansIssued > 0 ? (
                       <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
                     ) : (
                       <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
@@ -1089,9 +1089,9 @@ function MainLedgerContent() {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={transactions.length > 0 ? totalLoansIssued : manualLoanTotal}
+                    value={totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal}
                     onChange={(e) => setManualLoanTotal(e.target.value)}
-                    disabled={transactions.length > 0}
+                    disabled={totalLoansIssued > 0}
                     className="w-full sm:w-48 bg-white border border-rose-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/80"
                   />
                 </div>
@@ -1100,7 +1100,7 @@ function MainLedgerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
                   <span className="font-bold flex items-center gap-1.5">
                     5. Redeem (මුදාගැනීම් එකතුව) (+):
-                    {transactions.length > 0 ? (
+                    {totalRedemptions > 0 ? (
                       <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
                     ) : (
                       <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
@@ -1110,9 +1110,9 @@ function MainLedgerContent() {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={transactions.length > 0 ? totalRedemptions : manualRedeemTotal}
+                    value={totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal}
                     onChange={(e) => setManualRedeemTotal(e.target.value)}
-                    disabled={transactions.length > 0}
+                    disabled={totalRedemptions > 0}
                     className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
                   />
                 </div>
@@ -1121,7 +1121,7 @@ function MainLedgerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
                   <span className="font-bold flex items-center gap-1.5">
                     6. Receive (පොලී/ලැබීම්) (+):
-                    {transactions.length > 0 ? (
+                    {totalInterestCollected > 0 ? (
                       <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
                     ) : (
                       <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
@@ -1131,9 +1131,9 @@ function MainLedgerContent() {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={transactions.length > 0 ? totalInterestCollected : manualInterestTotal}
+                    value={totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal}
                     onChange={(e) => setManualInterestTotal(e.target.value)}
-                    disabled={transactions.length > 0}
+                    disabled={totalInterestCollected > 0}
                     className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
                   />
                 </div>
@@ -1155,7 +1155,7 @@ function MainLedgerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
                   <span className="font-bold flex items-center gap-1.5">
                     8. Insurance (රක්ෂණ ගාස්තු) (+):
-                    {transactions.length > 0 ? (
+                    {totalInsuranceCollected > 0 ? (
                       <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
                     ) : (
                       <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
@@ -1165,9 +1165,9 @@ function MainLedgerContent() {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={transactions.length > 0 ? totalInsuranceCollected : manualInsuranceTotal}
+                    value={totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal}
                     onChange={(e) => setManualInsuranceTotal(e.target.value)}
-                    disabled={transactions.length > 0}
+                    disabled={totalInsuranceCollected > 0}
                     className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
                   />
                 </div>
@@ -1176,8 +1176,8 @@ function MainLedgerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-rose-50/70 rounded-lg border border-rose-200 text-rose-900 gap-2">
                   <span className="font-bold flex items-center gap-1.5">
                     9. Expenses (වියදම්) (-):
-                    {expenses.length > 0 ? (
-                      <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Itemized List</span>
+                    {totalExpensesSum > 0 ? (
+                      <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Auto Exp Sum</span>
                     ) : (
                       <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
                     )}
@@ -1186,9 +1186,9 @@ function MainLedgerContent() {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={expenses.length > 0 ? totalExpensesSum : manualExpensesTotal}
+                    value={totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal}
                     onChange={(e) => setManualExpensesTotal(e.target.value)}
-                    disabled={expenses.length > 0}
+                    disabled={totalExpensesSum > 0}
                     className="w-full sm:w-48 bg-white border border-rose-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/80"
                   />
                 </div>
