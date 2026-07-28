@@ -1532,12 +1532,20 @@ function MainLedgerContent() {
                               <span className="font-mono font-black text-slate-900 text-lg">
                                 {ledger.ledger_date}
                               </span>
-                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 ${
                                 ledger.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                                 ledger.status === 'FLAGGED' ? 'bg-rose-100 text-rose-800' :
                                 'bg-amber-100 text-amber-800'
                               }`}>
                                 {ledger.status} {ledger.status === 'FLAGGED' && ledger.is_flag_ignored && '(IGNORED)'}
+                                {ledger.status === 'FLAGGED' && (
+                                  <span 
+                                    className="cursor-help bg-rose-200 text-rose-900 rounded-full px-1.5 py-0.5 text-[10px] ml-1" 
+                                    title={`Reason: Mathematical mismatch between Calculated Closing Balance and User Entered Closing Balance. Variance: Rs. ${Number(ledger.variance).toLocaleString()}`}
+                                  >
+                                    !?
+                                  </span>
+                                )}
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
@@ -1676,7 +1684,15 @@ function MainLedgerContent() {
                                         <div key={fl.id} className="flex items-center justify-between bg-white p-2 rounded border border-rose-100">
                                           <div className="flex items-center gap-3">
                                             <span className="font-bold text-slate-800">{fl.ledger_date}</span>
-                                            <span className="text-xs font-bold text-rose-600">Var: {Number(fl.variance).toLocaleString()}</span>
+                                            <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
+                                              Var: {Number(fl.variance).toLocaleString()}
+                                              <span 
+                                                className="cursor-help bg-rose-200 text-rose-900 rounded-full px-1.5 py-0.5 text-[10px]" 
+                                                title={`Reason: Mathematical mismatch between Calculated Closing Balance and User Entered Closing Balance. Variance: Rs. ${Number(fl.variance).toLocaleString()}`}
+                                              >
+                                                !?
+                                              </span>
+                                            </span>
                                           </div>
                                           <div className="flex gap-2">
                                             <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-100 hover:bg-slate-200" onClick={() => handleIgnoreFlag(fl.id)}>
