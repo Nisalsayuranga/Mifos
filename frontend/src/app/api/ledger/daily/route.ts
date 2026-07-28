@@ -260,3 +260,20 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const { id, is_flag_ignored } = await request.json();
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+
+    const { error } = await supabase
+      .from('daily_ledgers')
+      .update({ is_flag_ignored: !!is_flag_ignored })
+      .eq('id', id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

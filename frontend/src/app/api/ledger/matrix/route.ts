@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
 
     // 2. Fetch all daily ledgers for the given year/month
-    let query = supabase.from('daily_ledgers').select('id, branch_id, ledger_date, closing_balance, variance, status');
+    let query = supabase.from('daily_ledgers').select('id, branch_id, ledger_date, closing_balance, variance, status, is_flag_ignored');
 
     if (month) {
       const startDate = `${month}-01`;
@@ -60,7 +60,8 @@ export async function GET(request: Request) {
         const mKey = l.ledger_date.substring(0, 7);
         if (matrix[l.branch_id].months[mKey]) {
           matrix[l.branch_id].months[mKey].entered_count++;
-          if (l.status === 'FLAGGED' || Math.abs(Number(l.variance || 0)) > 0.01) {
+          const isFlagged = l.status === 'FLAGGED' || Math.abs(Number(l.variance || 0)) > 0.01;
+          if (isFlagged && !l.is_flag_ignored) {
             matrix[l.branch_id].months[mKey].flagged_count++;
             matrix[l.branch_id].total_flagged++;
           }

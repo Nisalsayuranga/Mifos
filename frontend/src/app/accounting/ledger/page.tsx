@@ -501,22 +501,50 @@ function MainLedgerContent() {
   const [loadingMatrix, setLoadingMatrix] = useState(false);
   const [matrixError, setMatrixError] = useState<string | null>(null);
 
-  // Matrix Branch Modal State
+  // Matrix Branch Modal State (Daily Ledgers List)
   const [matrixBranchModalOpen, setMatrixBranchModalOpen] = useState(false);
   const [selectedMatrixBranch, setSelectedMatrixBranch] = useState<any | null>(null);
+  const [selectedMatrixMonth, setSelectedMatrixMonth] = useState<string | null>(null);
   const [matrixBranchLedgers, setMatrixBranchLedgers] = useState<any[]>([]);
   const [loadingMatrixLedgers, setLoadingMatrixLedgers] = useState(false);
 
-  const handleOpenBranchLedgers = async (branch: any) => {
+  // Months Modal State
+  const [monthsModalOpen, setMonthsModalOpen] = useState(false);
+  const [selectedMonthsBranch, setSelectedMonthsBranch] = useState<any | null>(null);
+  const [branchAllLedgers, setBranchAllLedgers] = useState<any[]>([]);
+  const [loadingBranchLedgers, setLoadingBranchLedgers] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+
+  const handleOpenMonthsModal = async (branch: any) => {
+    setSelectedMonthsBranch(branch);
+    setMonthsModalOpen(true);
+    setExpandedMonth(null);
+    setLoadingBranchLedgers(true);
+    try {
+      const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const filtered = (data.ledgers || []).filter((l: any) => l.ledger_date.startsWith(selectedYear));
+        setBranchAllLedgers(filtered);
+      }
+    } catch (err) {
+      console.error("Failed to load ledgers", err);
+    } finally {
+      setLoadingBranchLedgers(false);
+    }
+  };
+
+  const handleOpenBranchLedgers = async (branch: any, monthKey: string) => {
     setSelectedMatrixBranch(branch);
+    setSelectedMatrixMonth(monthKey);
     setMatrixBranchModalOpen(true);
     setLoadingMatrixLedgers(true);
     try {
       const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`);
       if (res.ok) {
         const data = await res.json();
-        // filter by selectedYear
-        const filtered = (data.ledgers || []).filter((l: any) => l.ledger_date.startsWith(selectedYear));
+        // filter by specific month
+        const filtered = (data.ledgers || []).filter((l: any) => l.ledger_date.startsWith(monthKey));
         setMatrixBranchLedgers(filtered);
       }
     } catch (err) {
@@ -530,7 +558,42 @@ function MainLedgerContent() {
     setSelectedBranch(branchId);
     setLedgerDate(date);
     setMatrixBranchModalOpen(false);
+    setMonthsModalOpen(false);
     handleTabSwitch('entry');
+  };
+
+  const handleDeleteLedger = async (id: string, date: string) => {
+    if (!confirm(`Are you sure you want to completely DELETE the ledger for ${date}? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/ledger/daily?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMatrixBranchLedgers(prev => prev.filter(l => l.id !== id));
+        fetchMatrix(); // Refresh matrix counts
+      } else {
+        const data = await res.json();
+        alert('Failed to delete: ' + data.error);
+      }
+    } catch (err: any) {
+      alert('Failed to delete: ' + err.message);
+    }
+  };
+
+  const handleIgnoreFlag = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ledger/daily`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_flag_ignored: true })
+      });
+      if (res.ok) {
+        setBranchAllLedgers(prev => prev.map(l => l.id === id ? { ...l, is_flag_ignored: true } : l));
+        fetchMatrix(); // Refresh matrix counts
+      } else {
+        alert('Failed to ignore flag');
+      }
+    } catch (err: any) {
+      alert('Failed to ignore flag: ' + err.message);
+    }
   };
 
   const fetchMatrix = async () => {
@@ -1357,7 +1420,7 @@ function MainLedgerContent() {
                         <tr key={b.id} className="hover:bg-slate-50/80 transition">
                           <td 
                             className="py-3 px-4 font-black text-slate-800 sticky left-0 bg-white z-10 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition"
-                            onClick={() => handleOpenBranchLedgers(b)}
+                            onClick={() => handleOpenMonthsModal(b)}
                           >
                             <span className="group-hover:text-blue-600 transition-colors underline decoration-blue-300 decoration-dotted underline-offset-4">{b.name}</span>
                             <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">({b.id})</span>
@@ -1379,10 +1442,7 @@ function MainLedgerContent() {
                             return (
                               <td key={mIdx} className="py-3 px-2 text-center">
                                 <button
-                                  onClick={() => {
-                                    setSelectedBranch(b.id);
-                                    handleTabSwitch('entry');
-                                  }}
+                                  onClick={() => handleOpenBranchLedgers(b, mKey)}
                                   className={`inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs transition hover:scale-105 ${badgeColor}`}
                                 >
                                   <span>{count}</span>
@@ -1441,7 +1501,7 @@ function MainLedgerContent() {
                       {selectedMatrixBranch.name} ({selectedMatrixBranch.id})
                     </h3>
                     <p className="text-sm text-slate-500 font-medium">
-                      All ledgers entered for {selectedYear}
+                      Ledgers for {selectedMatrixMonth}
                     </p>
                   </div>
                   <button 
@@ -1461,7 +1521,7 @@ function MainLedgerContent() {
                     </div>
                   ) : matrixBranchLedgers.length === 0 ? (
                     <div className="text-center py-12 bg-white border border-dashed border-slate-300 rounded-xl">
-                      <p className="text-slate-500 font-bold">No ledgers found for {selectedYear}.</p>
+                      <p className="text-slate-500 font-bold">No ledgers found for {selectedMatrixMonth}.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1477,7 +1537,7 @@ function MainLedgerContent() {
                                 ledger.status === 'FLAGGED' ? 'bg-rose-100 text-rose-800' :
                                 'bg-amber-100 text-amber-800'
                               }`}>
-                                {ledger.status}
+                                {ledger.status} {ledger.status === 'FLAGGED' && ledger.is_flag_ignored && '(IGNORED)'}
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
@@ -1488,14 +1548,24 @@ function MainLedgerContent() {
                               )}
                             </div>
                           </div>
-                          <Button 
-                            onClick={() => handleEditLedgerFromMatrix(ledger.ledger_date, ledger.branch_id)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-600 hover:text-white"
-                          >
-                            Edit Data
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              onClick={() => handleEditLedgerFromMatrix(ledger.ledger_date, ledger.branch_id)}
+                              variant="outline"
+                              size="sm"
+                              className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-600 hover:text-white"
+                            >
+                              Edit Data
+                            </Button>
+                            <Button 
+                              onClick={() => handleDeleteLedger(ledger.id, ledger.ledger_date)}
+                              variant="outline"
+                              size="sm"
+                              className="bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-600 hover:text-white"
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1510,6 +1580,135 @@ function MainLedgerContent() {
               </div>
             </div>
           )}
+
+          {/* New Months Modal */}
+          {monthsModalOpen && selectedMonthsBranch && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-blue-600" />
+                      {selectedMonthsBranch.name} ({selectedMonthsBranch.id})
+                    </h3>
+                    <p className="text-sm text-slate-500 font-medium">
+                      Monthly Summaries for {selectedYear}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setMonthsModalOpen(false)}
+                    className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition"
+                  >
+                    <span className="font-bold text-xl leading-none">×</span>
+                  </button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                  {loadingBranchLedgers ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                      <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+                      <p className="font-bold">Loading ledgers...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {MONTH_NAMES.map((mName, mIdx) => {
+                        const mKey = `${selectedYear}-${String(mIdx + 1).padStart(2, '0')}`;
+                        const isExpanded = expandedMonth === mKey;
+                        const monthLedgers = branchAllLedgers.filter(l => l.ledger_date.startsWith(mKey)).sort((a, b) => a.ledger_date.localeCompare(b.ledger_date));
+                        const hasLedgers = monthLedgers.length > 0;
+                        const flaggedLedgers = monthLedgers.filter(l => (l.status === 'FLAGGED' || Math.abs(Number(l.variance || 0)) > 0.01) && !l.is_flag_ignored);
+
+                        let openingBalance = 0;
+                        let closingBalance = 0;
+                        if (hasLedgers) {
+                          openingBalance = Number(monthLedgers[0].opening_balance || monthLedgers[0].cp_balance || 0); // fallback to cp if opening not there
+                          closingBalance = Number(monthLedgers[monthLedgers.length - 1].cp_balance || 0);
+                        }
+
+                        return (
+                          <div key={mKey} className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${isExpanded ? 'border-blue-400 ring-1 ring-blue-400' : 'border-slate-200 hover:border-blue-300'}`}>
+                            <div 
+                              className={`p-4 flex items-center justify-between cursor-pointer ${isExpanded ? 'bg-blue-50/50' : 'bg-white'}`}
+                              onClick={() => setExpandedMonth(isExpanded ? null : mKey)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="font-black text-slate-800 text-lg w-28">{mName}</span>
+                                <span className="text-sm font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                  {monthLedgers.length} Days
+                                </span>
+                                {flaggedLedgers.length > 0 && (
+                                  <span className="text-sm font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded flex items-center gap-1">
+                                    <AlertTriangle className="w-4 h-4" />
+                                    {flaggedLedgers.length} Flagged
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm font-bold">
+                                {hasLedgers ? (
+                                  <span className="text-slate-500">Closing: <span className="text-slate-800">{closingBalance.toLocaleString()}</span></span>
+                                ) : (
+                                  <span className="text-slate-400 italic">No Data</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {isExpanded && hasLedgers && (
+                              <div className="p-4 border-t border-slate-200 bg-slate-50/80 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                                    <p className="text-xs font-bold text-slate-500 mb-1">Month Opening Balance</p>
+                                    <p className="text-lg font-black text-slate-800">{openingBalance.toLocaleString()}</p>
+                                  </div>
+                                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                                    <p className="text-xs font-bold text-slate-500 mb-1">Month Closing Balance</p>
+                                    <p className="text-lg font-black text-slate-800">{closingBalance.toLocaleString()}</p>
+                                  </div>
+                                </div>
+
+                                {flaggedLedgers.length > 0 && (
+                                  <div className="bg-rose-50/50 border border-rose-200 rounded-lg p-3 space-y-2">
+                                    <p className="text-sm font-black text-rose-800 flex items-center gap-2">
+                                      <AlertTriangle className="w-4 h-4" />
+                                      Flagged Days Require Attention
+                                    </p>
+                                    <div className="space-y-2">
+                                      {flaggedLedgers.map(fl => (
+                                        <div key={fl.id} className="flex items-center justify-between bg-white p-2 rounded border border-rose-100">
+                                          <div className="flex items-center gap-3">
+                                            <span className="font-bold text-slate-800">{fl.ledger_date}</span>
+                                            <span className="text-xs font-bold text-rose-600">Var: {Number(fl.variance).toLocaleString()}</span>
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-100 hover:bg-slate-200" onClick={() => handleIgnoreFlag(fl.id)}>
+                                              Ignore Flag
+                                            </Button>
+                                            <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleEditLedgerFromMatrix(fl.ledger_date, fl.branch_id)}>
+                                              Edit Data
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 border-t border-slate-200 bg-white flex justify-end">
+                  <Button onClick={() => setMonthsModalOpen(false)} variant="outline" className="font-bold">
+                    Close Window
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
