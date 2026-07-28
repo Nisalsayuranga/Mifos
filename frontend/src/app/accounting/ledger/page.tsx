@@ -767,50 +767,42 @@ function MainLedgerContent() {
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
-            </div>
-
-            {/* Row 2: Closing Balances + Staff Attendance */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">Closing Cash (අවසාන අතේ ඇති මුදල)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={userClosingBalance}
-                  onChange={(e) => setUserClosingBalance(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">Closing Capital (අවසාන මුළු ණය - CP)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={cpBalance}
-                  onChange={(e) => setCpBalance(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
+            </div>            {/* Row 2: Staff Attendance */}
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
               <div className="space-y-1">
                 <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1">
                   <UserCheck className="w-3.5 h-3.5 text-blue-600" />
                   Staff
                 </label>
-                <div className="flex items-center gap-1.5">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Name..."
                     value={newStaffName}
                     onChange={(e) => setNewStaffName(e.target.value)}
-                    className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900"
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-medium text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newStaffName.trim()) {
+                        e.preventDefault();
+                        const sList = [...shiftList, { name: newStaffName.trim(), checkIn: newCheckIn, checkOut: newCheckOut, status: newShiftStatus }];
+                        setShiftList(sList);
+                        setNewStaffName('');
+                      }
+                    }}
                   />
-                  <Button onClick={handleAddShift} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-2.5 text-xs shrink-0">
-                    + Add
-                  </Button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (newStaffName.trim()) {
+                        const sList = [...shiftList, { name: newStaffName.trim(), checkIn: newCheckIn, checkOut: newCheckOut, status: newShiftStatus }];
+                        setShiftList(sList);
+                        setNewStaffName('');
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" /> Add
+                  </button>
                 </div>
               </div>
             </div>
@@ -1302,6 +1294,40 @@ function MainLedgerContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-blue-100 border-2 border-blue-500 rounded-xl text-blue-950 text-base font-black gap-2 shadow-xs mt-2">
                   <span>11. CP Balance (අවසාන මුළු ණය එකතුව - Capital Formula Sum):</span>
                   <span className="font-mono text-xl">LKR {calculatedClosingCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                {/* USER INPUTS AT THE END OF THE FORM */}
+                <div className="mt-8 border-t-2 border-dashed border-slate-300 pt-6 space-y-4">
+                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Final Balances (අවසාන ශේෂයන්)
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-300 rounded-xl">
+                      <label className="text-xs font-extrabold text-slate-700">Closing Cash (අවසාන අතේ ඇති මුදල)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={userClosingBalance}
+                        onChange={(e) => setUserClosingBalance(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 font-bold text-base text-right focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-300 rounded-xl">
+                      <label className="text-xs font-extrabold text-slate-700">Closing Capital (අවසාන මුළු ණය - CP)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={cpBalance}
+                        onChange={(e) => setCpBalance(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 font-bold text-base text-right focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
