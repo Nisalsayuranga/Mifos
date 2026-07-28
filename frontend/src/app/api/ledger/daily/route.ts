@@ -135,33 +135,51 @@ export async function POST(request: Request) {
     const finalStatus = mathMismatch ? 'FLAGGED' : status;
 
     // 2. Upsert Daily Ledger
-    const { data: ledger, error: ledgerErr } = await supabase
+    const ledgerPayload: Record<string, any> = {
+      branch_id,
+      ledger_date,
+      cp_balance: Number(cp_balance) || 0,
+      opening_balance: calcOpening,
+      transfer_in: calcTrIn,
+      transfer_out: calcTrOut,
+      loan_issued_total: calcLoans,
+      redemption_total: calcRedeem,
+      interest_rec_total: calcInterest,
+      recovery_total: calcRecovery,
+      insurance_total: calcInsurance,
+      expenses_total: calcExpenses,
+      closing_balance: userClosing,
+      actual_cash_count: actualCash,
+      variance,
+      staff_shift,
+      status: finalStatus,
+      created_by,
+      updated_at: new Date().toISOString()
+    };
+
+    if (transfer_in_type) ledgerPayload.transfer_in_type = transfer_in_type;
+    if (transfer_out_type) ledgerPayload.transfer_out_type = transfer_out_type;
+
+    let { data: ledger, error: ledgerErr } = await supabase
       .from('daily_ledgers')
-      .upsert({
-        branch_id,
-        ledger_date,
-        cp_balance: Number(cp_balance) || 0,
-        opening_balance: calcOpening,
-        transfer_in: calcTrIn,
-        transfer_in_type,
-        transfer_out: calcTrOut,
-        transfer_out_type,
-        loan_issued_total: calcLoans,
-        redemption_total: calcRedeem,
-        interest_rec_total: calcInterest,
-        recovery_total: calcRecovery,
-        insurance_total: calcInsurance,
-        expenses_total: calcExpenses,
-        closing_balance: userClosing,
-        actual_cash_count: actualCash,
-        variance,
-        staff_shift,
-        status: finalStatus,
-        created_by,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'branch_id, ledger_date' })
+      .upsert(ledgerPayload, { onConflict: 'branch_id, ledger_date' })
       .select('*')
       .single();
+
+    // If database table does not contain transfer_in_type/transfer_out_type columns, retry without them
+    if (ledgerErr && (ledgerErr.message?.includes('transfer_in_type') || ledgerErr.message?.includes('transfer_out_type') || ledgerErr.code === 'PGRST204')) {
+      delete ledgerPayload.transfer_in_type;
+      delete ledgerPayload.transfer_out_type;
+
+      const retryRes = await supabase
+        .from('daily_ledgers')
+        .upsert(ledgerPayload, { onConflict: 'branch_id, ledger_date' })
+        .select('*')
+        .single();
+
+      ledger = retryRes.data;
+      ledgerErr = retryRes.error;
+    }
 
     if (ledgerErr) {
       return NextResponse.json({ error: ledgerErr.message }, { status: 500 });
@@ -193,6 +211,7 @@ export async function POST(request: Request) {
           item_code: t.item_code || '',
           interest_rs: Number(t.interest_rs) || 0,
           cash_received: Number(t.cash_received) || 0,
+          fs_type: t.fs_type || '',
           remarks: finalRemarks
         };
       });

@@ -21,6 +21,7 @@ interface TransactionRow {
   interest_rs: number | string;
   cash_received: number | string;
   type_ir: 'I' | 'R' | '';
+  fs_type: 'F' | 'S' | '';
   quantity: number | string;
   remarks: string;
 }
@@ -194,6 +195,7 @@ function MainLedgerContent() {
         interest_rs: '',
         cash_received: '',
         type_ir: 'R' as 'R',
+        fs_type: '' as '',
         quantity: '',
         remarks: ''
       }
@@ -228,6 +230,7 @@ function MainLedgerContent() {
         interest_rs: '',
         cash_received: '',
         type_ir: 'R' as 'R',
+        fs_type: '' as '',
         quantity: '',
         remarks: ''
       }
@@ -368,6 +371,7 @@ function MainLedgerContent() {
                 interest_rs: t.interest_rs || '',
                 cash_received: t.cash_received || '',
                 type_ir,
+                fs_type: t.fs_type || '',
                 quantity,
                 remarks
               };
@@ -454,15 +458,18 @@ function MainLedgerContent() {
         body: JSON.stringify(payload)
       });
       const contentType = res.headers.get('content-type');
-      if (!res.ok || !contentType || !contentType.includes('application/json')) {
+      let data: any = {};
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      }
+
+      if (!res.ok) {
         setFeedback({
           type: 'error',
-          message: `Save failed: Server returned status ${res.status}. Please check database connection.`
+          message: data.error || `Save failed: Server returned status ${res.status}. Please check database connection.`
         });
         return;
       }
-
-      const data = await res.json();
 
       if (data.error) {
         setFeedback({ type: 'error', message: data.error });
@@ -761,13 +768,14 @@ function MainLedgerContent() {
                     <th className="py-2 px-2 min-w-[85px] text-right">Interest</th>
                     <th className="py-2 px-2 min-w-[90px] text-right">Cash (Rdm)</th>
                     <th className="py-2 px-2 min-w-[55px] text-center">Type</th>
+                    <th className="py-2 px-2 min-w-[55px] text-center">F/S</th>
                     <th className="py-2 px-1.5 w-[32px] text-center"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={12} className="py-8 text-center text-slate-400 font-medium">
                         No transactions added yet. Click &quot;+ Add Bill Row&quot; above to add rows.
                       </td>
                     </tr>
@@ -928,6 +936,32 @@ function MainLedgerContent() {
                             )}
                           </div>
                         </td>
+                        <td className="py-1.5 px-2">
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTransactionRow(idx, 'fs_type', t.fs_type === 'F' ? '' : 'F')}
+                              className={`flex-1 py-1 rounded font-black text-xs transition-all ${
+                                t.fs_type === 'F'
+                                  ? 'bg-purple-600 text-white shadow-sm'
+                                  : 'bg-slate-100 text-slate-500 hover:bg-purple-100 hover:text-purple-700 border border-slate-300'
+                              }`}
+                            >
+                              F
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTransactionRow(idx, 'fs_type', t.fs_type === 'S' ? '' : 'S')}
+                              className={`flex-1 py-1 rounded font-black text-xs transition-all ${
+                                t.fs_type === 'S'
+                                  ? 'bg-amber-600 text-white shadow-sm'
+                                  : 'bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700 border border-slate-300'
+                              }`}
+                            >
+                              S
+                            </button>
+                          </div>
+                        </td>
                         <td className="py-1.5 px-1 text-center">
                           <button
                             onClick={() => handleRemoveTransactionRow(idx)}
@@ -948,7 +982,7 @@ function MainLedgerContent() {
                     <td colSpan={4} className="py-2.5 px-2.5 text-center text-slate-500 font-normal">Auto-calculated formula sum ↓</td>
                     <td className="py-2.5 px-2.5 text-right text-emerald-700">LKR {totalInterestCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td className="py-2.5 px-2.5 text-right text-emerald-700">LKR {totalRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td colSpan={2}></td>
+                    <td colSpan={3}></td>
                   </tr>
                 </tfoot>
               </table>
