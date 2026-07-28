@@ -1264,7 +1264,28 @@ function MainLedgerContent() {
                 </div>
               </div>
 
-              <div className="pt-3">
+              <div className="pt-3 space-y-3">
+                {Math.abs((Number(cpBalance) || 0) - calculatedClosing) > 0.01 && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-start gap-2 text-rose-800">
+                      <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
+                      <div>
+                        <p className="font-black text-sm">Mathematical Mismatch Warning (Variance: Rs. {Number((Number(cpBalance) || 0) - calculatedClosing).toLocaleString()})</p>
+                        <p className="text-xs font-semibold opacity-90 mt-0.5">Your entered CP Balance (Rs. {Number(cpBalance || 0).toLocaleString()}) does not match the transactions formula (Rs. {calculatedClosing.toLocaleString()}).</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => setCpBalance(calculatedClosing.toString())}
+                      variant="outline" 
+                      size="sm" 
+                      className="shrink-0 bg-white border-rose-300 text-rose-700 hover:bg-rose-100 font-bold"
+                    >
+                      <Calculator className="w-4 h-4 mr-1.5" />
+                      Auto-Fill CP (Rs. {calculatedClosing.toLocaleString()})
+                    </Button>
+                  </div>
+                )}
+                
                 <Button
                   onClick={handleSaveLedger}
                   disabled={savingLedger || loadingLedger}
