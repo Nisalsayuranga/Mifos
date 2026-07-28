@@ -349,10 +349,19 @@ function MainLedgerContent() {
               let type_ir: 'I' | 'R' | '' = 'R';
               let quantity = '';
               let remarks = t.remarks || '';
+              let redeem_no = '';
               
-              if (remarks.startsWith('[I:')) {
+              if (remarks.includes('[RNO:')) {
+                const rnoMatch = remarks.match(/\[RNO:(.*?)\]/);
+                if (rnoMatch) {
+                  redeem_no = rnoMatch[1];
+                  remarks = remarks.replace(rnoMatch[0], '').trim();
+                }
+              }
+
+              if (remarks.includes('[I:')) {
                 type_ir = 'I';
-                const match = remarks.match(/^\[I:(.*?)\]\s*(.*)$/);
+                const match = remarks.match(/\[I:(.*?)\]\s*(.*)$/);
                 if (match) {
                   quantity = match[1];
                   remarks = match[2];
@@ -367,7 +376,7 @@ function MainLedgerContent() {
                 weight_g: t.weight_g || '',
                 weight_mg: t.weight_mg || '',
                 item_code: t.item_code || '',
-                redeem_no: t.redeem_no || '',
+                redeem_no: redeem_no || t.redeem_no || '',
                 interest_rs: t.interest_rs || '',
                 cash_received: t.cash_received || '',
                 type_ir,

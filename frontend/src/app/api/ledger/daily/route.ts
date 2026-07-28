@@ -199,6 +199,9 @@ export async function POST(request: Request) {
         if (t.type_ir === 'I') {
           finalRemarks = `[I:${t.quantity || ''}] ${finalRemarks}`.trim();
         }
+        if (t.redeem_no) {
+          finalRemarks = `[RNO:${t.redeem_no}] ${finalRemarks}`.trim();
+        }
         
         return {
           ledger_id: ledgerId,
