@@ -249,10 +249,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       ledger_id: ledgerId,
-      calculated_closing: calculatedClosing,
-      math_status: mathMismatch ? 'MISMATCH' : 'OK',
-      math_mismatch_amount: Number((userClosing - calculatedClosing).toFixed(2)),
-      variance,
+      calculated_closing_cash: calculatedClosingCash,
+      calculated_closing_capital: calculatedClosingCapital,
+      cash_status: cashMismatch ? 'MISMATCH' : 'OK',
+      capital_status: capitalMismatch ? 'MISMATCH' : 'OK',
+      variance: storedVariance,
       status: finalStatus
     });
 
