@@ -464,7 +464,7 @@ function MainLedgerContent() {
       recovery_total: recoveryTotal,
       insurance_total: effectiveInsurance,
       expenses_total: effectiveExpenses,
-      closing_balance: userClosingBalance || calculatedClosing,
+      closing_balance: userClosingBalance || calculatedClosingCash,
       staff_shift: staffShiftString,
       created_by: currentUser?.email || 'Teller',
       status: 'APPROVED',
