@@ -215,7 +215,10 @@ export async function POST(request: Request) {
           remarks: finalRemarks
         };
       });
-      await supabase.from('daily_ledger_transactions').insert(txRows);
+      const { error: txErr } = await supabase.from('daily_ledger_transactions').insert(txRows);
+      if (txErr) {
+        return NextResponse.json({ error: 'Failed to save transactions: ' + txErr.message }, { status: 500 });
+      }
     }
 
     if (Array.isArray(expenses) && expenses.length > 0) {
