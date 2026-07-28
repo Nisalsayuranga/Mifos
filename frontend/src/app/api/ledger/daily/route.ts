@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
       const { data: prevLedger } = await supabase
         .from('daily_ledgers')
-        .select('closing_balance, ledger_date')
+        .select('closing_balance, cp_balance, ledger_date')
         .eq('branch_id', branch_id)
         .lt('ledger_date', date)
         .order('ledger_date', { ascending: false })
@@ -54,6 +54,7 @@ export async function GET(request: Request) {
         transactions,
         expenses,
         previous_closing: prevLedger ? Number(prevLedger.closing_balance) : null,
+        previous_capital: prevLedger ? Number(prevLedger.cp_balance) : null,
         previous_ledger_date: prevLedger ? prevLedger.ledger_date : null
       });
     }
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
       branch_id,
       ledger_date,
       cp_balance = 0,
+      opening_capital = 0,
       opening_balance = 0,
       transfer_in = 0,
       transfer_in_type = '',
@@ -111,8 +113,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'branch_id and ledger_date are required' }, { status: 400 });
     }
 
-    // 1. Math Verification Engine (Formula Lock)
-    const calcOpening = Number(opening_balance) || 0;
+    // --- CASH MATH ---
+    const calcOpeningCash = Number(opening_balance) || 0;
     const calcTrIn = Number(transfer_in) || 0;
     const calcTrOut = Number(transfer_out) || 0;
     const calcLoans = Number(loan_issued_total) || 0;
@@ -121,25 +123,39 @@ export async function POST(request: Request) {
     const calcRecovery = Number(recovery_total) || 0;
     const calcInsurance = Number(insurance_total) || 0;
     const calcExpenses = Number(expenses_total) || 0;
-    const userClosing = Number(closing_balance) || 0;
+    const userClosingCash = Number(closing_balance) || 0; // This is the Cash they entered
 
-    const calculatedClosing = Number((
-      calcOpening + calcTrIn - calcTrOut - calcLoans + calcRedeem + calcInterest + calcRecovery + calcInsurance - calcExpenses
+    const calculatedClosingCash = Number((
+      calcOpeningCash + calcTrIn - calcTrOut - calcLoans + calcRedeem + calcInterest + calcRecovery + calcInsurance - calcExpenses
     ).toFixed(2));
 
-    const mathMismatch = Math.abs(userClosing - calculatedClosing) > 0.01;
-    const actualCash = actual_cash_count !== null ? Number(actual_cash_count) : userClosing;
-    const variance = Number((actualCash - calculatedClosing).toFixed(2));
+    const cashMismatch = Math.abs(userClosingCash - calculatedClosingCash) > 0.01;
+    const cashVariance = Number((userClosingCash - calculatedClosingCash).toFixed(2));
 
-    // Determine status
-    const finalStatus = mathMismatch ? 'FLAGGED' : status;
+    // --- CAPITAL MATH ---
+    const userOpeningCapital = Number(opening_capital) || 0; // New field from payload
+    const userClosingCapital = Number(cp_balance) || 0;      // CP Balance = Closing Capital
+
+    const calculatedClosingCapital = Number((
+      userOpeningCapital + calcLoans - calcRedeem
+    ).toFixed(2));
+
+    const capitalMismatch = Math.abs(userClosingCapital - calculatedClosingCapital) > 0.01;
+    const capitalVariance = Number((userClosingCapital - calculatedClosingCapital).toFixed(2));
+
+    // Determine status (Flag if EITHER is mismatched)
+    const finalStatus = (cashMismatch || capitalMismatch) ? 'FLAGGED' : status;
+
+    // Use variance field to store cash variance primarily, or capital variance if only capital is mismatched
+    const storedVariance = cashMismatch ? cashVariance : (capitalMismatch ? capitalVariance : 0);
 
     // 2. Upsert Daily Ledger
     const ledgerPayload: Record<string, any> = {
       branch_id,
       ledger_date,
-      cp_balance: Number(cp_balance) || 0,
-      opening_balance: calcOpening,
+      cp_balance: userClosingCapital,
+      opening_capital: userOpeningCapital,
+      opening_balance: calcOpeningCash,
       transfer_in: calcTrIn,
       transfer_out: calcTrOut,
       loan_issued_total: calcLoans,
@@ -148,9 +164,9 @@ export async function POST(request: Request) {
       recovery_total: calcRecovery,
       insurance_total: calcInsurance,
       expenses_total: calcExpenses,
-      closing_balance: userClosing,
-      actual_cash_count: actualCash,
-      variance,
+      closing_balance: userClosingCash,
+      actual_cash_count: userClosingCash, // Set actual cash to entered cash
+      variance: storedVariance,
       staff_shift,
       status: finalStatus,
       created_by,

@@ -99,7 +99,8 @@ function MainLedgerContent() {
   // Controls
   const [selectedBranch, setSelectedBranch] = useState(branchParam || 'BRL');
   const [ledgerDate, setLedgerDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [cpBalance, setCpBalance] = useState<string | number>('');
+  const [cpBalance, setCpBalance] = useState<string | number>(''); // Closing Capital
+  const [openingCapital, setOpeningCapital] = useState<string | number>(''); // Opening Capital
 
   // Daily Cash Figures
   const [openingBalance, setOpeningBalance] = useState<string | number>('');
@@ -129,6 +130,7 @@ function MainLedgerContent() {
   const [newShiftStatus, setNewShiftStatus] = useState<'PRESENT' | 'ABSENT'>('PRESENT');
 
   const [previousClosing, setPreviousClosing] = useState<number | null>(null);
+  const [previousCapital, setPreviousCapital] = useState<number | null>(null);
   const [previousDate, setPreviousDate] = useState<string | null>(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [savingLedger, setSavingLedger] = useState(false);
@@ -297,8 +299,8 @@ function MainLedgerContent() {
     return totalExpensesSum > 0 ? totalExpensesSum : (Number(manualExpensesTotal) || 0);
   }, [totalExpensesSum, manualExpensesTotal]);
 
-  // Formula Closing Balance
-  const calculatedClosing = useMemo(() => {
+  // Formula Closing Balances
+  const calculatedClosingCash = useMemo(() => {
     const op = Number(openingBalance) || 0;
     const ti = Number(transferIn) || 0;
     const to = Number(transferOut) || 0;
@@ -306,6 +308,11 @@ function MainLedgerContent() {
 
     return Number((op + ti - to - effectiveLoansIssued + effectiveRedemptions + effectiveInterest + rec + effectiveInsurance - effectiveExpenses).toFixed(2));
   }, [openingBalance, transferIn, transferOut, effectiveLoansIssued, effectiveRedemptions, effectiveInterest, recoveryTotal, effectiveInsurance, effectiveExpenses]);
+
+  const calculatedClosingCapital = useMemo(() => {
+    const opCap = Number(openingCapital) || 0;
+    return Number((opCap + effectiveLoansIssued - effectiveRedemptions).toFixed(2));
+  }, [openingCapital, effectiveLoansIssued, effectiveRedemptions]);
 
 
   // Fetch Ledger Data
@@ -324,11 +331,13 @@ function MainLedgerContent() {
         }
 
         setPreviousClosing(data.previous_closing);
+        setPreviousCapital(data.previous_capital);
         setPreviousDate(data.previous_ledger_date);
 
         if (data.ledger) {
           const l = data.ledger;
           setCpBalance(l.cp_balance || '');
+          setOpeningCapital(l.opening_capital || '');
           setOpeningBalance(l.opening_balance || '');
           setTransferIn(l.transfer_in || '');
           setTransferInType(l.transfer_in_type || '');
@@ -401,6 +410,7 @@ function MainLedgerContent() {
           }
         } else {
           setCpBalance('');
+          setOpeningCapital(data.previous_capital !== null ? data.previous_capital : '');
           setOpeningBalance(data.previous_closing !== null ? data.previous_closing : '');
           setTransferIn('');
           setTransferInType('');
@@ -442,6 +452,7 @@ function MainLedgerContent() {
       branch_id: selectedBranch,
       ledger_date: ledgerDate,
       cp_balance: cpBalance,
+      opening_capital: openingCapital,
       opening_balance: openingBalance,
       transfer_in: transferIn,
       transfer_in_type: transferInType,
@@ -758,10 +769,22 @@ function MainLedgerContent() {
               </div>
             </div>
 
-            {/* Row 2: CP Balance + Staff Attendance */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: Closing Balances + Staff Attendance */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">CP Balance</label>
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">Closing Cash (අවසාන අතේ ඇති මුදල)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={userClosingBalance}
+                  onChange={(e) => setUserClosingBalance(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">Closing Capital (අවසාන මුළු ණය - CP)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -1056,17 +1079,30 @@ function MainLedgerContent() {
           {/* SECTION 2: CLEAN FULL-WIDTH STACKED SUMMARY & EXPENSES CARDS */}
           <div className="w-full flex flex-col gap-6">
             
-            {/* Daily Cash Summary (Formula Table) */}
+            {/* Daily Summary (Formula Table) */}
             <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3">
                 <Calculator className="w-5 h-5 text-blue-600 shrink-0" />
-                Daily Cash Summary (දිනපතා මුදල් සාරාංශය)
+                Daily Financial Summary (දිනපතා මූල්‍ය සාරාංශය)
               </h3>
 
               <div className="space-y-2.5 text-xs font-bold w-full">
-                {/* 1. O/Balance */}
+                {/* 1A. O/Capital */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50/50 p-2.5 rounded-lg border border-blue-200 gap-2">
+                  <span className="text-blue-800 font-bold">1A. Opening Capital (ආරම්භක මුළු ණය එකතුව):</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={openingCapital}
+                    onChange={(e) => setOpeningCapital(e.target.value)}
+                    className="w-full sm:w-48 bg-white border border-blue-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* 1B. O/Cash */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-slate-800 font-bold">1. O/Balance (ආරම්භක ශේෂය):</span>
+                  <span className="text-slate-800 font-bold">1B. Opening Cash (ආරම්භක අතේ ඇති මුදල):</span>
                   <input
                     type="number"
                     step="0.01"
@@ -1258,30 +1294,56 @@ function MainLedgerContent() {
                 </div>
 
                 {/* 10. L/Balance */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-100 border-2 border-emerald-500 rounded-xl text-emerald-950 text-base font-black gap-2 shadow-xs">
-                  <span>10. L/Balance (අවසාන ශේෂය - Formula Sum):</span>
-                  <span className="font-mono text-xl">LKR {calculatedClosing.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-100 border-2 border-emerald-500 rounded-xl text-emerald-950 text-base font-black gap-2 shadow-xs mt-2">
+                  <span>10. L/Balance (අවසාන අතේ ඇති මුදල - Cash Formula Sum):</span>
+                  <span className="font-mono text-xl">LKR {calculatedClosingCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-blue-100 border-2 border-blue-500 rounded-xl text-blue-950 text-base font-black gap-2 shadow-xs mt-2">
+                  <span>11. CP Balance (අවසාන මුළු ණය එකතුව - Capital Formula Sum):</span>
+                  <span className="font-mono text-xl">LKR {calculatedClosingCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
               <div className="pt-3 space-y-3">
-                {Math.abs((Number(cpBalance) || 0) - calculatedClosing) > 0.01 && (
+                {Math.abs((Number(userClosingBalance) || 0) - calculatedClosingCash) > 0.01 && (
                   <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
                     <div className="flex items-start gap-2 text-rose-800">
                       <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
                       <div>
-                        <p className="font-black text-sm">Mathematical Mismatch Warning (Variance: Rs. {Number((Number(cpBalance) || 0) - calculatedClosing).toLocaleString()})</p>
-                        <p className="text-xs font-semibold opacity-90 mt-0.5">Your entered CP Balance (Rs. {Number(cpBalance || 0).toLocaleString()}) does not match the transactions formula (Rs. {calculatedClosing.toLocaleString()}).</p>
+                        <p className="font-black text-sm">Cash Mismatch Warning (Variance: Rs. {Number((Number(userClosingBalance) || 0) - calculatedClosingCash).toLocaleString()})</p>
+                        <p className="text-xs font-semibold opacity-90 mt-0.5">Your entered Closing Cash (Rs. {Number(userClosingBalance || 0).toLocaleString()}) does not match the transactions formula (Rs. {calculatedClosingCash.toLocaleString()}).</p>
                       </div>
                     </div>
                     <Button 
-                      onClick={() => setCpBalance(calculatedClosing.toString())}
+                      onClick={() => setUserClosingBalance(calculatedClosingCash.toString())}
                       variant="outline" 
                       size="sm" 
                       className="shrink-0 bg-white border-rose-300 text-rose-700 hover:bg-rose-100 font-bold"
                     >
                       <Calculator className="w-4 h-4 mr-1.5" />
-                      Auto-Fill CP (Rs. {calculatedClosing.toLocaleString()})
+                      Auto-Fill Cash (Rs. {calculatedClosingCash.toLocaleString()})
+                    </Button>
+                  </div>
+                )}
+
+                {Math.abs((Number(cpBalance) || 0) - calculatedClosingCapital) > 0.01 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-start gap-2 text-amber-900">
+                      <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                      <div>
+                        <p className="font-black text-sm">Capital (CP) Mismatch Warning (Variance: Rs. {Number((Number(cpBalance) || 0) - calculatedClosingCapital).toLocaleString()})</p>
+                        <p className="text-xs font-semibold opacity-90 mt-0.5">Your entered CP Balance (Rs. {Number(cpBalance || 0).toLocaleString()}) does not match the Capital formula (Rs. {calculatedClosingCapital.toLocaleString()}).</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => setCpBalance(calculatedClosingCapital.toString())}
+                      variant="outline" 
+                      size="sm" 
+                      className="shrink-0 bg-white border-amber-300 text-amber-800 hover:bg-amber-100 font-bold"
+                    >
+                      <Calculator className="w-4 h-4 mr-1.5" />
+                      Auto-Fill Capital (Rs. {calculatedClosingCapital.toLocaleString()})
                     </Button>
                   </div>
                 )}
