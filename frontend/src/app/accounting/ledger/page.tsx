@@ -784,7 +784,7 @@ function MainLedgerContent() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newStaffName.trim()) {
                         e.preventDefault();
-                        const sList = [...shiftList, { name: newStaffName.trim(), checkIn: newCheckIn, checkOut: newCheckOut, status: newShiftStatus }];
+                        const sList = [...shiftList, { id: Math.random().toString(), name: newStaffName.trim(), checkIn: newCheckIn, checkOut: newCheckOut, status: newShiftStatus }];
                         setShiftList(sList);
                         setNewStaffName('');
                       }
@@ -794,7 +794,7 @@ function MainLedgerContent() {
                     type="button"
                     onClick={() => {
                       if (newStaffName.trim()) {
-                        const sList = [...shiftList, { name: newStaffName.trim(), checkIn: newCheckIn, checkOut: newCheckOut, status: newShiftStatus }];
+                        const sList = [...shiftList, { id: Math.random().toString(), name: newStaffName.trim(), checkIn: newCheckIn, checkOut: newCheckOut, status: newShiftStatus }];
                         setShiftList(sList);
                         setNewStaffName('');
                       }
