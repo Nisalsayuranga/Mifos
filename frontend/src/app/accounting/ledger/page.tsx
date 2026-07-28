@@ -346,11 +346,12 @@ function MainLedgerContent() {
 
           if (data.transactions && Array.isArray(data.transactions)) {
             setTransactions(data.transactions.map((t: any) => {
-              let type_ir: 'I' | 'R' | '' = 'R';
-              let quantity = '';
+              let type_ir: 'I' | 'R' | '' = t.type_ir || 'R';
+              let quantity = t.quantity || '';
               let remarks = t.remarks || '';
-              let redeem_no = '';
-              
+              let redeem_no = t.redeem_no || '';
+
+              // Fallback for older data that still has remarks embedded
               if (remarks.includes('[RNO:')) {
                 const rnoMatch = remarks.match(/\[RNO:(.*?)\]/);
                 if (rnoMatch) {

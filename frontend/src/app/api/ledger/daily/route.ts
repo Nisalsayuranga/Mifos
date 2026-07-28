@@ -196,12 +196,6 @@ export async function POST(request: Request) {
     if (Array.isArray(transactions) && transactions.length > 0) {
       const txRows = transactions.map((t: any) => {
         let finalRemarks = t.remarks || '';
-        if (t.type_ir === 'I') {
-          finalRemarks = `[I:${t.quantity || ''}] ${finalRemarks}`.trim();
-        }
-        if (t.redeem_no) {
-          finalRemarks = `[RNO:${t.redeem_no}] ${finalRemarks}`.trim();
-        }
         
         return {
           ledger_id: ledgerId,
@@ -215,6 +209,9 @@ export async function POST(request: Request) {
           interest_rs: Number(t.interest_rs) || 0,
           cash_received: Number(t.cash_received) || 0,
           fs_type: t.fs_type || '',
+          redeem_no: t.redeem_no || '',
+          type_ir: t.type_ir || '',
+          quantity: t.quantity || '',
           remarks: finalRemarks
         };
       });
