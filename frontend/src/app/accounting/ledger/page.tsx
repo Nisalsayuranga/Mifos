@@ -796,7 +796,6 @@ function MainLedgerContent() {
                           <div className="space-y-1">
                             <input
                               type="text"
-                              placeholder="1R 256"
                               value={t.loan_no}
                               onChange={(e) => handleUpdateTransactionRow(idx, 'loan_no', e.target.value)}
                               className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -820,7 +819,6 @@ function MainLedgerContent() {
                           <input
                             type="number"
                             step="0.01"
-                            placeholder="23590"
                             value={t.cash_loan}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'cash_loan', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-rose-700"
@@ -830,7 +828,6 @@ function MainLedgerContent() {
                           <input
                             type="number"
                             step="0.01"
-                            placeholder="0"
                             value={t.insurance_rs}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'insurance_rs', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
@@ -839,7 +836,6 @@ function MainLedgerContent() {
                         <td className="py-1.5 px-2">
                           <input
                             type="number"
-                            placeholder="25"
                             value={t.weight_g}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'weight_g', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs text-slate-900"
@@ -848,7 +844,6 @@ function MainLedgerContent() {
                         <td className="py-1.5 px-2">
                           <input
                             type="number"
-                            placeholder="060"
                             value={t.weight_mg}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'weight_mg', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center text-xs text-slate-800"
@@ -857,7 +852,6 @@ function MainLedgerContent() {
                         <td className="py-1.5 px-2">
                           <input
                             type="text"
-                            placeholder="CH"
                             value={t.item_code}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'item_code', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-center font-bold text-xs uppercase text-slate-900"
@@ -867,7 +861,6 @@ function MainLedgerContent() {
                           <div className="space-y-1">
                             <input
                               type="text"
-                              placeholder="1R 175"
                               value={t.redeem_no}
                               onChange={(e) => handleUpdateTransactionRow(idx, 'redeem_no', e.target.value)}
                               className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -891,7 +884,6 @@ function MainLedgerContent() {
                           <input
                             type="number"
                             step="0.01"
-                            placeholder="1641.26"
                             value={t.interest_rs}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'interest_rs', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
@@ -901,7 +893,6 @@ function MainLedgerContent() {
                           <input
                             type="number"
                             step="0.01"
-                            placeholder="32825"
                             value={t.cash_received}
                             onChange={(e) => handleUpdateTransactionRow(idx, 'cash_received', e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
