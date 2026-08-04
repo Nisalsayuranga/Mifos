@@ -30,7 +30,8 @@ import {
   Building2,
   Users,
   UserPlus,
-  Edit
+  Edit,
+  Calculator
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -273,6 +274,7 @@ export default function EndOfDayPage() {
   const [withdrawalDate, setWithdrawalDate] = useState("");
   const [withdrawalReason, setWithdrawalReason] = useState("Pawn Redeemed (Closed)");
   const [withdrawalNotes, setWithdrawalNotes] = useState("");
+  const [fsInterest, setFsInterest] = useState("");
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [branches, setBranches] = useState<any[]>([]);
@@ -839,6 +841,7 @@ export default function EndOfDayPage() {
     setWithdrawalDate(new Date().toISOString().split('T')[0]);
     setWithdrawalReason("Pawn Redeemed (Closed)");
     setWithdrawalNotes("");
+    setFsInterest("");
     setIsEditingWithdrawal(false);
     setShowWithdrawModal(true);
   };
@@ -848,7 +851,17 @@ export default function EndOfDayPage() {
     setSelectedItemForWithdrawal(item);
     setWithdrawalDate(item.withdrawal_date || new Date().toISOString().split('T')[0]);
     setWithdrawalReason(item.withdrawal_reason || "Pawn Redeemed (Closed)");
-    setWithdrawalNotes(item.withdrawal_notes || "");
+    const notes = item.withdrawal_notes || "";
+    setWithdrawalNotes(notes);
+
+    // Parse interest if F/S notes
+    let parsedInterest = "";
+    if (notes.includes("Interest: Rs.") || notes.includes("Interest:")) {
+      const match = notes.match(/Interest:\s*Rs\.\s*([\d,.]+)/i) || notes.match(/Interest:\s*([\d,.]+)/i);
+      if (match) parsedInterest = match[1].replace(/,/g, '');
+    }
+    setFsInterest(parsedInterest);
+
     setIsEditingWithdrawal(true);
     setShowWithdrawModal(true);
   };
@@ -863,6 +876,17 @@ export default function EndOfDayPage() {
 
     const id = selectedItemForWithdrawal.id;
 
+    // Construct final notes with F/S interest if F/S reason is selected
+    let finalNotes = withdrawalNotes || '';
+    if (withdrawalReason === "F/S") {
+      const interestStr = fsInterest ? `F/S [Interest: Rs. ${parseFloat(fsInterest).toLocaleString('en-US', { minimumFractionDigits: 0 })}]` : 'F/S';
+      if (finalNotes && !finalNotes.includes("F/S")) {
+        finalNotes = `${interestStr} - ${finalNotes}`;
+      } else if (!finalNotes) {
+        finalNotes = interestStr;
+      }
+    }
+
     try {
       if (isUsingSupabase) {
         const { error } = await supabase
@@ -871,7 +895,7 @@ export default function EndOfDayPage() {
             status: 'Withdrawn',
             withdrawal_date: withdrawalDate,
             withdrawal_reason: withdrawalReason,
-            withdrawal_notes: withdrawalNotes || ''
+            withdrawal_notes: finalNotes
           })
           .eq('id', id);
 
@@ -886,7 +910,7 @@ export default function EndOfDayPage() {
               status: 'Withdrawn',
               withdrawal_date: withdrawalDate,
               withdrawal_reason: withdrawalReason,
-              withdrawal_notes: withdrawalNotes || ''
+              withdrawal_notes: finalNotes
             };
           }
           return item;
@@ -897,6 +921,7 @@ export default function EndOfDayPage() {
       }
 
       setWithdrawalNotes("");
+      setFsInterest("");
       setSelectedItemForWithdrawal(null);
       setShowWithdrawModal(false);
       setIsEditingWithdrawal(false);
@@ -2113,6 +2138,7 @@ export default function EndOfDayPage() {
                   </SelectTrigger>
                   <SelectContent className="glass">
                     <SelectItem value="Pawn Redeemed (Closed)" className="font-semibold text-sm">Pawn Redeemed (Closed)</SelectItem>
+                    <SelectItem value="F/S" className="font-black text-sm text-blue-700">F/S (Full Settlement)</SelectItem>
                     <SelectItem value="Pawn Auctioned" className="font-semibold text-sm">Pawn Auctioned</SelectItem>
                     <SelectItem value="Stock Adjustment" className="font-semibold text-sm">Stock Adjustment</SelectItem>
                     <SelectItem value="Other" className="font-semibold text-sm">Other Reason</SelectItem>
@@ -2120,9 +2146,31 @@ export default function EndOfDayPage() {
                 </Select>
               </div>
 
+              {/* F/S Interest Input Field (Shown when F/S is selected) */}
+              {withdrawalReason === "F/S" && (
+                <div className="grid gap-2 bg-blue-50/70 p-4 rounded-xl border border-blue-200/80">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-blue-800 flex items-center gap-1.5">
+                    <Calculator className="w-3.5 h-3.5 text-blue-600" /> F/S Interest / I Amount (LKR)
+                  </Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    placeholder="E.g. 1500" 
+                    value={fsInterest} 
+                    onChange={e => setFsInterest(e.target.value)} 
+                    className="h-11 border-blue-300 bg-white rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-blue-500" 
+                  />
+                  <p className="text-[10px] font-semibold text-blue-600/80">
+                    This interest amount will be saved into the ledger record for F/S settlement.
+                  </p>
+                </div>
+              )}
+
               {/* Withdrawal Date */}
               <div className="grid gap-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Withdrawal Date</Label>
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">
+                  {withdrawalReason === "F/S" ? "F/S Settlement Date" : "Withdrawal Date"}
+                </Label>
                 <Input 
                   type="date"
                   value={withdrawalDate} 
@@ -2137,7 +2185,7 @@ export default function EndOfDayPage() {
                 <Input 
                   value={withdrawalNotes} 
                   onChange={e => setWithdrawalNotes(e.target.value)} 
-                  placeholder="E.g. Closed ticket. Gold handed back to customer." 
+                  placeholder={withdrawalReason === "F/S" ? "E.g. Full settlement completed." : "E.g. Closed ticket. Gold handed back to customer."} 
                   className="h-11 border-slate-200 rounded-xl font-bold" 
                 />
               </div>

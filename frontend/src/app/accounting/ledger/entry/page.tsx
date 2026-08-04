@@ -196,15 +196,18 @@ export default function DailyLedgerEntryPage() {
         body: JSON.stringify(payload)
       });
       const contentType = res.headers.get('content-type');
-      if (!res.ok || !contentType || !contentType.includes('application/json')) {
+      let data: any = {};
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      }
+
+      if (!res.ok) {
         setFeedback({
           type: 'error',
-          message: `Save failed: Server returned status ${res.status}. Please check database connection.`
+          message: data.error || `Save failed: Server returned status ${res.status}. Please check database connection.`
         });
         return;
       }
-
-      const data = await res.json();
 
       if (data.error) {
         setFeedback({ type: 'error', message: data.error });
