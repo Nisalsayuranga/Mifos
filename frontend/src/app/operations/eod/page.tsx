@@ -31,7 +31,9 @@ import {
   Users,
   UserPlus,
   Edit,
-  Calculator
+  Calculator,
+  Filter,
+  RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -275,6 +277,12 @@ export default function EndOfDayPage() {
   const [withdrawalReason, setWithdrawalReason] = useState("Pawn Redeemed (Closed)");
   const [withdrawalNotes, setWithdrawalNotes] = useState("");
   const [fsInterest, setFsInterest] = useState("");
+
+  // Advanced Filtering State
+  const [filterReason, setFilterReason] = useState<string>("ALL");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [filterPrefix, setFilterPrefix] = useState<string>("ALL");
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [branches, setBranches] = useState<any[]>([]);
@@ -1004,7 +1012,12 @@ export default function EndOfDayPage() {
     activeGroups.forEach(pref => {
       const items = grouped[pref];
       csvLines.push(`"=== SECTION: ${pref} ==="`);
-      csvLines.push(`"Bill No","Price","Weight","Date","Items"`);
+
+      if (stockFilter === 'Withdrawn') {
+        csvLines.push(`"Bill No","Price","Weight","Pawning Date","Withdraw/FS Date","Reason / Status","Notes / Interest","Items"`);
+      } else {
+        csvLines.push(`"Bill No","Price","Weight","Date","Items"`);
+      }
 
       items.forEach(item => {
         const d = new Date(item.date);
@@ -1019,7 +1032,14 @@ export default function EndOfDayPage() {
         const formattedWeight = `${g}g${mg}`;
         const formattedPrice = (parseFloat(item.price) || 0).toLocaleString();
 
-        csvLines.push(`"${item.bill_no}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
+        if (stockFilter === 'Withdrawn') {
+          const wDate = item.withdrawal_date ? new Date(item.withdrawal_date).toLocaleDateString('en-GB') : '';
+          const wReason = item.withdrawal_reason || '';
+          const wNotes = (item.withdrawal_notes || '').replace(/"/g, '""');
+          csvLines.push(`"${item.bill_no}","${formattedPrice}","${formattedWeight}","${formattedDate}","${wDate}","${wReason}","${wNotes}","${compressItemTypeString(item.item_type || '')}"`);
+        } else {
+          csvLines.push(`"${item.bill_no}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
+        }
       });
 
       csvLines.push(`"No of Packets = ${items.length}"`);
@@ -1268,30 +1288,56 @@ export default function EndOfDayPage() {
   const displayWeight = stockFilter === 'OldData' ? totalOldWeight : totalActiveWeight;
   const displayValue = stockFilter === 'OldData' ? totalOldValue : totalActiveValue;
 
-  // Filter and search stock
-  const filteredStock = stockFilter === 'OldData'
-    ? oldStockItems.filter(item => {
-        const matchesBranch = !selectedBranch || selectedBranch === 'ALL' || item.branch_id === selectedBranch;
-        if (!matchesBranch) return false;
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase().trim();
-        return (
-          (item.bill_no || "").toLowerCase().includes(q) || 
-          (item.item_type || "").toLowerCase().includes(q) ||
-          getItemName(item.item_type || "").toLowerCase().includes(q)
-        );
-      })
-    : stockItems.filter(item => {
-        const matchesStatus = item.status === stockFilter;
-        if (!matchesStatus) return false;
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase().trim();
-        return (
-          (item.bill_no || "").toLowerCase().includes(q) || 
-          (item.item_type || "").toLowerCase().includes(q) ||
-          getItemName(item.item_type || "").toLowerCase().includes(q)
-        );
-      });
+  // Filter and search stock with Advanced Filters
+  const filteredStock = (stockFilter === 'OldData' ? oldStockItems : stockItems).filter(item => {
+    // 1. Status Filter
+    if (stockFilter !== 'OldData' && item.status !== stockFilter) {
+      return false;
+    }
+
+    // 2. Branch Filter
+    if (selectedBranch && selectedBranch !== 'ALL' && item.branch_id !== selectedBranch) {
+      return false;
+    }
+
+    // 3. Reason Filter (e.g. F/S, Pawn Redeemed, etc.)
+    if (filterReason && filterReason !== 'ALL') {
+      const reason = item.withdrawal_reason || "";
+      const notes = item.withdrawal_notes || "";
+      if (filterReason === 'F/S') {
+        const isFS = reason === 'F/S' || notes.toUpperCase().includes("F/S");
+        if (!isFS) return false;
+      } else {
+        if (reason !== filterReason) return false;
+      }
+    }
+
+    // 4. Prefix Filter
+    if (filterPrefix && filterPrefix !== 'ALL') {
+      const cleanBill = (item.bill_no || "").trim();
+      if (!cleanBill.startsWith(filterPrefix + " ") && !cleanBill.startsWith(filterPrefix)) {
+        return false;
+      }
+    }
+
+    // 5. Date Range Filter
+    const targetDate = stockFilter === 'Withdrawn' ? (item.withdrawal_date || item.date) : item.date;
+    if (startDate && targetDate < startDate) return false;
+    if (endDate && targetDate > endDate) return false;
+
+    // 6. Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchBill = (item.bill_no || "").toLowerCase().includes(q);
+      const matchType = (item.item_type || "").toLowerCase().includes(q);
+      const matchName = getItemName(item.item_type || "").toLowerCase().includes(q);
+      const matchNotes = (item.withdrawal_notes || "").toLowerCase().includes(q);
+      const matchReason = (item.withdrawal_reason || "").toLowerCase().includes(q);
+      if (!matchBill && !matchType && !matchName && !matchNotes && !matchReason) return false;
+    }
+
+    return true;
+  });
 
   // Strict sort by prefix order: A -> 1R -> 3M -> 3R -> 6R -> 12R -> 6M -> Others
   const sortedStock = sortStockItems(filteredStock);
@@ -1592,7 +1638,7 @@ export default function EndOfDayPage() {
                   onClick={handleExportExcel}
                   variant="outline"
                   className="border-slate-200 hover:bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-[9px] h-9 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  title="Export to Excel"
+                  title="Export Filtered Stock to Excel"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel
                 </Button>
@@ -1613,6 +1659,97 @@ export default function EndOfDayPage() {
                   <PlusCircle className="w-4 h-4" /> Add Stock Item
                 </Button>
               </div>
+            </div>
+          </div>
+
+          {/* ADVANCED FILTERING TOOLBAR BAR */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              <span className="font-black text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5 shrink-0">
+                <Filter className="w-3.5 h-3.5 text-blue-600" /> Data Filters:
+              </span>
+
+              {/* Filter by Reason / Category */}
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[10px] text-slate-500 uppercase">Reason:</span>
+                <Select value={filterReason} onValueChange={(val) => val && setFilterReason(val)}>
+                  <SelectTrigger className="h-8 w-44 bg-slate-50 border-slate-200 rounded-lg font-bold text-xs">
+                    <SelectValue placeholder="All Reasons" />
+                  </SelectTrigger>
+                  <SelectContent className="glass">
+                    <SelectItem value="ALL" className="font-semibold text-xs">All Reasons / Statuses</SelectItem>
+                    <SelectItem value="F/S" className="font-black text-xs text-blue-700">F/S (Full Settlement)</SelectItem>
+                    <SelectItem value="Pawn Redeemed (Closed)" className="font-semibold text-xs">Pawn Redeemed (Closed)</SelectItem>
+                    <SelectItem value="Pawn Auctioned" className="font-semibold text-xs">Pawn Auctioned</SelectItem>
+                    <SelectItem value="Stock Adjustment" className="font-semibold text-xs">Stock Adjustment</SelectItem>
+                    <SelectItem value="Other" className="font-semibold text-xs">Other Reason</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filter by Bill Prefix */}
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[10px] text-slate-500 uppercase">Prefix:</span>
+                <Select value={filterPrefix} onValueChange={(val) => val && setFilterPrefix(val)}>
+                  <SelectTrigger className="h-8 w-32 bg-slate-50 border-slate-200 rounded-lg font-bold text-xs">
+                    <SelectValue placeholder="All Prefixes" />
+                  </SelectTrigger>
+                  <SelectContent className="glass">
+                    <SelectItem value="ALL" className="font-semibold text-xs">All Prefixes</SelectItem>
+                    {BILL_PREFIXES.map(pref => (
+                      <SelectItem key={pref} value={pref} className="font-bold text-xs">{pref}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Range: Start Date & End Date */}
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[10px] text-slate-500 uppercase">Date:</span>
+                <Input 
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="h-8 w-32 bg-slate-50 border-slate-200 rounded-lg font-bold text-xs px-2"
+                  title="Start Date"
+                />
+                <span className="text-slate-400 font-bold">to</span>
+                <Input 
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="h-8 w-32 bg-slate-50 border-slate-200 rounded-lg font-bold text-xs px-2"
+                  title="End Date"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+              {/* Filtered Item Counter Badge */}
+              <div className="bg-blue-50 text-blue-800 border border-blue-200/60 font-black px-3 py-1 rounded-xl text-xs flex items-center gap-1.5">
+                <span>Showing {filteredStock.length} items</span>
+                {(filterReason !== 'ALL' || filterPrefix !== 'ALL' || startDate || endDate || searchQuery) && (
+                  <span className="bg-blue-600 text-white px-1.5 py-0.2 rounded-full text-[9px]">Filtered</span>
+                )}
+              </div>
+
+              {/* Clear Filters Button */}
+              {(filterReason !== 'ALL' || filterPrefix !== 'ALL' || startDate || endDate || searchQuery) && (
+                <Button 
+                  onClick={() => {
+                    setFilterReason('ALL');
+                    setFilterPrefix('ALL');
+                    setStartDate('');
+                    setEndDate('');
+                    setSearchQuery('');
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold text-xs gap-1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
+                </Button>
+              )}
             </div>
           </div>
 
