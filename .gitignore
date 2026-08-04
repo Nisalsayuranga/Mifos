@@ -38,6 +38,12 @@ mvnw.cmd
 *.xlsx
 *.zip
 
+# Scratch Scripts & Local Tools
+*.js
+*.ps1
+env*.txt
+__pycache__/
+
 # OS
 Thumbs.db
 .DS_Store
