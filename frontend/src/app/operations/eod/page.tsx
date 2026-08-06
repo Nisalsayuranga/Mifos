@@ -963,12 +963,17 @@ export default function EndOfDayPage() {
 
     try {
       if (isUsingSupabase) {
-        const { error } = await supabase
-          .from('stock_items')
-          .delete()
-          .eq('id', item.id);
+        const res = await fetch('/api/stock/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: item.id })
+        });
+        const result = await res.json();
 
-        if (error) throw error;
+        if (!res.ok || result.error) {
+          throw new Error(result.error || "Failed to delete item from database");
+        }
+
         toast.success(`Bill Number "${item.bill_no}" deleted successfully from Supabase!`);
       } else {
         const updated = stockItems.filter(i => i.id !== item.id);
@@ -977,6 +982,9 @@ export default function EndOfDayPage() {
         toast.success(`Bill Number "${item.bill_no}" deleted successfully (Local Storage)!`);
       }
 
+      // Optimistically update state immediately
+      setStockItems(prev => prev.filter(i => i.id !== item.id));
+      setOldStockItems(prev => prev.filter(i => i.id !== item.id));
       loadStockData();
     } catch (err: any) {
       toast.error("Error deleting stock item: " + err.message);
