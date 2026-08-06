@@ -591,14 +591,16 @@ export default function EndOfDayPage() {
     const finalBillNo = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
     console.log("[DEBUG] generated finalBillNo:", finalBillNo);
 
-    // Duplicate bill number check (case-insensitive & trimmed)
-    const isDuplicate = stockItems.some(item => 
+    // Duplicate bill number check WITHIN THE SAME BRANCH (case-insensitive & trimmed)
+    const isDuplicateInBranch = stockItems.some(item => 
+      item.branch_id === targetBranch &&
       item.bill_no.toLowerCase().trim() === finalBillNo.toLowerCase().trim() &&
       (!isEditingActive || item.id !== selectedActiveItem?.id)
     );
 
-    if (isDuplicate) {
-      toast.error(`Bill Number "${finalBillNo}" already exists in inventory! Duplicate bill numbers are not allowed.`);
+    if (isDuplicateInBranch) {
+      const branchName = branches.find(b => b.id === targetBranch)?.name || targetBranch;
+      toast.error(`Bill Number "${finalBillNo}" already exists in ${branchName} branch! Duplicate bill numbers are not allowed within the same branch.`);
       return;
     }
 
