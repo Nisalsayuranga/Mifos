@@ -588,7 +588,19 @@ export default function EndOfDayPage() {
       return;
     }
 
-    const finalBillNo = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
+    const formatBillNo = (prefix: string | null, rawNo: string) => {
+      let clean = rawNo.trim();
+      if (prefix) {
+        if (clean.toUpperCase().startsWith(prefix.toUpperCase() + " ")) {
+          clean = clean.substring(prefix.length + 1).trim();
+        } else if (clean.toUpperCase().startsWith(prefix.toUpperCase())) {
+          clean = clean.substring(prefix.length).trim();
+        }
+      }
+      return prefix ? `${prefix} ${clean}` : clean;
+    };
+
+    const finalBillNo = formatBillNo(billPrefix, billNo);
     console.log("[DEBUG] generated finalBillNo:", finalBillNo);
 
     // Duplicate bill number check WITHIN THE SAME BRANCH (case-insensitive & trimmed)
@@ -2010,23 +2022,53 @@ export default function EndOfDayPage() {
                     className={cn(
                       "h-11 border-slate-200 rounded-xl font-bold",
                       billPrefix ? (billPrefix.length > 2 ? "pl-16" : "pl-12") : "",
-                      billNo.trim() !== "" && stockItems.some(item => 
-                        item.bill_no.toLowerCase().trim() === (billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim()).toLowerCase().trim() && 
-                        (!isEditingActive || item.id !== selectedActiveItem?.id)
-                      ) ? "border-rose-500 focus:ring-rose-500" : ""
+                      (() => {
+                        const modalTargetBranch = currentUser?.role === 'ADMIN' ? selectedAddBranch : (currentUser?.branchId || 'HQ');
+                        const formatBillNo = (prefix: string | null, rawNo: string) => {
+                          let clean = rawNo.trim();
+                          if (prefix) {
+                            if (clean.toUpperCase().startsWith(prefix.toUpperCase() + " ")) {
+                              clean = clean.substring(prefix.length + 1).trim();
+                            } else if (clean.toUpperCase().startsWith(prefix.toUpperCase())) {
+                              clean = clean.substring(prefix.length).trim();
+                            }
+                          }
+                          return prefix ? `${prefix} ${clean}` : clean;
+                        };
+                        const checkBill = formatBillNo(billPrefix, billNo);
+                        return billNo.trim() !== "" && modalTargetBranch && stockItems.some(item => 
+                          item.branch_id === modalTargetBranch &&
+                          item.bill_no.toLowerCase().trim() === checkBill.toLowerCase().trim() && 
+                          (!isEditingActive || item.id !== selectedActiveItem?.id)
+                        ) ? "border-rose-500 focus:ring-rose-500" : "";
+                      })()
                     )}
                   />
                 </div>
                 {(() => {
-                  const checkBill = billPrefix ? `${billPrefix} ${billNo.trim()}` : billNo.trim();
-                  const isDup = billNo.trim() !== "" && stockItems.some(item => 
+                  const modalTargetBranch = currentUser?.role === 'ADMIN' ? selectedAddBranch : (currentUser?.branchId || 'HQ');
+                  const formatBillNo = (prefix: string | null, rawNo: string) => {
+                    let clean = rawNo.trim();
+                    if (prefix) {
+                      if (clean.toUpperCase().startsWith(prefix.toUpperCase() + " ")) {
+                        clean = clean.substring(prefix.length + 1).trim();
+                      } else if (clean.toUpperCase().startsWith(prefix.toUpperCase())) {
+                        clean = clean.substring(prefix.length).trim();
+                      }
+                    }
+                    return prefix ? `${prefix} ${clean}` : clean;
+                  };
+                  const checkBill = formatBillNo(billPrefix, billNo);
+                  const isDup = billNo.trim() !== "" && modalTargetBranch && stockItems.some(item => 
+                    item.branch_id === modalTargetBranch &&
                     item.bill_no.toLowerCase().trim() === checkBill.toLowerCase().trim() && 
                     (!isEditingActive || item.id !== selectedActiveItem?.id)
                   );
                   if (isDup) {
+                    const bName = branches.find(b => b.id === modalTargetBranch)?.name || modalTargetBranch;
                     return (
                       <p className="text-rose-600 font-bold text-xs flex items-center gap-1 mt-1">
-                        <AlertCircle className="w-3.5 h-3.5" /> Duplicate Bill Number ({checkBill}) already exists in inventory!
+                        <AlertCircle className="w-3.5 h-3.5" /> Duplicate Bill Number ({checkBill}) already exists in {bName} branch!
                       </p>
                     );
                   }
