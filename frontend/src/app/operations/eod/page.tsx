@@ -955,6 +955,34 @@ export default function EndOfDayPage() {
     }
   };
 
+  // Handle Delete Stock Item Permanently
+  const handleDeleteStock = async (item: any) => {
+    if (!window.confirm(`Are you sure you want to permanently delete Bill Number "${item.bill_no}" from stock inventory? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      if (isUsingSupabase) {
+        const { error } = await supabase
+          .from('stock_items')
+          .delete()
+          .eq('id', item.id);
+
+        if (error) throw error;
+        toast.success(`Bill Number "${item.bill_no}" deleted successfully from Supabase!`);
+      } else {
+        const updated = stockItems.filter(i => i.id !== item.id);
+        setStockItems(updated);
+        localStorage.setItem('local_stock_items', JSON.stringify(updated));
+        toast.success(`Bill Number "${item.bill_no}" deleted successfully (Local Storage)!`);
+      }
+
+      loadStockData();
+    } catch (err: any) {
+      toast.error("Error deleting stock item: " + err.message);
+    }
+  };
+
   const getItemName = (codeWithCount: string) => {
     if (!codeWithCount) return "";
     if (codeWithCount === 'BLCT') return 'Biscuit (BKT)'; // Backward compatibility
@@ -1897,7 +1925,7 @@ export default function EndOfDayPage() {
                                 <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">{item.withdrawal_notes}</p>
                               )}
                             </TableCell>
-                            <TableCell className="px-6 py-4 text-right">
+                            <TableCell className="px-6 py-4 text-right flex items-center justify-end gap-1.5">
                               <Button 
                                 onClick={() => openEditWithdrawalModal(item)}
                                 size="sm"
@@ -1906,10 +1934,19 @@ export default function EndOfDayPage() {
                               >
                                 Edit
                               </Button>
+                              <Button 
+                                onClick={() => handleDeleteStock(item)}
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                                title="Delete Record"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </TableCell>
                           </>
                         ) : (
-                          <TableCell className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                          <TableCell className="px-6 py-4 text-right flex items-center justify-end gap-1.5">
                             <Button 
                               onClick={() => openEditActiveModal(item)}
                               size="sm"
@@ -1924,6 +1961,15 @@ export default function EndOfDayPage() {
                               className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 font-black text-[9px] uppercase tracking-widest h-8 px-3 rounded-xl transition-all cursor-pointer"
                             >
                               Withdraw
+                            </Button>
+                            <Button 
+                              onClick={() => handleDeleteStock(item)}
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </TableCell>
                         )}
