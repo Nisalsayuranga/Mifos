@@ -63,12 +63,35 @@ export default function PawnesPage() {
   const [goldRate, setGoldRate]         = useState('23500'); // Default market price per gram LKR
   const [goldLtv, setGoldLtv]           = useState('80'); // Default LTV %
 
-  // Client lookup map: { nationalId/id -> "First Last" }
+  // Client lookup maps: { nationalId/id -> "First Last" } and { id -> NIC }
   const [clientsMap, setClientsMap]     = useState<Record<string, string>>({});
+  const [clientsNicMap, setClientsNicMap] = useState<Record<string, string>>({});
   const [resolvedName, setResolvedName] = useState('');
   const [clientsList, setClientsList]   = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+
+  const getClientNic = (pawn: any) => {
+    if (!pawn) return '—';
+    const cid = (pawn.client_id || '').toLowerCase();
+    return clientsNicMap[cid] || pawn.client_id || '—';
+  };
+
+  const getBillNo = (pawn: any) => {
+    if (!pawn) return '—';
+    const desc = pawn.description || '';
+    const match = desc.match(/^([A-Za-z0-9]+\s+[0-9A-Za-z]+)\s*\|?\s*(.*)/);
+    if (match && match[1]) return match[1].trim();
+    return `#${pawn.id?.substring(0, 8).toUpperCase()}`;
+  };
+
+  const getCleanDescription = (pawn: any) => {
+    if (!pawn) return '—';
+    const desc = pawn.description || '';
+    const match = desc.match(/^([A-Za-z0-9]+\s+[0-9A-Za-z]+)\s*\|\s*(.*)/);
+    if (match && match[2]) return match[2].trim();
+    return desc;
+  };
 
   const loadUser = () => {
     const stored = localStorage.getItem('user');
@@ -101,12 +124,21 @@ export default function PawnesPage() {
         const data: any[] = await res.json();
         setClientsList(data);
         const map: Record<string, string> = {};
+        const nMap: Record<string, string> = {};
         data.forEach(c => {
           const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
-          if (c.nationalId || c.national_id) map[(c.nationalId || c.national_id).toLowerCase()] = name;
-          if (c.id) map[c.id.toLowerCase()] = name;
+          const nic = c.nationalId || c.national_id || c.id || '';
+          if (nic) map[nic.toLowerCase()] = name;
+          if (c.id) {
+            map[c.id.toLowerCase()] = name;
+            nMap[c.id.toLowerCase()] = nic;
+          }
+          if (nic) {
+            nMap[nic.toLowerCase()] = nic;
+          }
         });
         setClientsMap(map);
+        setClientsNicMap(nMap);
       }
     } catch (e) { console.error('Failed to load clients map', e); }
   };
@@ -825,8 +857,8 @@ export default function PawnesPage() {
         <Table>
           <TableHeader className="bg-slate-50/50 border-b border-slate-100">
             <TableRow>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Ticket #</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer ID</TableHead>
+              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill #</TableHead>
+              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer NIC & Name</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed</TableHead>
@@ -855,13 +887,13 @@ export default function PawnesPage() {
             ) : (
               filtered.map(pawn => (
                 <TableRow key={pawn.id} className="group hover:bg-primary/5 transition-all duration-300">
-                  <TableCell className="px-8 py-5 font-black text-slate-500 text-[11px] tracking-widest">
-                    #{pawn.id?.substring(0, 8).toUpperCase()}
+                  <TableCell className="px-8 py-5 font-black text-primary text-xs tracking-widest">
+                    {getBillNo(pawn)}
                   </TableCell>
                   <TableCell className="px-8 py-5">
                     <div className="flex flex-col">
-                      <span className="font-black text-slate-900 group-hover:text-primary transition-colors text-sm">
-                        {pawn.client_id || '—'}
+                      <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-xs">
+                        {getClientNic(pawn)}
                       </span>
                       {clientsMap[pawn.client_id?.toLowerCase()] && (
                         <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5">
@@ -872,7 +904,7 @@ export default function PawnesPage() {
                     </div>
                   </TableCell>
                   <TableCell className="px-8 py-5 font-bold text-slate-700 max-w-[200px] truncate">
-                    {pawn.description}
+                    {getCleanDescription(pawn)}
                   </TableCell>
                   <TableCell className="px-8 py-5 font-bold text-amber-700">
                     Rs. {(pawn.appraised_value || 0).toLocaleString()}
@@ -1239,7 +1271,7 @@ export default function PawnesPage() {
                           <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-top: 5px;">Official Receipt / Vault Voucher</div>
                         </div>
                         <div class="meta">
-                          <div><strong>Ticket ID:</strong> ${detailsPawn.id}</div>
+                          <div><strong>Bill #:</strong> ${getBillNo(detailsPawn)}</div>
                           <div><strong>Date:</strong> ${new Date(detailsPawn.created_at).toLocaleString('en-GB')}</div>
                         </div>
                         <div class="grid">
@@ -1248,14 +1280,14 @@ export default function PawnesPage() {
                             <div class="val">${clientsMap[detailsPawn.client_id?.toLowerCase()] || detailsPawn.client_id || '—'}</div>
                           </div>
                           <div>
-                            <div class="label">Branch Office</div>
-                            <div class="val">${detailsPawn.branch_id || 'HQ'}</div>
+                            <div class="label">Customer NIC</div>
+                            <div class="val">${getClientNic(detailsPawn)}</div>
                           </div>
                         </div>
                         <div class="grid">
                           <div>
                             <div class="label">Collateral Description</div>
-                            <div class="val">${detailsPawn.description}</div>
+                            <div class="val">${getCleanDescription(detailsPawn)}</div>
                           </div>
                           <div>
                             <div class="label">Appraised Valuation</div>
@@ -1382,14 +1414,14 @@ export default function PawnesPage() {
 
                     <div className="grid grid-cols-2 gap-4 text-xs mb-6 border-b border-slate-100 pb-4">
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Ticket Details</p>
-                        <p className="font-mono font-bold mt-1">Ticket #: <span className="font-black text-sm">#{detailsPawn.id?.substring(0, 8).toUpperCase()}</span></p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Bill Details</p>
+                        <p className="font-mono font-bold mt-1">Bill #: <span className="font-black text-sm text-primary">{getBillNo(detailsPawn)}</span></p>
                         <p className="mt-1">Date: <b>{detailsPawn.created_at ? new Date(detailsPawn.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</b></p>
                         <p className="mt-1">Status: <span className="font-bold text-emerald-600 uppercase text-[10px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">{detailsPawn.status || 'ACTIVE'}</span></p>
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer Details</p>
-                        <p className="font-bold mt-1">NIC: {detailsPawn.client_id || '—'}</p>
+                        <p className="font-bold mt-1">NIC: <span className="font-mono text-slate-900">{getClientNic(detailsPawn)}</span></p>
                         <p className="mt-1">Name: <b>{clientsMap[detailsPawn.client_id?.toLowerCase()] || '—'}</b></p>
                       </div>
                     </div>
@@ -1406,7 +1438,7 @@ export default function PawnesPage() {
                         </thead>
                         <tbody>
                           <tr className="border-b border-slate-100">
-                            <td className="py-3 font-bold text-slate-800">{detailsPawn.description}</td>
+                            <td className="py-3 font-bold text-slate-800">{getCleanDescription(detailsPawn)}</td>
                             <td className="py-3 text-right font-semibold text-slate-700">Rs. {detailsPawn.appraised_value?.toLocaleString()}</td>
                             <td className="py-3 text-right font-black text-slate-900 text-sm">Rs. {detailsPawn.disbursed_amount?.toLocaleString()}</td>
                           </tr>
