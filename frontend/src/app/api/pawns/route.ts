@@ -44,25 +44,41 @@ export async function POST(request: Request) {
     if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
 
     const body = await request.json();
-    const { clientId, description, appraisedValue, disbursedAmount, branchId, createdByUserId } = body;
+    const { clientId, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, itemType } = body;
 
     if (!clientId || !description || !disbursedAmount || !branchId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const pawnId = crypto.randomUUID();
+
     const { data, error } = await supabase.from('pawns').insert([{
-      id: crypto.randomUUID(),
+      id: pawnId,
       client_id: clientId,
       description,
       appraised_value: parseFloat(appraisedValue) || 0,
       disbursed_amount: parseFloat(disbursedAmount) || 0,
       branch_id: branchId,
       created_by_user_id: createdByUserId,
-      status: 'PENDING_APPROVAL',
+      status: 'ACTIVE',
       created_at: new Date().toISOString()
     }]).select().single();
 
     if (error) throw error;
+
+    // Automatically sync into stock_items table so it appears in Pawning Vault Stock
+    if (billNo) {
+      const today = new Date().toISOString().split('T')[0];
+      await supabase.from('stock_items').insert([{
+        bill_no: billNo.trim(),
+        price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
+        weight: parseFloat(weight) || 0,
+        date: today,
+        item_type: itemType || 'PAWN',
+        status: 'Active',
+        branch_id: branchId
+      }]);
+    }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {

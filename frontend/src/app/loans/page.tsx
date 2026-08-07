@@ -45,6 +45,12 @@ export default function PawnesPage() {
   const [filterBranch, setFilterBranch] = useState('ALL');
 
   // Form state
+  const BILL_PREFIXES = ['1R', '3M', '3R', '6R', '12R', '6M', 'A'];
+  const ITEM_TYPES = ['PP', 'PR', 'NL', 'EAR', 'CH', 'BRC', 'BKT'];
+
+  const [billPrefix, setBillPrefix]     = useState('1R');
+  const [billNo, setBillNo]             = useState('');
+  const [itemType, setItemType]         = useState('CH');
   const [clientId, setClientId]         = useState('');
   const [description, setDescription]   = useState('');
   const [appraisal, setAppraisal]       = useState('');
@@ -159,6 +165,7 @@ export default function PawnesPage() {
 
   const resetForm = () => {
     setClientId(''); setDescription(''); setAppraisal(''); setAmount('');
+    setBillPrefix('1R'); setBillNo(''); setItemType('CH'); setGoldWeight('');
     setEditingPawn(null); setResolvedName('');
   };
 
@@ -169,21 +176,49 @@ export default function PawnesPage() {
     const cid = pawn.client_id || '';
     setClientId(cid);
     setResolvedName(clientsMap[cid.toLowerCase()] || '');
-    setDescription(pawn.description || '');
+    
+    // Parse description for bill prefix and bill no if present
+    const desc = pawn.description || '';
+    const match = desc.match(/^([A-Za-z0-9]+)\s+([0-9]+)\s*\|?\s*(.*)/);
+    if (match) {
+      if (BILL_PREFIXES.includes(match[1])) setBillPrefix(match[1]);
+      setBillNo(match[2]);
+      setDescription(match[3] || desc);
+    } else {
+      setDescription(desc);
+    }
+
     setAppraisal(String(pawn.appraised_value || ''));
     setAmount(String(pawn.disbursed_amount || ''));
     setIsOpen(true);
   };
 
   const handleSave = async () => {
-    if (!clientId || !description || !amount) {
-      toast.error('Missing required fields', { description: 'Please fill in Customer ID, Description, and Disbursed Amount.' });
+    if (!clientId || !amount) {
+      toast.error('Missing required fields', { description: 'Please select a Customer and enter Disbursed Amount.' });
       return;
     }
     setIsSaving(true);
     const toastId = toast.loading(editingPawn ? 'Updating pawn ticket...' : 'Creating pawn ticket...');
 
     try {
+      const cleanBill = billNo.trim();
+      let finalBillNo = '';
+      if (cleanBill) {
+        // If user already typed prefix inside billNo, format cleanly
+        const prefixUpper = billPrefix.toUpperCase();
+        if (cleanBill.toUpperCase().startsWith(prefixUpper + ' ')) {
+          finalBillNo = cleanBill;
+        } else if (cleanBill.toUpperCase().startsWith(prefixUpper)) {
+          finalBillNo = `${billPrefix} ${cleanBill.substring(prefixUpper.length).trim()}`;
+        } else {
+          finalBillNo = `${billPrefix} ${cleanBill}`;
+        }
+      }
+
+      const itemDesc = description.trim() || `${goldPurity} Gold Collateral (${itemType})`;
+      const fullDescription = finalBillNo ? `${finalBillNo} | ${itemDesc}` : itemDesc;
+
       const url    = editingPawn ? `/api/pawns/${editingPawn.id}` : '/api/pawns';
       const method = editingPawn ? 'PATCH' : 'POST';
 
@@ -192,11 +227,14 @@ export default function PawnesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
-          description,
+          description: fullDescription,
           appraisedValue: appraisal,
           disbursedAmount: amount,
           branchId,
           createdByUserId: userId,
+          billNo: finalBillNo,
+          weight: goldWeight,
+          itemType
         }),
       });
 
@@ -205,10 +243,17 @@ export default function PawnesPage() {
         throw new Error(err.error || 'Failed to save');
       }
 
-      toast.success(editingPawn ? 'Pawn ticket updated!' : 'Pawn ticket created!', { id: toastId });
+      const savedData = await res.json();
+
+      toast.success(editingPawn ? 'Pawn ticket updated!' : 'Pawn ticket created & synced to vault stock!', { id: toastId });
       setIsOpen(false);
       resetForm();
       loadPawns();
+
+      // Automatically open official Printable Pawn Agreement Receipt Modal
+      if (!editingPawn && savedData) {
+        openDetails(savedData);
+      }
     } catch (err: any) {
       toast.error('Error saving ticket', { description: err.message, id: toastId });
     } finally {
@@ -560,8 +605,67 @@ export default function PawnesPage() {
                   </div>
                 )}
               </div>
+
+              {/* Bill Prefix & Bill Number Input Block */}
+              <div className="grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Type / Prefix</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {BILL_PREFIXES.map(pref => (
+                      <button
+                        key={pref}
+                        type="button"
+                        onClick={() => setBillPrefix(pref)}
+                        className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all border ${
+                          billPrefix === pref
+                            ? 'bg-primary text-white border-primary shadow-md scale-105'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {pref}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Number</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm text-primary px-3 py-2.5 bg-primary/10 border border-primary/20 rounded-xl">
+                      {billPrefix || '1R'}
+                    </span>
+                    <Input
+                      value={billNo}
+                      onChange={e => setBillNo(e.target.value)}
+                      placeholder="E.g., 20743"
+                      className="h-11 bg-white rounded-xl font-mono font-bold text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Category Shortcuts & Description */}
               <div className="grid gap-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawn Item Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawn Item Category & Description</Label>
+                  <div className="flex gap-1">
+                    {ITEM_TYPES.map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setItemType(cat);
+                          setDescription(prev => prev ? `${prev} (${cat})` : `Gold Collateral (${cat})`);
+                        }}
+                        className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
+                          itemType === cat ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <Input
                   value={description}
                   onChange={e => setDescription(e.target.value)}
