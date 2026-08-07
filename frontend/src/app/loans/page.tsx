@@ -1224,89 +1224,37 @@ export default function PawnesPage() {
                 onClick={() => {
                   const receiptEl = document.getElementById('printable-pawn-receipt');
                   if (!receiptEl) return;
-                  const printWindow = window.open('', '_blank', 'width=400,height=700');
+                  const printWindow = window.open('', '_blank', 'width=800,height=900');
                   if (!printWindow) return;
                   printWindow.document.write(`
                     <!DOCTYPE html>
                     <html>
                     <head>
                       <meta charset="utf-8"/>
-                      <title>Rupasinghe Pawning - Receipt</title>
+                      <title>Pawn Bill - ${getBillNo(detailsPawn)}</title>
+                      <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { margin: 0; size: 80mm auto; }
-                        * { box-sizing: border-box; margin: 0; padding: 0; }
-                        body {
-                          width: 80mm;
-                          font-family: 'Courier New', Courier, monospace;
-                          font-size: 11px;
-                          color: #000;
-                          background: #fff;
-                          padding: 4mm;
+                        @media print {
+                          @page { size: A4 portrait; margin: 15mm; }
+                          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
                         }
-                        h2 { font-size: 14px; font-weight: 900; }
-                        table { width: 100%; border-collapse: collapse; }
-                        th, td { padding: 3px 2px; font-size: 10px; }
-                        .border-b-2 { border-bottom: 2px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-                        .border-t { border-top: 1px solid #ccc; padding-top: 4px; margin-top: 4px; }
-                        .border-t-2 { border-top: 2px dashed #000; padding-top: 6px; margin-top: 6px; }
-                      <head>
-                        <title>Pawn Ticket - ${detailsPawn.id}</title>
-                        <style>
-                          body { font-family: sans-serif; padding: 40px; line-height: 1.6; color: #1e293b; }
-                          .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
-                          .logo { font-size: 24px; font-weight: 800; color: #2563eb; letter-spacing: -0.05em; }
-                          .meta { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; color: #64748b; }
-                          .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-                          .label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
-                          .val { font-size: 16px; font-weight: 700; margin-top: 4px; }
-                          .amount-box { bg-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; margin-top: 30px; }
-                          .amount-title { font-size: 14px; font-weight: 800; color: #475569; }
-                          .amount-val { font-size: 32px; font-weight: 900; color: #059669; letter-spacing: -0.05em; margin-top: 8px; }
-                          .footer-note { margin-top: 50px; font-size: 12px; color: #94a3b8; text-align: center; border-t: 1px solid #e2e8f0; pt-20; }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="header">
-                          <div class="logo">RUPASINGHE PAWNING</div>
-                          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-top: 5px;">Official Receipt / Vault Voucher</div>
-                        </div>
-                        <div class="meta">
-                          <div><strong>Bill #:</strong> ${getBillNo(detailsPawn)}</div>
-                          <div><strong>Date:</strong> ${new Date(detailsPawn.created_at).toLocaleString('en-GB')}</div>
-                        </div>
-                        <div class="grid">
-                          <div>
-                            <div class="label">Customer Name</div>
-                            <div class="val">${clientsMap[detailsPawn.client_id?.toLowerCase()] || detailsPawn.client_id || '—'}</div>
-                          </div>
-                          <div>
-                            <div class="label">Customer NIC</div>
-                            <div class="val">${getClientNic(detailsPawn)}</div>
-                          </div>
-                        </div>
-                        <div class="grid">
-                          <div>
-                            <div class="label">Collateral Description</div>
-                            <div class="val">${getCleanDescription(detailsPawn)}</div>
-                          </div>
-                          <div>
-                            <div class="label">Appraised Valuation</div>
-                            <div class="val">Rs. ${parseFloat(detailsPawn.appraised_value || 0).toLocaleString()}</div>
-                          </div>
-                        </div>
-                        <div class="amount-box">
-                          <div class="amount-title">Total Disbursed Capital</div>
-                          <div class="amount-val">Rs. ${parseFloat(detailsPawn.disbursed_amount || 0).toLocaleString()}</div>
-                        </div>
-                        <div class="footer-note">
-                          This is a computer-generated transaction record. Central Vault copy. Thank you for your business.
-                        </div>
-                      </body>
+                        body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 20px; background: white; color: #0f172a; }
+                      </style>
+                    </head>
+                    <body>
+                      <div style="max-width: 650px; margin: 0 auto;">
+                        ${receiptEl.innerHTML}
+                      </div>
+                      <script>
+                        setTimeout(() => {
+                          window.print();
+                          window.close();
+                        }, 600);
+                      </script>
+                    </body>
                     </html>
                   `);
                   printWindow.document.close();
-                  printWindow.focus();
-                  setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
                 }}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2"
               >
