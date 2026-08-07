@@ -11,6 +11,8 @@ if (supabaseUrl && supabaseKey) {
 
 export const dynamic = 'force-dynamic';
 
+const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+
 export async function GET(request: Request) {
   try {
     if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
     // Admin can filter by a specific branch, or see all
     if (role === 'ADMIN' && filterBranch && filterBranch !== 'ALL') {
       query = query.eq('branch_id', filterBranch);
-    } else if (role !== 'ADMIN' && branchId) {
+    } else if (role !== 'ADMIN' && branchId && branchId !== 'ALL') {
       // Tellers only see their own branch
       query = query.eq('branch_id', branchId);
     }
@@ -46,27 +48,66 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { clientId, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, itemType } = body;
 
-    if (!clientId || !description || !disbursedAmount || !branchId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!clientId || !disbursedAmount) {
+      return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
     }
 
+    // 1. Resolve valid Client UUID
+    let targetClientId = clientId;
+    if (!isUUID(clientId)) {
+      // Search client by nationalId / NIC
+      const { data: existingClients } = await supabase
+        .from('clients')
+        .select('*')
+        .or(`nationalId.eq.${clientId},id.eq.${clientId}`);
+
+      if (existingClients && existingClients.length > 0) {
+        targetClientId = existingClients[0].id;
+      } else {
+        // Auto-create client if not found
+        const newClientId = crypto.randomUUID();
+        const effectiveBranch = (branchId && branchId !== 'ALL') ? branchId : 'HQ';
+        const { data: newClient, error: clientErr } = await supabase.from('clients').insert([{
+          id: newClientId,
+          nationalId: clientId,
+          firstName: clientId,
+          lastName: '.',
+          branchId: effectiveBranch,
+          createdByUserId: '00000000-0000-0000-0000-000000000000',
+          status: 'ACTIVE'
+        }]).select().single();
+
+        if (!clientErr && newClient) {
+          targetClientId = newClient.id;
+        } else {
+          targetClientId = newClientId;
+        }
+      }
+    }
+
+    // 2. Resolve User UUID & Branch ID
+    const targetUserId = isUUID(createdByUserId) ? createdByUserId : '00000000-0000-0000-0000-000000000000';
+    const targetBranchId = (branchId && branchId !== 'ALL') ? branchId : 'HQ';
     const pawnId = crypto.randomUUID();
 
-    const { data, error } = await supabase.from('pawns').insert([{
+    const { data: pawnData, error: pawnError } = await supabase.from('pawns').insert([{
       id: pawnId,
-      client_id: clientId,
-      description,
+      client_id: targetClientId,
+      description: description || 'Gold Collateral',
       appraised_value: parseFloat(appraisedValue) || 0,
       disbursed_amount: parseFloat(disbursedAmount) || 0,
-      branch_id: branchId,
-      created_by_user_id: createdByUserId,
+      branch_id: targetBranchId,
+      created_by_user_id: targetUserId,
       status: 'ACTIVE',
       created_at: new Date().toISOString()
     }]).select().single();
 
-    if (error) throw error;
+    if (pawnError) {
+      console.error("Pawns insert error:", pawnError);
+      throw pawnError;
+    }
 
-    // Automatically sync into stock_items table so it appears in Pawning Vault Stock
+    // 3. Automatically sync into stock_items table so it appears in Vault Stock
     if (billNo) {
       const today = new Date().toISOString().split('T')[0];
       await supabase.from('stock_items').insert([{
@@ -76,13 +117,17 @@ export async function POST(request: Request) {
         date: today,
         item_type: itemType || 'PAWN',
         status: 'Active',
-        branch_id: branchId
+        branch_id: targetBranchId
       }]);
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json({
+      ...pawnData,
+      client_id: clientId, // keep original NIC/ID for display
+      raw_client_uuid: targetClientId
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Pawns POST error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Server error creating pawn ticket' }, { status: 500 });
   }
 }

@@ -11,6 +11,8 @@ if (supabaseUrl && supabaseKey) {
 
 export const dynamic = 'force-dynamic';
 
+const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+
 export async function PATCH(request: Request, context: any) {
   try {
     if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
@@ -19,12 +21,26 @@ export async function PATCH(request: Request, context: any) {
     const body = await request.json();
     const { clientId, description, appraisedValue, disbursedAmount, billNo, weight, itemType } = body;
 
-    const { data, error } = await supabase.from('pawns').update({
-      client_id: clientId,
-      description,
-      appraised_value: parseFloat(appraisedValue) || 0,
-      disbursed_amount: parseFloat(disbursedAmount) || 0,
-    }).eq('id', id).select().single();
+    // Resolve valid Client UUID
+    let targetClientId = clientId;
+    if (clientId && !isUUID(clientId)) {
+      const { data: existingClients } = await supabase
+        .from('clients')
+        .select('id')
+        .or(`nationalId.eq.${clientId},id.eq.${clientId}`);
+
+      if (existingClients && existingClients.length > 0) {
+        targetClientId = existingClients[0].id;
+      }
+    }
+
+    const updateObj: any = {};
+    if (targetClientId && isUUID(targetClientId)) updateObj.client_id = targetClientId;
+    if (description) updateObj.description = description;
+    if (appraisedValue !== undefined) updateObj.appraised_value = parseFloat(appraisedValue) || 0;
+    if (disbursedAmount !== undefined) updateObj.disbursed_amount = parseFloat(disbursedAmount) || 0;
+
+    const { data, error } = await supabase.from('pawns').update(updateObj).eq('id', id).select().single();
 
     if (error) throw error;
 
