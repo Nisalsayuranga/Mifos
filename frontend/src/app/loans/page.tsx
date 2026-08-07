@@ -1222,378 +1222,432 @@ export default function PawnesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pawn Details & Printable Receipt Dialog */}
-      <Dialog open={!!detailsPawn} onOpenChange={(v) => { if (!v) setDetailsPawn(null); }}>
-        <DialogContent className="w-[95vw] md:w-full md:max-w-4xl max-h-[90vh] overflow-y-auto border border-slate-800 shadow-2xl rounded-3xl p-8 bg-slate-900 text-slate-100">
-          <DialogHeader className="border-b border-white/10 pb-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-blue-400">
-                <FileText className="w-6 h-6" />
-                <DialogTitle className="text-2xl font-black tracking-tight text-white">
-                  Pawn Ticket Details & Bill Generator
-                </DialogTitle>
-              </div>
-              <Button
-                onClick={() => {
-                  const receiptEl = document.getElementById('printable-pawn-receipt');
-                  if (!receiptEl) return;
-                  const printWindow = window.open('', '_blank', 'width=800,height=900');
-                  if (!printWindow) return;
-                  printWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                      <meta charset="utf-8"/>
-                      <title>Pawn Bill - ${getBillNo(detailsPawn)}</title>
-                      <script src="https://cdn.tailwindcss.com"></script>
-                      <style>
-                        @media print {
-                          @page { size: A4 portrait; margin: 15mm; }
-                          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
-                        }
-                        body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 20px; background: white; color: #0f172a; }
-                      </style>
-                    </head>
-                    <body>
-                      <div style="max-width: 650px; margin: 0 auto;">
-                        ${receiptEl.innerHTML}
-                      </div>
-                      <script>
-                        setTimeout(() => {
-                          window.print();
-                          window.close();
-                        }, 600);
-                      </script>
-                    </body>
-                    </html>
-                  `);
-                  printWindow.document.close();
-                }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2"
-              >
-                <Printer className="w-4 h-4" /> Print Customer Bill
-              </Button>
-            </div>
-          </DialogHeader>
-
-          {detailsPawn && (() => {
-            const principal = detailsPawn.disbursed_amount || 0;
-            const {
-              interestRate,
-              interestOne,
-              totalAmount,
-              finalTotalInterest,
-              settlement,
-              accrualExpr,
-              accrualDesc,
-              accruedCharges
-            } = calculateRedemption(principal, detailsDays, detailsInsurance);
-
-            return (
-              <div className="space-y-8">
-                {/* Real-time Calculator Section (Fully Editable Overrides) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-white/10 pb-8">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-black uppercase tracking-widest text-blue-400">Live Interest Simulator (Editable)</h3>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                          const calc = calculateRedemption(p, detailsDays, detailsInsurance);
-                          setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                          setDetailsCustomInterest(calc.accruedCharges.toString());
-                          setDetailsCustomSettlement(calc.settlement.toString());
-                        }}
-                        className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline"
-                      >
-                        Reset Auto Calc
-                      </button>
-                    </div>
-
-                    {/* Days Input & Slider */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label className="text-slate-300 font-bold text-xs">Simulate Days Elapsed</Label>
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            min="1"
-                            max="365"
-                            value={detailsDays}
-                            onChange={e => {
-                              const d = parseInt(e.target.value) || 1;
-                              setDetailsDays(d);
-                              const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                              const calc = calculateRedemption(p, d, detailsInsurance);
-                              setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                              setDetailsCustomInterest(calc.accruedCharges.toString());
-                              setDetailsCustomSettlement(calc.settlement.toString());
-                            }}
-                            className="w-16 h-7 bg-blue-500/20 text-blue-300 border border-blue-500/40 text-center font-mono font-black text-xs rounded-lg"
-                          />
-                          <span className="text-[10px] text-slate-400 font-bold">Days</span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="1"
-                        max="365"
-                        value={detailsDays}
-                        onChange={e => {
-                          const d = parseInt(e.target.value) || 1;
-                          setDetailsDays(d);
-                          const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                          const calc = calculateRedemption(p, d, detailsInsurance);
-                          setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                          setDetailsCustomInterest(calc.accruedCharges.toString());
-                          setDetailsCustomSettlement(calc.settlement.toString());
-                        }}
-                        className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none"
-                      />
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {[5, 15, 35, 42, 55, 95].map(d => (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => {
-                              setDetailsDays(d);
-                              const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                              const calc = calculateRedemption(p, d, detailsInsurance);
-                              setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                              setDetailsCustomInterest(calc.accruedCharges.toString());
-                              setDetailsCustomSettlement(calc.settlement.toString());
-                            }}
-                            className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${
-                              detailsDays === d
-                                ? 'bg-blue-500 border-blue-500 text-white'
-                                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                            }`}
-                          >
-                            Day {d}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Editable Financial Inputs Grid */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-slate-300 text-[10px] font-bold">Disbursed Capital (Rs.)</Label>
-                        <Input
-                          type="number"
-                          value={detailsCustomDisbursed}
-                          onChange={e => {
-                            setDetailsCustomDisbursed(e.target.value);
-                            const p = parseFloat(e.target.value) || 0;
-                            const calc = calculateRedemption(p, detailsDays, detailsInsurance);
-                            setDetailsCustomInterest(calc.accruedCharges.toString());
-                            setDetailsCustomSettlement(calc.settlement.toString());
-                          }}
-                          className="h-8 bg-white/5 border-white/10 text-white font-mono text-xs font-bold rounded-lg"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-slate-300 text-[10px] font-bold">Appraised Value (Rs.)</Label>
-                        <Input
-                          type="number"
-                          value={detailsCustomAppraised}
-                          onChange={e => setDetailsCustomAppraised(e.target.value)}
-                          className="h-8 bg-white/5 border-white/10 text-amber-300 font-mono text-xs font-bold rounded-lg"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-slate-300 text-[10px] font-bold">Interest Rate (%)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={detailsCustomRate}
-                          onChange={e => {
-                            setDetailsCustomRate(e.target.value);
-                            const r = parseFloat(e.target.value) / 100 || 0;
-                            const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                            const ins = parseFloat(detailsInsurance) || 0;
-                            const interest = Math.round(p * r * (detailsDays / 30));
-                            const totalInsInt = interest + ins;
-                            setDetailsCustomInterest(totalInsInt.toString());
-                            setDetailsCustomSettlement((p + totalInsInt).toString());
-                          }}
-                          className="h-8 bg-white/5 border-white/10 text-purple-300 font-mono text-xs font-bold rounded-lg"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-slate-300 text-[10px] font-bold">Insurance Cost (Rs.)</Label>
-                        <Input
-                          type="number"
-                          value={detailsInsurance}
-                          onChange={e => {
-                            setDetailsInsurance(e.target.value);
-                            const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                            const calc = calculateRedemption(p, detailsDays, e.target.value);
-                            setDetailsCustomInterest(calc.accruedCharges.toString());
-                            setDetailsCustomSettlement(calc.settlement.toString());
-                          }}
-                          className="h-8 bg-white/5 border-white/10 text-white font-mono text-xs font-bold rounded-lg"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Accrued Interest & Total Settlement Overrides */}
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
-                      <div className="space-y-1">
-                        <Label className="text-blue-300 text-[10px] font-bold">Accrued Interest + Ins (Rs.)</Label>
-                        <Input
-                          type="number"
-                          value={detailsCustomInterest}
-                          onChange={e => {
-                            setDetailsCustomInterest(e.target.value);
-                            const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                            const charges = parseFloat(e.target.value) || 0;
-                            setDetailsCustomSettlement((p + charges).toString());
-                          }}
-                          className="h-9 bg-blue-500/10 border-blue-500/30 text-blue-300 font-mono text-xs font-black rounded-lg"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-emerald-300 text-[10px] font-bold">Total Settlement (Rs.)</Label>
-                        <Input
-                          type="number"
-                          value={detailsCustomSettlement}
-                          onChange={e => {
-                            setDetailsCustomSettlement(e.target.value);
-                            const p = parseFloat(detailsCustomDisbursed) || detailsPawn?.disbursed_amount || 0;
-                            const total = parseFloat(e.target.value) || 0;
-                            const charges = Math.max(0, total - p);
-                            setDetailsCustomInterest(charges.toString());
-                          }}
-                          className="h-9 bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-mono text-xs font-black rounded-lg"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Summary Card */}
-                  <div className="bg-gradient-to-br from-blue-950/40 to-slate-900 border border-blue-500/20 rounded-2xl p-6 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Settlement for {detailsDays} Days</span>
-                      <div className="flex items-baseline gap-1 mt-2">
-                        <span className="text-xl font-bold text-slate-400">Rs.</span>
-                        <span className="text-4xl font-black text-white tracking-tight">
-                          {(parseFloat(detailsCustomSettlement) || settlement).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 gap-4 text-xs font-bold text-slate-400">
-                      <div>
-                        <span>Accrued Interest + Ins:</span>
-                        <p className="font-mono text-blue-400 text-sm">Rs. {(parseFloat(detailsCustomInterest) || accruedCharges).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                      </div>
-                      <div>
-                        <span>Interest Rate Mode:</span>
-                        <p className="text-white text-sm">{detailsCustomRate || (interestRate*100).toFixed(2)}% (Tier {principal < 50000 ? 'A' : 'B'})</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Printable Invoice Block */}
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-4">Print Preview (Exact Thermal Receipt Structure)</h3>
-                  
-                  {/* Outer Wrapper for Print isolation */}
-                  <div className="bg-white text-slate-900 p-8 rounded-2xl shadow-inner max-w-2xl mx-auto border border-slate-200" id="printable-pawn-receipt">
-                    <div className="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-6">
-                      <h2 className="text-xl font-black tracking-tighter uppercase text-slate-900">RUPASINGHE PAWNING</h2>
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Core Management Hub | Branch Office</p>
-                      <p className="text-[10px] font-medium text-slate-400">Authorized Pawning & Financial Services</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-xs mb-6 border-b border-slate-100 pb-4">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Bill Details</p>
-                        <p className="font-mono font-bold mt-1">Bill #: <span className="font-black text-sm text-primary">{getBillNo(detailsPawn)}</span></p>
-                        <p className="mt-1">Date: <b>{detailsPawn.created_at ? new Date(detailsPawn.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</b></p>
-                        <p className="mt-1">Status: <span className="font-bold text-emerald-600 uppercase text-[10px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">{detailsPawn.status || 'ACTIVE'}</span></p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer Details</p>
-                        <p className="font-bold mt-1">NIC: <span className="font-mono text-slate-900">{getClientNic(detailsPawn)}</span></p>
-                        <p className="mt-1">Name: <b>{clientsMap[detailsPawn.client_id?.toLowerCase()] || '—'}</b></p>
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Collateral & Gold Assessment</p>
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-[10px] font-black uppercase text-slate-400">
-                            <th className="py-2">Item Description</th>
-                            <th className="py-2 text-right">Appraised Value</th>
-                            <th className="py-2 text-right">Disbursed Capital</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-slate-100">
-                            <td className="py-3 font-bold text-slate-800">{getCleanDescription(detailsPawn)}</td>
-                            <td className="py-3 text-right font-semibold text-slate-700">Rs. {(parseFloat(detailsCustomAppraised) || detailsPawn.appraised_value || 0).toLocaleString()}</td>
-                            <td className="py-3 text-right font-black text-slate-900 text-sm">Rs. {(parseFloat(detailsCustomDisbursed) || detailsPawn.disbursed_amount || 0).toLocaleString()}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="space-y-2 border-t border-slate-200 pt-4 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Pawn Capital Loan:</span>
-                        <span className="font-bold">Rs. {(parseFloat(detailsCustomDisbursed) || detailsPawn.disbursed_amount || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Base Interest rate:</span>
-                        <span className="font-semibold">{detailsCustomRate || (interestRate * 100).toFixed(2)}% per month</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Standard Base Monthly Interest / Charges:</span>
-                        <span className="font-semibold text-slate-700">Rs. {(parseFloat(detailsCustomInterest) || interestOne).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Accrued Days:</span>
-                        <span className="font-semibold">{detailsDays} Days</span>
-                      </div>
-                      <div className="flex justify-between border-t border-slate-100 pt-2 text-sm font-black">
-                        <span className="text-slate-800">Total Settlement Value:</span>
-                        <span className="text-slate-900 text-base">Rs. {(parseFloat(detailsCustomSettlement) || settlement).toLocaleString()}</span>
-                      </div>
-                    </div>
-
-                    {/* Terms and Signatures */}
-                    <div className="mt-8 pt-8 border-t-2 border-dashed border-slate-300 text-[9px] text-slate-400 leading-relaxed">
-                      <p className="font-bold uppercase text-slate-600 mb-1">Terms & Conditions</p>
-                      <p>1. Interest is accrued progressively in slabs as per the Rupasinghe pawning scheme guidelines.</p>
-                      <p>2. A discount rate is applied for early settlements within the first 10 days.</p>
-                      <p className="mt-4 text-center font-bold text-slate-500">Thank you for banking with Rupasinghe Pawning!</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-12 mt-12 pt-8 text-center text-xs text-slate-500">
-                      <div>
-                        <div className="border-t border-slate-300 pt-2 font-medium">Customer Signature</div>
-                      </div>
-                      <div>
-                        <div className="border-t border-slate-300 pt-2 font-medium">Authorized Officer</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Print handled via popup window - no CSS injection needed */}
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {/* Pawn Details & Printable Receipt Dialog (Fast Isolated Sub-Component) */}
+      <PawnDetailsModal
+        pawn={detailsPawn}
+        onClose={() => setDetailsPawn(null)}
+        clientsMap={clientsMap}
+        clientsNicMap={clientsNicMap}
+        getBillNo={getBillNo}
+        getClientNic={getClientNic}
+        getCleanDescription={getCleanDescription}
+        calculateRedemption={calculateRedemption}
+      />
     </div>
+  );
+}
+
+// Ultra-Fast Isolated Sub-Component for Pawn Details & Bill Receipt (No Lag, Fits 1 Screen, No Gradients)
+function PawnDetailsModal({
+  pawn,
+  onClose,
+  clientsMap,
+  clientsNicMap,
+  getBillNo,
+  getClientNic,
+  getCleanDescription,
+  calculateRedemption
+}: {
+  pawn: any;
+  onClose: () => void;
+  clientsMap: Record<string, string>;
+  clientsNicMap: Record<string, string>;
+  getBillNo: (p: any) => string;
+  getClientNic: (p: any) => string;
+  getCleanDescription: (p: any) => string;
+  calculateRedemption: (p: number, d: number, ins: string) => any;
+}) {
+  const [detailsDays, setDetailsDays]                         = useState<number>(1);
+  const [detailsInsurance, setDetailsInsurance]               = useState<string>('50');
+  const [detailsCustomRate, setDetailsCustomRate]             = useState<string>('');
+  const [detailsCustomInterest, setDetailsCustomInterest]     = useState<string>('');
+  const [detailsCustomSettlement, setDetailsCustomSettlement] = useState<string>('');
+  const [detailsCustomAppraised, setDetailsCustomAppraised]   = useState<string>('');
+  const [detailsCustomDisbursed, setDetailsCustomDisbursed]   = useState<string>('');
+
+  useEffect(() => {
+    if (pawn) {
+      const createdDate = pawn.created_at ? new Date(pawn.created_at) : new Date();
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - createdDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+      setDetailsDays(diffDays);
+      setDetailsInsurance('50');
+
+      const p = pawn.disbursed_amount || 0;
+      const calc = calculateRedemption(p, diffDays, '50');
+      setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
+      setDetailsCustomInterest(calc.accruedCharges.toString());
+      setDetailsCustomSettlement(calc.settlement.toString());
+      setDetailsCustomAppraised(String(pawn.appraised_value || 0));
+      setDetailsCustomDisbursed(String(pawn.disbursed_amount || 0));
+    }
+  }, [pawn]);
+
+  if (!pawn) return null;
+
+  const principal = pawn.disbursed_amount || 0;
+  const { interestRate, accruedCharges, settlement } = calculateRedemption(principal, detailsDays, detailsInsurance);
+
+  const displayDisbursed  = parseFloat(detailsCustomDisbursed) || pawn.disbursed_amount || 0;
+  const displayAppraised  = parseFloat(detailsCustomAppraised) || pawn.appraised_value || 0;
+  const displayRate       = detailsCustomRate || (interestRate * 100).toFixed(2);
+  const displayInterest   = parseFloat(detailsCustomInterest) || accruedCharges;
+  const displaySettlement = parseFloat(detailsCustomSettlement) || settlement;
+
+  const handlePrint = () => {
+    const receiptEl = document.getElementById('printable-pawn-receipt');
+    if (!receiptEl) return;
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Pawn Bill - ${getBillNo(pawn)}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          @media print {
+            @page { size: A4 portrait; margin: 15mm; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+          }
+          body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 20px; background: white; color: #0f172a; }
+        </style>
+      </head>
+      <body>
+        <div style="max-width: 650px; margin: 0 auto;">
+          ${receiptEl.innerHTML}
+        </div>
+        <script>
+          setTimeout(() => {
+            window.print();
+            window.close();
+          }, 600);
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  return (
+    <Dialog open={!!pawn} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="w-[98vw] max-w-6xl h-[92vh] max-h-[92vh] border border-slate-700 shadow-2xl rounded-3xl p-5 bg-slate-950 text-slate-100 flex flex-col overflow-hidden">
+        {/* Modal Header */}
+        <DialogHeader className="border-b border-slate-800 pb-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-blue-400">
+              <FileText className="w-5 h-5" />
+              <DialogTitle className="text-xl font-black tracking-tight text-white">
+                Pawn Ticket Details & Printable Bill
+              </DialogTitle>
+            </div>
+            <Button
+              onClick={handlePrint}
+              type="button"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
+            >
+              <Printer className="w-4 h-4" /> Print Customer Bill
+            </Button>
+          </div>
+        </DialogHeader>
+
+        {/* Modal Body: 2-Column Side-by-Side Grid fitting exactly 1 screen without scroll */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 overflow-hidden pt-2">
+          {/* Left Column: Live Interest Simulator & Editable Controls */}
+          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between overflow-y-auto space-y-4">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 className="text-xs font-black uppercase tracking-widest text-blue-400">Live Simulator (Editable)</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = pawn.disbursed_amount || 0;
+                    const calc = calculateRedemption(p, detailsDays, '50');
+                    setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
+                    setDetailsCustomInterest(calc.accruedCharges.toString());
+                    setDetailsCustomSettlement(calc.settlement.toString());
+                    setDetailsCustomAppraised(String(pawn.appraised_value || 0));
+                    setDetailsCustomDisbursed(String(pawn.disbursed_amount || 0));
+                    setDetailsInsurance('50');
+                  }}
+                  className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline"
+                >
+                  Reset Defaults
+                </button>
+              </div>
+
+              {/* Days Input & Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-slate-300 font-bold text-xs">Simulate Days Elapsed</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={detailsDays}
+                      onChange={e => {
+                        const d = parseInt(e.target.value) || 1;
+                        setDetailsDays(d);
+                        const p = displayDisbursed;
+                        const calc = calculateRedemption(p, d, detailsInsurance);
+                        setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
+                        setDetailsCustomInterest(calc.accruedCharges.toString());
+                        setDetailsCustomSettlement(calc.settlement.toString());
+                      }}
+                      className="w-16 h-7 bg-blue-500/20 text-blue-300 border border-blue-500/40 text-center font-mono font-black text-xs rounded-lg"
+                    />
+                    <span className="text-[10px] text-slate-400 font-bold">Days</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="365"
+                  value={detailsDays}
+                  onChange={e => {
+                    const d = parseInt(e.target.value) || 1;
+                    setDetailsDays(d);
+                    const p = displayDisbursed;
+                    const calc = calculateRedemption(p, d, detailsInsurance);
+                    setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
+                    setDetailsCustomInterest(calc.accruedCharges.toString());
+                    setDetailsCustomSettlement(calc.settlement.toString());
+                  }}
+                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[5, 15, 35, 42, 55, 95].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDetailsDays(d);
+                        const p = displayDisbursed;
+                        const calc = calculateRedemption(p, d, detailsInsurance);
+                        setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
+                        setDetailsCustomInterest(calc.accruedCharges.toString());
+                        setDetailsCustomSettlement(calc.settlement.toString());
+                      }}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                        detailsDays === d
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Day {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Financial Inputs Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-slate-300 text-[10px] font-bold">Disbursed Capital (Rs.)</Label>
+                  <Input
+                    type="number"
+                    value={detailsCustomDisbursed}
+                    onChange={e => {
+                      setDetailsCustomDisbursed(e.target.value);
+                      const p = parseFloat(e.target.value) || 0;
+                      const calc = calculateRedemption(p, detailsDays, detailsInsurance);
+                      setDetailsCustomInterest(calc.accruedCharges.toString());
+                      setDetailsCustomSettlement(calc.settlement.toString());
+                    }}
+                    className="h-8 bg-slate-800 border-slate-700 text-white font-mono text-xs font-bold rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-slate-300 text-[10px] font-bold">Appraised Value (Rs.)</Label>
+                  <Input
+                    type="number"
+                    value={detailsCustomAppraised}
+                    onChange={e => setDetailsCustomAppraised(e.target.value)}
+                    className="h-8 bg-slate-800 border-slate-700 text-amber-300 font-mono text-xs font-bold rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-slate-300 text-[10px] font-bold">Interest Rate (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={detailsCustomRate}
+                    onChange={e => {
+                      setDetailsCustomRate(e.target.value);
+                      const r = parseFloat(e.target.value) / 100 || 0;
+                      const p = displayDisbursed;
+                      const ins = parseFloat(detailsInsurance) || 0;
+                      const interest = Math.round(p * r * (detailsDays / 30));
+                      const totalInsInt = interest + ins;
+                      setDetailsCustomInterest(totalInsInt.toString());
+                      setDetailsCustomSettlement((p + totalInsInt).toString());
+                    }}
+                    className="h-8 bg-slate-800 border-slate-700 text-purple-300 font-mono text-xs font-bold rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-slate-300 text-[10px] font-bold">Insurance Cost (Rs.)</Label>
+                  <Input
+                    type="number"
+                    value={detailsInsurance}
+                    onChange={e => {
+                      setDetailsInsurance(e.target.value);
+                      const p = displayDisbursed;
+                      const calc = calculateRedemption(p, detailsDays, e.target.value);
+                      setDetailsCustomInterest(calc.accruedCharges.toString());
+                      setDetailsCustomSettlement(calc.settlement.toString());
+                    }}
+                    className="h-8 bg-slate-800 border-slate-700 text-white font-mono text-xs font-bold rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Accrued Interest & Total Settlement Overrides */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                <div className="space-y-1">
+                  <Label className="text-blue-400 text-[10px] font-bold">Accrued Interest + Ins (Rs.)</Label>
+                  <Input
+                    type="number"
+                    value={detailsCustomInterest}
+                    onChange={e => {
+                      setDetailsCustomInterest(e.target.value);
+                      const p = displayDisbursed;
+                      const charges = parseFloat(e.target.value) || 0;
+                      setDetailsCustomSettlement((p + charges).toString());
+                    }}
+                    className="h-9 bg-slate-800 border-blue-500/40 text-blue-300 font-mono text-xs font-black rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-emerald-400 text-[10px] font-bold">Total Settlement (Rs.)</Label>
+                  <Input
+                    type="number"
+                    value={detailsCustomSettlement}
+                    onChange={e => {
+                      setDetailsCustomSettlement(e.target.value);
+                      const p = displayDisbursed;
+                      const total = parseFloat(e.target.value) || 0;
+                      const charges = Math.max(0, total - p);
+                      setDetailsCustomInterest(charges.toString());
+                    }}
+                    className="h-9 bg-slate-800 border-emerald-500/40 text-emerald-300 font-mono text-xs font-black rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Settlement Badge Card (Solid Dark Slate styling) */}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mt-auto">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Settlement ({detailsDays} Days)</span>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-lg font-bold text-slate-400">Rs.</span>
+                <span className="text-3xl font-black text-emerald-400 tracking-tight">
+                  {displaySettlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between text-xs font-bold text-slate-400">
+                <span>Accrued Interest: <b className="text-blue-400">Rs. {displayInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></span>
+                <span>Rate: <b className="text-purple-300">{displayRate}%</b></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Clean White Print Preview Card */}
+          <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
+            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-3 shrink-0">Print Preview (Exact Voucher Layout)</h3>
+            <div className="flex-1 overflow-y-auto bg-slate-200 p-4 rounded-xl">
+              {/* Outer Wrapper for Print isolation */}
+              <div className="bg-white text-slate-900 p-6 rounded-xl shadow max-w-xl mx-auto border border-slate-300 text-xs" id="printable-pawn-receipt">
+                <div className="text-center border-b-2 border-dashed border-slate-300 pb-3 mb-4">
+                  <h2 className="text-lg font-black tracking-tighter uppercase text-slate-900">RUPASINGHE PAWNING</h2>
+                  <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Core Management Hub | Branch Office</p>
+                  <p className="text-[9px] font-medium text-slate-400">Authorized Pawning & Financial Services</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-xs mb-4 border-b border-slate-100 pb-3">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Bill Details</p>
+                    <p className="font-mono font-bold mt-0.5">Bill #: <span className="font-black text-sm text-slate-900">{getBillNo(pawn)}</span></p>
+                    <p className="mt-0.5">Date: <b>{pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</b></p>
+                    <p className="mt-0.5">Status: <span className="font-bold text-emerald-600 uppercase text-[9px] bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">{pawn.status || 'ACTIVE'}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer Details</p>
+                    <p className="font-bold mt-0.5">NIC: <span className="font-mono text-slate-900">{getClientNic(pawn)}</span></p>
+                    <p className="mt-0.5">Name: <b>{clientsMap[pawn.client_id?.toLowerCase()] || '—'}</b></p>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Collateral & Gold Assessment</p>
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[9px] font-black uppercase text-slate-400">
+                        <th className="py-1">Item Description</th>
+                        <th className="py-1 text-right">Appraised Value</th>
+                        <th className="py-1 text-right">Disbursed Capital</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-slate-100">
+                        <td className="py-2 font-bold text-slate-800">{getCleanDescription(pawn)}</td>
+                        <td className="py-2 text-right font-semibold text-slate-700">Rs. {displayAppraised.toLocaleString()}</td>
+                        <td className="py-2 text-right font-black text-slate-900 text-sm">Rs. {displayDisbursed.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-1.5 border-t border-slate-200 pt-3 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Pawn Capital Loan:</span>
+                    <span className="font-bold">Rs. {displayDisbursed.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Base Interest rate:</span>
+                    <span className="font-semibold">{displayRate}% per month</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Standard Base Monthly Interest / Charges:</span>
+                    <span className="font-semibold text-slate-700">Rs. {displayInterest.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Accrued Days:</span>
+                    <span className="font-semibold">{detailsDays} Days</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-100 pt-1.5 text-sm font-black">
+                    <span className="text-slate-800">Total Settlement Value:</span>
+                    <span className="text-slate-900 text-base">Rs. {displaySettlement.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-300 text-[8px] text-slate-400 leading-tight">
+                  <p className="font-bold uppercase text-slate-600 mb-0.5">Terms & Conditions</p>
+                  <p>1. Interest is accrued progressively in slabs as per the Rupasinghe pawning scheme guidelines.</p>
+                  <p>2. A discount rate is applied for early settlements within the first 10 days.</p>
+                  <p className="mt-2 text-center font-bold text-slate-500">Thank you for banking with Rupasinghe Pawning!</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 mt-8 pt-6 text-center text-xs text-slate-500">
+                  <div>
+                    <div className="border-t border-slate-300 pt-1 font-medium text-[10px]">Customer Signature</div>
+                  </div>
+                  <div>
+                    <div className="border-t border-slate-300 pt-1 font-medium text-[10px]">Authorized Officer</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
