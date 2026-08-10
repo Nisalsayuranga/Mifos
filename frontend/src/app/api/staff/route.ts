@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwMTU1OSwiZXhwIjoyMDk5Njc3NTU5fQ.F0KSjnVMl9Nz4fuXV3Z_fHBkQfCU8ieyPT0qJ2xLEMg';
-
-let supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
-// GET: List all users from profiles + auth
-export async function GET() {
+// GET: List all users from profiles + auth (Admin only)
+export async function GET(request: Request) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (session && session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin privileges required to manage staff.' }, { status: 403 });
+    }
 
     // Get all profiles
-    const { data: profiles, error: profilesError } = await supabase
+    const { data: profiles, error: profilesError } = await adminSupabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
@@ -24,7 +20,7 @@ export async function GET() {
     if (profilesError) throw profilesError;
 
     // Get all auth users so we can show their emails
-    const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
     const authUsers = authData?.users || [];
 
     // Merge profiles with auth user emails
@@ -45,12 +41,16 @@ export async function GET() {
   }
 }
 
-// POST: Create new user + profile
+// POST: Create new user + profile (Admin only)
 export async function POST(request: Request) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (session && session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin privileges required to create staff accounts.' }, { status: 403 });
+    }
 
     const { email, password, branchId, branchName, role } = await request.json();
+
     console.log('[DEBUG] POST /api/staff started:', { email, branchId, branchName, role });
 
     if (!email || !password || !branchId || !branchName) {
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
     // 1. Create the Supabase auth user
     console.log('[DEBUG] POST /api/staff creating auth user...');
-    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+    const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // auto-confirm so they can login immediately
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     // 2. Create the profile record
     console.log('[DEBUG] POST /api/staff creating profile record for user:', newUser.user.id);
-    const { error: profileError } = await supabase.from('profiles').insert({
+    const { error: profileError } = await adminSupabase.from('profiles').insert({
       id: newUser.user.id,
       email,
       branch_id: branchId,

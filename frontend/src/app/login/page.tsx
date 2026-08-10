@@ -27,8 +27,13 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     try {
+      let loginEmail = email.trim();
+      if (!loginEmail.includes('@')) {
+        loginEmail = `${loginEmail.toLowerCase()}@rupasinghe.com`;
+      }
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password,
       });
 
@@ -47,7 +52,10 @@ export default function LoginPage() {
         console.warn("Profile fetch failed. Check RLS policies:", profileError.message);
       }
 
-      localStorage.setItem('auth_token', data.session?.access_token || '');
+      const accessToken = data.session?.access_token || '';
+      localStorage.setItem('auth_token', accessToken);
+      document.cookie = `sb-access-token=${accessToken}; path=/; max-age=28800; SameSite=Lax`;
+
       localStorage.setItem('user', JSON.stringify({ 
         email: data.user.email, 
         id: data.user.id,
@@ -60,6 +68,7 @@ export default function LoginPage() {
       setError(err.message);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-6 lg:px-8">
@@ -83,14 +92,14 @@ export default function LoginPage() {
             )}
             <form className="space-y-6" onSubmit={handleLogin}>
               <div>
-                <Label className="block text-sm font-bold text-slate-700">Email Address</Label>
+                <Label className="block text-sm font-bold text-slate-700">Username or Email Address</Label>
                 <div className="mt-2">
                   <Input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="branch.brl@rupasinghe.com"
+                    placeholder="kahathotuwa or branch.brl@rupasinghe.com"
                     className="w-full"
                   />
                 </div>

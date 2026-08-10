@@ -1,19 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwMTU1OSwiZXhwIjoyMDk5Njc3NTU5fQ.F0KSjnVMl9Nz4fuXV3Z_fHBkQfCU8ieyPT0qJ2xLEMg';
-
-let supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
-// PATCH: Update user email, password, or profile details
+// PATCH: Update user email, password, or profile details (Admin only)
 export async function PATCH(request: Request, context: any) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (session && session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin privileges required.' }, { status: 403 });
+    }
 
     const { id } = await context.params;
     const { email, password, branchId, branchName, role } = await request.json();
@@ -24,7 +20,7 @@ export async function PATCH(request: Request, context: any) {
     if (password) authUpdates.password = password;
 
     if (Object.keys(authUpdates).length > 0) {
-      const { error: authError } = await supabase.auth.admin.updateUserById(id, authUpdates);
+      const { error: authError } = await adminSupabase.auth.admin.updateUserById(id, authUpdates);
       if (authError) throw authError;
     }
 
@@ -36,7 +32,7 @@ export async function PATCH(request: Request, context: any) {
     if (role)       profileUpdates.role        = role;
 
     if (Object.keys(profileUpdates).length > 0) {
-      const { error: profileError } = await supabase.from('profiles').update(profileUpdates).eq('id', id);
+      const { error: profileError } = await adminSupabase.from('profiles').update(profileUpdates).eq('id', id);
       if (profileError) throw profileError;
     }
 
@@ -47,18 +43,21 @@ export async function PATCH(request: Request, context: any) {
   }
 }
 
-// DELETE: Remove user from auth and profiles
+// DELETE: Remove user from auth and profiles (Admin only)
 export async function DELETE(request: Request, context: any) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (session && session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin privileges required.' }, { status: 403 });
+    }
 
     const { id } = await context.params;
 
     // 1. Delete profile first (FK constraint)
-    await supabase.from('profiles').delete().eq('id', id);
+    await adminSupabase.from('profiles').delete().eq('id', id);
 
     // 2. Delete auth user
-    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    const { error: authError } = await adminSupabase.auth.admin.deleteUser(id);
     if (authError) throw authError;
 
     return NextResponse.json({ success: true });
@@ -67,3 +66,4 @@ export async function DELETE(request: Request, context: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

@@ -63,14 +63,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const interval = setInterval(() => {
       const lastActivity = parseInt(localStorage.getItem('last_activity') || '0', 10);
       if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
-        // Session expired!
+        // Session expired! Clear local session data & cookies
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
         localStorage.removeItem('last_activity');
+        document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         setIsAuthenticated(false);
         router.push('/login?expired=true');
       }
     }, 5000); // Check every 5 seconds
+
 
     return () => {
       events.forEach(event => {

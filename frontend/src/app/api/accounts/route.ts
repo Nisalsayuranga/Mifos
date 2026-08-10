@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Extremely secure backend logic executing entirely server-side on Vercel
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-// We use the service role key to bypass client restrictions and enforce our own transaction logic
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export async function GET(request: Request) {
   try {
+    const session = await getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // Optional filter
+    const type = searchParams.get('type');
 
-    let query = supabase.from('account').select('*').order('opened_date', { ascending: false });
+    let query = adminSupabase.from('account').select('*').order('opened_date', { ascending: false });
     if (type && type !== 'All') {
       query = query.eq('type', type);
     }
@@ -29,18 +23,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getAuthenticatedUser(request);
     const body = await request.json();
     
-    // Server-side validation logic
     if (!body.name || !body.type) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Auto-generate ID sequence if needed
     const accountId = `ACC-${Date.now().toString().slice(-6)}`;
 
-    // Database Insertion
-    const { data, error } = await supabase.from('account').insert([{
+    const { data, error } = await adminSupabase.from('account').insert([{
       id: accountId,
       name: body.name,
       type: body.type,

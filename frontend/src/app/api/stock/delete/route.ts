@@ -1,19 +1,22 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwMTU1OSwiZXhwIjoyMDk5Njc3NTU5fQ.F0KSjnVMl9Nz4fuXV3Z_fHBkQfCU8ieyPT0qJ2xLEMg';
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export async function POST(req: Request) {
   try {
+    const session = await getAuthenticatedUser(req);
     const { id } = await req.json();
     if (!id) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
+    if (session && session.role === 'TELLER') {
+      const { data: item } = await adminSupabase.from('stock_items').select('branch_id').eq('id', id).single();
+      if (item && item.branch_id !== session.branchId) {
+        return NextResponse.json({ error: 'Forbidden. Tellers cannot delete stock items belonging to another branch.' }, { status: 403 });
+      }
+    }
+
+    const { data, error } = await adminSupabase
       .from('stock_items')
       .delete()
       .eq('id', id)

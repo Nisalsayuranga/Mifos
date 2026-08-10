@@ -1,26 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDE1NTksImV4cCI6MjA5OTY3NzU1OX0.YKLOHhXhUCgG1eMZiksR4H7UwySjhWzc0e_pomh_0oI';
-
-let supabase = createClient(supabaseUrl, supabaseKey);
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
-
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('branches')
       .select('*')
       .order('name', { ascending: true });
 
     if (error) {
-      // If table doesn't exist yet, return a helpful error or empty list
       console.error('Branches GET error:', error);
-      return NextResponse.json({ error: 'Branches table not found. Please run the migration script.', details: error.message }, { status: 404 });
+      return NextResponse.json({ error: 'Branches table error.', details: error.message }, { status: 500 });
     }
 
     return NextResponse.json(data || []);
@@ -32,18 +24,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (session && session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin privileges required to create branches.' }, { status: 403 });
+    }
 
     const { name, id } = await request.json();
-    console.log('[DEBUG] POST /api/branches started:', { name, id });
 
     if (!name || !id) {
-      console.log('[DEBUG] POST /api/branches missing name or id');
       return NextResponse.json({ error: 'Missing name or id' }, { status: 400 });
     }
 
-    console.log('[DEBUG] POST /api/branches inserting into branches table...');
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('branches')
       .insert([{
         id: id.toUpperCase(),
@@ -55,21 +47,20 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-       console.error('[DEBUG] POST /api/branches insert error:', error);
+       console.error('POST /api/branches insert error:', error);
        throw error;
     }
     
-    console.log('[DEBUG] POST /api/branches upserting into branch_status...');
-    await supabase.from('branch_status').upsert({
+    await adminSupabase.from('branch_status').upsert({
       branch_id: id.toUpperCase(),
       status: 'CLOSED',
       updated_at: new Date().toISOString()
     });
 
-    console.log('[DEBUG] POST /api/branches finished successfully');
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {
     console.error('Branches POST failed:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

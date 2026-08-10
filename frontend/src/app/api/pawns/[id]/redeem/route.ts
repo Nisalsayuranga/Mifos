@@ -1,27 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-let supabase: any;
-if (supabaseUrl && supabaseKey) {
-  supabase = createClient(supabaseUrl, supabaseKey);
-}
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
-
+    const session = await getAuthenticatedUser(request);
     const { id } = await params;
     const body = await request.json();
     const { insurance = 50, days = 1, approvedBy } = body;
 
     // 1. Fetch Pawn Ticket Details
-    const { data: pawn, error: fetchError } = await supabase
+    const { data: pawn, error: fetchError } = await adminSupabase
       .from('pawns')
       .select('*')
       .eq('id', id)
@@ -29,6 +20,10 @@ export async function POST(
 
     if (fetchError || !pawn) {
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
+    }
+
+    if (session && session.role === 'TELLER' && pawn.branch_id !== session.branchId) {
+      return NextResponse.json({ error: 'Forbidden. Tellers cannot redeem pawns belonging to another branch.' }, { status: 403 });
     }
 
     if (pawn.status !== 'ACTIVE') {
@@ -77,7 +72,7 @@ export async function POST(
     const accruedCharges = Math.max(0, settlement - principal);
 
     // 3. Update Pawn Ticket Status to REDEEMED
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminSupabase
       .from('pawns')
       .update({ status: 'REDEEMED' })
       .eq('id', id);
@@ -85,7 +80,7 @@ export async function POST(
     if (updateError) throw updateError;
 
     // 4. Log Settle/Redemption Transaction in User History
-    const { error: txError } = await supabase.from('transaction').insert([{
+    const { error: txError } = await adminSupabase.from('transaction').insert([{
       id: crypto.randomUUID(),
       client_id: pawn.client_id,
       type: 'PAWN_REDEEM',
@@ -101,7 +96,7 @@ export async function POST(
     const jeId = `JE-AUTO-RED-${Date.now()}`;
     const dateStr = new Date().toISOString().split('T')[0];
 
-    const { error: jeError } = await supabase.from('journal_entry').insert([{
+    const { error: jeError } = await adminSupabase.from('journal_entry').insert([{
       id: jeId,
       date: dateStr,
       description: `Automated Redemption Posting - Pawn: ${pawn.description}`,
@@ -138,7 +133,7 @@ export async function POST(
       });
     }
 
-    const { error: linesError } = await supabase.from('journal_entry_line').insert(journalLines);
+    const { error: linesError } = await adminSupabase.from('journal_entry_line').insert(journalLines);
     if (linesError) throw linesError;
 
     return NextResponse.json({

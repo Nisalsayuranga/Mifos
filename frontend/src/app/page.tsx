@@ -72,14 +72,18 @@ export default function Home() {
   const [isStatusLoading, setIsStatusLoading] = useState(false);
 
   useEffect(() => {
-    loadDashboardData();
     const storedUser = localStorage.getItem('user');
+    let uBranchId = '';
+    let uRole = 'TELLER';
     if (storedUser) {
       const user = JSON.parse(storedUser);
-      setBranchId(user.branchId || '');
+      uBranchId = user.branchId || '';
+      uRole = user.role || 'TELLER';
+      setBranchId(uBranchId);
       setBranchName(user.branchName || '');
-      fetchStatus(user.branchId);
+      fetchStatus(uBranchId);
     }
+    loadDashboardData(uBranchId, uRole);
   }, []);
 
   const fetchStatus = async (bid: string) => {
@@ -115,22 +119,38 @@ export default function Home() {
     }
   };
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (userBranchId?: string, userRole?: string) => {
     setLoadingTransactions(true);
     try {
       // 1. Get Customers Count
-      const { count: clientCount } = await supabase.from('clients').select('*', { count: 'exact', head: true });
+      let clientQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
+      if (userRole === 'TELLER' && userBranchId) {
+        clientQuery = clientQuery.eq('branchId', userBranchId);
+      }
+      const { count: clientCount } = await clientQuery;
       
-      // 2. Get Pawnes Data (Sum and Count)
-      const { data: pawnsData } = await supabase.from('pawns').select('disbursed_amount');
+      // 2. Get Pawns Data (Sum and Count)
+      let pawnsQuery = supabase.from('pawns').select('disbursed_amount');
+      if (userRole === 'TELLER' && userBranchId) {
+        pawnsQuery = pawnsQuery.eq('branch_id', userBranchId);
+      }
+      const { data: pawnsData } = await pawnsQuery;
       const totalPawnSum = (pawnsData || []).reduce((acc, p) => acc + (p.disbursed_amount || 0), 0);
       const activePawns = (pawnsData || []).length;
 
-      // 3. Get Recent Transactions
-      const { data: txs } = await supabase.from('transaction').select('*').order('timestamp', { ascending: false }).limit(6);
+      // 3. Get Recent Pawns / Transactions
+      let recentPawnsQuery = supabase.from('pawns').select('*').order('created_at', { ascending: false }).limit(6);
+      if (userRole === 'TELLER' && userBranchId) {
+        recentPawnsQuery = recentPawnsQuery.eq('branch_id', userBranchId);
+      }
+      const { data: txs } = await recentPawnsQuery;
 
       // 4. Get Client Names mapping to resolve client_id to actual names
-      const { data: clientsList } = await supabase.from('clients').select('id, firstName, lastName');
+      let clientsMapQuery = supabase.from('clients').select('id, firstName, lastName');
+      if (userRole === 'TELLER' && userBranchId) {
+        clientsMapQuery = clientsMapQuery.eq('branchId', userBranchId);
+      }
+      const { data: clientsList } = await clientsMapQuery;
       const cmap: {[key: string]: string} = {};
       if (clientsList) {
         clientsList.forEach((c: any) => {
@@ -146,7 +166,16 @@ export default function Home() {
         { label: "System Health", value: "Online", change: "100%", trend: "up", icon: Zap, color: "indigo" },
       ]);
       
-      if (txs) setRecentTransactions(txs);
+      if (txs) {
+        const formattedTxs = txs.map(p => ({
+          id: p.id,
+          client_id: p.client_id,
+          type: p.status || 'PAWN',
+          amount: p.disbursed_amount || 0,
+          timestamp: p.created_at
+        }));
+        setRecentTransactions(formattedTxs);
+      }
     } catch (err) {
       console.error('Dashboard Load Error:', err);
     } finally {

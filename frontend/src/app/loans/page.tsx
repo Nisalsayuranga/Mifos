@@ -124,7 +124,11 @@ export default function PawnesPage() {
   const loadClients = async (u?: any) => {
     try {
       const user = u || JSON.parse(localStorage.getItem('user') || '{}');
-      const res = await fetch(`/api/clients?branchId=${user?.branchId || ''}&role=${user?.role || ''}`);
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/clients?branchId=${user?.branchId || ''}`, { headers });
       if (res.ok) {
         const data: any[] = await res.json();
         setClientsList(data);
@@ -151,12 +155,16 @@ export default function PawnesPage() {
   const loadPawns = async (u?: any) => {
     try {
       const user = u || loadUser();
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const params = new URLSearchParams({
         branchId: user?.branchId || branchId,
         role: user?.role || userRole,
         filterBranch,
       });
-      const res = await fetch(`/api/pawns?${params}`);
+      const res = await fetch(`/api/pawns?${params}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setPawns(data);

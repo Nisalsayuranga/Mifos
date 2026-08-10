@@ -320,7 +320,11 @@ function MainLedgerContent() {
     setLoadingLedger(true);
     setFeedback(null);
     try {
-      const res = await fetch(`/api/ledger/daily?branch_id=${selectedBranch}&date=${ledgerDate}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/ledger/daily?branch_id=${selectedBranch}&date=${ledgerDate}`, { headers });
       const contentType = res.headers.get('content-type');
       
       if (res.ok && contentType && contentType.includes('application/json')) {

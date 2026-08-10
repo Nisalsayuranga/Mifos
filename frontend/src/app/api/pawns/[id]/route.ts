@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-let supabase: any;
-if (supabaseUrl && supabaseKey) {
-  supabase = createClient(supabaseUrl, supabaseKey);
-}
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +7,25 @@ const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[
 
 export async function PATCH(request: Request, context: any) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
-
+    const session = await getAuthenticatedUser(request);
     const { id } = await context.params;
     const body = await request.json();
     const { clientId, description, appraisedValue, disbursedAmount, billNo, weight, itemType } = body;
 
+    // Fetch existing pawn to check branch authorization
+    const { data: existingPawn, error: fetchErr } = await adminSupabase.from('pawns').select('*').eq('id', id).single();
+    if (fetchErr || !existingPawn) {
+      return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
+    }
+
+    if (session && session.role === 'TELLER' && existingPawn.branch_id !== session.branchId) {
+      return NextResponse.json({ error: 'Forbidden. Tellers cannot modify pawns belonging to another branch.' }, { status: 403 });
+    }
+
     // Resolve valid Client UUID
     let targetClientId = clientId;
     if (clientId && !isUUID(clientId)) {
-      const { data: existingClients } = await supabase
+      const { data: existingClients } = await adminSupabase
         .from('clients')
         .select('id')
         .or(`nationalId.eq.${clientId},id.eq.${clientId}`);
@@ -40,13 +41,13 @@ export async function PATCH(request: Request, context: any) {
     if (appraisedValue !== undefined) updateObj.appraised_value = parseFloat(appraisedValue) || 0;
     if (disbursedAmount !== undefined) updateObj.disbursed_amount = parseFloat(disbursedAmount) || 0;
 
-    const { data, error } = await supabase.from('pawns').update(updateObj).eq('id', id).select().single();
+    const { data, error } = await adminSupabase.from('pawns').update(updateObj).eq('id', id).select().single();
 
     if (error) throw error;
 
     // Update stock item if billNo is present
     if (billNo) {
-      await supabase.from('stock_items').update({
+      await adminSupabase.from('stock_items').update({
         price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
         weight: parseFloat(weight) || 0,
         item_type: itemType || 'PAWN'
@@ -61,14 +62,20 @@ export async function PATCH(request: Request, context: any) {
 
 export async function DELETE(request: Request, context: any) {
   try {
-    if (!supabase) return NextResponse.json({ error: 'Supabase not initialized' }, { status: 500 });
-
+    const session = await getAuthenticatedUser(request);
     const { id } = await context.params;
 
-    // Fetch pawn details first to get description / bill_no
-    const { data: pawn } = await supabase.from('pawns').select('*').eq('id', id).single();
+    // Fetch pawn details first to verify branch authorization and description / bill_no
+    const { data: pawn, error: fetchErr } = await adminSupabase.from('pawns').select('*').eq('id', id).single();
+    if (fetchErr || !pawn) {
+      return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
+    }
 
-    const { error } = await supabase.from('pawns').delete().eq('id', id);
+    if (session && session.role === 'TELLER' && pawn.branch_id !== session.branchId) {
+      return NextResponse.json({ error: 'Forbidden. Tellers cannot delete pawns belonging to another branch.' }, { status: 403 });
+    }
+
+    const { error } = await adminSupabase.from('pawns').delete().eq('id', id);
     if (error) throw error;
 
     // Also delete from stock_items if bill_no can be extracted
@@ -76,7 +83,7 @@ export async function DELETE(request: Request, context: any) {
       const match = pawn.description.match(/^([A-Za-z0-9]+\s+\d+)/);
       if (match) {
         const billNo = match[1].trim();
-        await supabase.from('stock_items').delete().eq('bill_no', billNo);
+        await adminSupabase.from('stock_items').delete().eq('bill_no', billNo);
       }
     }
 
