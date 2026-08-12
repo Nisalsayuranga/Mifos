@@ -629,7 +629,7 @@ export default function PawnesPage() {
 
       {/* Dialog */}
       <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
-        <DialogContent className="w-[95vw] sm:max-w-[480px] max-h-[95vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2rem]">
+        <DialogContent className="w-[95vw] sm:max-w-[480px] max-h-[95vh] overflow-y-auto overflow-x-hidden bg-white border border-slate-200 shadow-2xl p-0 rounded-[2rem]">
           <div className="h-2 bg-primary" />
           <div className="p-8 space-y-6">
             <DialogHeader>
