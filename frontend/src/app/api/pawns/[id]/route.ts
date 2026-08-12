@@ -41,13 +41,6 @@ export async function PATCH(request: Request, context: any) {
     if (appraisedValue !== undefined) updateObj.appraised_value = parseFloat(appraisedValue) || 0;
     if (disbursedAmount !== undefined) updateObj.disbursed_amount = parseFloat(disbursedAmount) || 0;
 
-    if (weight !== undefined) updateObj.weight = String(weight || '');
-    if (weightGrams !== undefined || weight !== undefined) {
-      const wTotal = parseFloat(weight) || 0;
-      updateObj.weight_grams = parseFloat(weightGrams) || (wTotal > 0 ? Math.floor(wTotal) : 0);
-      updateObj.weight_mg = parseFloat(weightMg) || (wTotal > 0 ? Math.round((wTotal - Math.floor(wTotal)) * 1000) : 0);
-    }
-
     const { data, error } = await adminSupabase.from('pawns').update(updateObj).eq('id', id).select().single();
 
     if (error) throw error;
