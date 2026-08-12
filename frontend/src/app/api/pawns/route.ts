@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { clientId, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, itemType } = body;
+    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, itemType } = body;
 
     if (!clientId || !disbursedAmount) {
       return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
@@ -75,11 +75,12 @@ export async function POST(request: Request) {
         targetClientId = existingClients[0].id;
       } else {
         const newClientId = crypto.randomUUID();
+        const resolvedName = clientName || customerName || '';
         const { data: newClient, error: clientErr } = await adminSupabase.from('clients').insert([{
           id: newClientId,
           nationalId: clientId,
-          firstName: clientId,
-          lastName: '.',
+          firstName: resolvedName,
+          lastName: '',
           branchId: targetBranchId,
           createdByUserId: targetUserId,
           status: 'ACTIVE'
