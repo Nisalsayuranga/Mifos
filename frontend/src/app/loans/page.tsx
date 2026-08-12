@@ -99,6 +99,50 @@ export default function PawnesPage() {
     return desc;
   };
 
+  const isNicFormat = (str: string): boolean => {
+    if (!str) return true;
+    const clean = str.trim();
+    if (/^\d{9,12}[vVxX]?$/.test(clean)) return true;
+    return false;
+  };
+
+  const getCustomerName = (pawn: any): string => {
+    if (!pawn) return '';
+
+    const pawnCidStr = String(pawn.client_id || '').toLowerCase().trim();
+
+    const directName = pawn.client_name || pawn.customer_name || pawn.customerName || pawn.clientName;
+    if (directName && !isNicFormat(directName)) return directName;
+
+    if (pawn.clients) {
+      const cName = `${pawn.clients.firstName || pawn.clients.first_name || ''} ${pawn.clients.lastName || pawn.clients.last_name || ''}`.trim() || pawn.clients.name || pawn.clients.full_name;
+      if (cName && !isNicFormat(cName)) return cName;
+    }
+    if (pawn.client) {
+      const cName = `${pawn.client.firstName || pawn.client.first_name || ''} ${pawn.client.lastName || pawn.client.last_name || ''}`.trim() || pawn.client.name || pawn.client.full_name;
+      if (cName && !isNicFormat(cName)) return cName;
+    }
+
+    if (pawnCidStr && clientsMap[pawnCidStr]) {
+      const mappedName = clientsMap[pawnCidStr];
+      if (mappedName && !isNicFormat(mappedName)) return mappedName;
+    }
+
+    if (clientsList && clientsList.length > 0 && pawnCidStr) {
+      const matchedClient = clientsList.find((c: any) => {
+        const cId = String(c.id || '').toLowerCase().trim();
+        const cNic = String(c.nationalId || c.national_id || c.nic || '').toLowerCase().trim();
+        return cId === pawnCidStr || cNic === pawnCidStr;
+      });
+      if (matchedClient) {
+        const matchedName = `${matchedClient.firstName || matchedClient.first_name || ''} ${matchedClient.lastName || matchedClient.last_name || ''}`.trim() || matchedClient.name || matchedClient.full_name;
+        if (matchedName && !isNicFormat(matchedName)) return matchedName;
+      }
+    }
+
+    return '';
+  };
+
   const loadUser = () => {
     const stored = localStorage.getItem('user');
     if (stored) {
@@ -920,12 +964,15 @@ export default function PawnesPage() {
                       <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-xs whitespace-nowrap">
                         {getClientNic(pawn)}
                       </span>
-                      {pawn.client_id != null && clientsMap[String(pawn.client_id).toLowerCase()] && (
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5 whitespace-nowrap">
-                          <UserCheck className="w-3 h-3" />
-                          {clientsMap[String(pawn.client_id).toLowerCase()]}
-                        </span>
-                      )}
+                      {(() => {
+                        const custName = getCustomerName(pawn);
+                        return custName ? (
+                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                            <UserCheck className="w-3 h-3" />
+                            {custName}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-3 font-bold text-slate-700 max-w-[180px] truncate">
@@ -957,52 +1004,52 @@ export default function PawnesPage() {
                     <div className="flex items-center gap-1.5 justify-end">
                       {pawn.status === 'PENDING_APPROVAL' && (
                         <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
                           onClick={() => handleApprove(pawn)}
-                          className="h-8 px-2.5 rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex items-center gap-1 font-bold text-xs shrink-0"
+                          className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
                         >
                           <UserCheck className="h-3.5 w-3.5" />
                           Approve
                         </Button>
                       )}
                       <Button
-                        variant="outline"
+                        variant="default"
                         size="sm"
                         onClick={() => openDetails(pawn)}
-                        className="h-8 px-2.5 rounded-lg border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-100 flex items-center gap-1 font-bold text-xs shrink-0 shadow-sm"
+                        className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
                       >
                         <FileText className="h-3.5 w-3.5" />
                         Print / Details
                       </Button>
                       {pawn.status === 'ACTIVE' && (
                         <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
                           onClick={() => openRedeem(pawn)}
-                          className="h-8 px-2.5 rounded-lg border-purple-200 text-purple-700 bg-purple-50/50 hover:bg-purple-100 flex items-center gap-1 font-bold text-xs shrink-0 shadow-sm"
+                          className="h-8 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
                         >
                           <Coins className="h-3.5 w-3.5" />
                           Settle
                         </Button>
                       )}
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => openEdit(pawn)}
-                        className="h-8 w-8 p-0 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 shrink-0"
+                        className="h-8 w-8 p-0 rounded-lg border border-slate-200 bg-white hover:bg-amber-100 text-slate-700 hover:text-amber-700 flex items-center justify-center shrink-0 shadow-sm cursor-pointer transition-all"
                         title="Edit Pawn"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => handleDelete(pawn)}
-                        className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 shrink-0"
+                        className="h-8 w-8 p-0 rounded-lg border border-slate-200 bg-white hover:bg-rose-100 text-slate-700 hover:text-rose-600 flex items-center justify-center shrink-0 shadow-sm cursor-pointer transition-all"
                         title="Delete Pawn"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </TableCell>
