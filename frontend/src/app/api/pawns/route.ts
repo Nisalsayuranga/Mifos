@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, itemType } = body;
+    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, itemType } = body;
 
     if (!clientId || !disbursedAmount) {
       return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
@@ -96,12 +96,19 @@ export async function POST(request: Request) {
 
     const pawnId = crypto.randomUUID();
 
+    const wTotal = parseFloat(weight) || 0;
+    const wGrams = parseFloat(weightGrams) || (wTotal > 0 ? Math.floor(wTotal) : 0);
+    const wMg = parseFloat(weightMg) || (wTotal > 0 ? Math.round((wTotal - Math.floor(wTotal)) * 1000) : 0);
+
     const { data: pawnData, error: pawnError } = await adminSupabase.from('pawns').insert([{
       id: pawnId,
       client_id: targetClientId,
       description: description || 'Gold Collateral',
       appraised_value: parseFloat(appraisedValue) || 0,
       disbursed_amount: parseFloat(disbursedAmount) || 0,
+      weight: String(weight || ''),
+      weight_grams: wGrams,
+      weight_mg: wMg,
       branch_id: targetBranchId,
       created_by_user_id: targetUserId,
       status: 'ACTIVE',

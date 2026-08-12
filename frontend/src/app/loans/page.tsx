@@ -358,6 +358,8 @@ export default function PawnesPage() {
           createdByUserId: userId,
           billNo: finalBillNo,
           weight: goldWeight,
+          weightGrams,
+          weightMg,
           itemType
         }),
       });
