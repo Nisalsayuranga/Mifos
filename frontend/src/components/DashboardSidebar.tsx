@@ -43,6 +43,7 @@ const navGroups = [
       { name: 'Records', href: '/accounting/ledger?tab=journal', icon: FileText },
       { name: 'Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
       { name: 'Ledger Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
+      { name: 'Financial Statements', href: '/accounting/reports', icon: BarChart3 },
     ]
   },
   {
@@ -57,6 +58,7 @@ const navGroups = [
     items: [
       { name: 'Approvals', href: '/operations/approvals', icon: CheckSquare },
       { name: 'End-of-Day', href: '/operations/eod', icon: ShieldCheck },
+      { name: 'Audit Logs', href: '/operations/audit-logs', icon: ShieldCheck },
       { name: 'Reports', href: '/reports', icon: BarChart3 },
       { name: 'Staff', href: '/employees', icon: Users, adminOnly: true },
     ]

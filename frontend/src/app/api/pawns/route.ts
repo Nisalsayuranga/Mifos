@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { recordAuditLog } from '@/lib/audit-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, itemType } = body;
+    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, itemType, items } = body;
 
     if (!clientId || !disbursedAmount) {
       return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
@@ -113,24 +114,72 @@ export async function POST(request: Request) {
       throw pawnError;
     }
 
-    // Automatically sync into stock_items table so it appears in Vault Stock
+    // 2. Insert itemized breakdown into pawn_items if provided
+    if (Array.isArray(items) && items.length > 0) {
+      const itemRows = items.map((it: any) => ({
+        pawn_id: pawnId,
+        item_type: it.itemType || 'CH',
+        description: it.description || 'Collateral Article',
+        weight_grams: parseFloat(it.weightGrams) || 0,
+        weight_mg: parseFloat(it.weightMg) || 0,
+        appraised_value: parseFloat(it.appraisedValue) || 0
+      }));
+      await adminSupabase.from('pawn_items').insert(itemRows);
+    }
+
+    // 3. Automatically sync into stock_items table so it appears in Vault Stock
     if (billNo) {
       const today = new Date().toISOString().split('T')[0];
-      await adminSupabase.from('stock_items').insert([{
-        bill_no: billNo.trim(),
-        price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
-        weight: parseFloat(weight) || 0,
-        date: today,
-        item_type: itemType || 'PAWN',
-        status: 'Active',
-        branch_id: targetBranchId
-      }]);
+      if (Array.isArray(items) && items.length > 1) {
+        // Sync each individual item
+        const stockRows = items.map((it: any, idx: number) => {
+          const g = parseFloat(it.weightGrams) || 0;
+          const mg = parseFloat(it.weightMg) || 0;
+          const totW = g + (mg / 1000);
+          return {
+            bill_no: `${billNo.trim()} (${idx + 1}/${items.length})`,
+            price: parseFloat(it.appraisedValue) || 0,
+            weight: totW,
+            date: today,
+            item_type: it.itemType || 'PAWN',
+            status: 'Active',
+            branch_id: targetBranchId
+          };
+        });
+        await adminSupabase.from('stock_items').insert(stockRows);
+      } else {
+        await adminSupabase.from('stock_items').insert([{
+          bill_no: billNo.trim(),
+          price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
+          weight: parseFloat(weight) || 0,
+          date: today,
+          item_type: itemType || 'PAWN',
+          status: 'Active',
+          branch_id: targetBranchId
+        }]);
+      }
     }
+
+    // 4. Record Audit Log
+    recordAuditLog(session, {
+      action: 'ORIGINATE_PAWN',
+      resource: `Pawn Ticket #${pawnId.substring(0, 8)}`,
+      branchId: targetBranchId,
+      details: {
+        pawnId,
+        billNo,
+        amount: disbursedAmount,
+        appraised: appraisedValue,
+        client: targetClientId,
+        itemsCount: Array.isArray(items) ? items.length : 1
+      }
+    });
 
     return NextResponse.json({
       ...pawnData,
       client_id: clientId,
-      raw_client_uuid: targetClientId
+      raw_client_uuid: targetClientId,
+      items: items || []
     }, { status: 201 });
   } catch (error: any) {
     console.error('Pawns POST error:', error);

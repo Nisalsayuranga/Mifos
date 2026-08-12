@@ -66,6 +66,36 @@ export default function PawnesPage() {
   const [weightGrams, setWeightGrams]   = useState('');
   const [weightMg, setWeightMg]         = useState('');
 
+  // Multi-Item Pawn State
+  const [itemsList, setItemsList] = useState<any[]>([
+    { itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }
+  ]);
+
+  const handleAddItem = () => {
+    setItemsList(prev => [
+      ...prev,
+      { itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }
+    ]);
+  };
+
+  const handleRemoveItem = (idx: number) => {
+    if (itemsList.length <= 1) return;
+    setItemsList(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleUpdateItem = (idx: number, field: string, val: string) => {
+    setItemsList(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: val };
+
+      // Auto-recalculate aggregate appraisal & weight if items changed
+      const totAppraised = copy.reduce((s, item) => s + (parseFloat(item.appraisedValue) || 0), 0);
+      if (totAppraised > 0) setAppraisal(String(totAppraised));
+
+      return copy;
+    });
+  };
+
   // Gold Calculator State
   const [showGoldCalc, setShowGoldCalc] = useState(false);
   const [goldPurity, setGoldPurity]     = useState('22K');
@@ -277,6 +307,7 @@ export default function PawnesPage() {
     setClientId(''); setDescription(''); setAppraisal(''); setAmount('');
     setBillPrefix('1R'); setBillNo(''); setItemType('CH'); setGoldWeight('');
     setWeightGrams(''); setWeightMg('');
+    setItemsList([{ itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }]);
     setEditingPawn(null); setResolvedName(''); setShowSuggestions(false);
   };
 
@@ -361,7 +392,8 @@ export default function PawnesPage() {
           weight: goldWeight,
           weightGrams,
           weightMg,
-          itemType
+          itemType,
+          items: itemsList
         }),
       });
 
