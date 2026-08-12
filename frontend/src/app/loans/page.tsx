@@ -1241,6 +1241,7 @@ export default function PawnesPage() {
         clientsMap={clientsMap}
         clientsNicMap={clientsNicMap}
         clientsList={clientsList}
+        branchesList={branches}
         getBillNo={getBillNo}
         getClientNic={getClientNic}
         getCleanDescription={getCleanDescription}
@@ -1250,6 +1251,62 @@ export default function PawnesPage() {
   );
 }
 
+const BRANCH_ADDRESSES: Record<string, string> = {
+  HQ: 'Head Office, No. 3/B/1, Station Road, Dehiwala.',
+  DHW: 'No. 3/B/1, Station Road, Dehiwala.',
+  DEHIWALA: 'No. 3/B/1, Station Road, Dehiwala.',
+  BRL: 'Borella Branch, Colombo 08.',
+  BORELLA: 'Borella Branch, Colombo 08.',
+  KOT: 'Kotikawatta Branch, Angoda.',
+  KOTIKAWATTA: 'Kotikawatta Branch, Angoda.',
+  DMT: 'Dematagoda Branch, Colombo 09.',
+  DEMATAGODA: 'Dematagoda Branch, Colombo 09.',
+  W2: 'Wattala Branch No. 2, Negombo Road, Wattala.',
+  W3: 'Wattala Branch No. 3, Negombo Road, Wattala.',
+  W4: 'Wattala Branch No. 4, Negombo Road, Wattala.',
+  WATTALA: 'Negombo Road, Wattala.',
+  KIR: 'Kiribathgoda Branch, Kandy Road, Kiribathgoda.',
+  KIRIBATHGODA: 'Kiribathgoda Branch, Kandy Road, Kiribathgoda.',
+  KDW: 'Kadawatha Branch, Kandy Road, Kadawatha.',
+  KADAWATHA: 'Kadawatha Branch, Kandy Road, Kadawatha.',
+  PND: 'Panadura Branch, Galle Road, Panadura.',
+  PANADURA: 'Panadura Branch, Galle Road, Panadura.',
+  KTW: 'Kottawa Branch, High Level Road, Kottawa.',
+  KOTTAWA: 'Kottawa Branch, High Level Road, Kottawa.',
+  HMG: 'Homagama Branch, High Level Road, Homagama.',
+  HOMAGAMA: 'Homagama Branch, High Level Road, Homagama.',
+  KHT: 'Kahathotuwa Branch, Main Street, Kahathotuwa.',
+  KAHATHOTUWA: 'Kahathotuwa Branch, Main Street, Kahathotuwa.',
+};
+
+const getBranchAddress = (pawn: any, branchesList?: any[]): string => {
+  if (!pawn) return 'No. 3/B/1, Station Road, Dehiwala.';
+
+  if (pawn.branch_address) return pawn.branch_address;
+  if (pawn.branchAddress) return pawn.branchAddress;
+
+  const bId = String(pawn.branch_id || pawn.branchId || '').toUpperCase().trim();
+  if (bId && BRANCH_ADDRESSES[bId]) return BRANCH_ADDRESSES[bId];
+
+  const bName = String(pawn.branch_name || pawn.branchName || pawn.branch || '').toUpperCase().trim();
+  if (bName && BRANCH_ADDRESSES[bName]) return BRANCH_ADDRESSES[bName];
+
+  if (branchesList && branchesList.length > 0) {
+    const matchedBranch = branchesList.find((b: any) =>
+      String(b.id || '').toUpperCase() === bId ||
+      String(b.name || '').toUpperCase() === bName
+    );
+    if (matchedBranch?.address) return matchedBranch.address;
+    if (matchedBranch?.name) return `${matchedBranch.name} Branch.`;
+  }
+
+  if (pawn.branch_name || pawn.branch) {
+    return `${pawn.branch_name || pawn.branch} Branch.`;
+  }
+
+  return 'No. 3/B/1, Station Road, Dehiwala.';
+};
+
 // Ultra-Fast Isolated Sub-Component for Pawn Details & Interactive Bill Receipt (100% Editable Fields)
 function PawnDetailsModal({
   pawn,
@@ -1257,6 +1314,7 @@ function PawnDetailsModal({
   clientsMap,
   clientsNicMap,
   clientsList,
+  branchesList,
   getBillNo,
   getClientNic,
   getCleanDescription,
@@ -1267,6 +1325,7 @@ function PawnDetailsModal({
   clientsMap: Record<string, string>;
   clientsNicMap: Record<string, string>;
   clientsList: any[];
+  branchesList?: any[];
   getBillNo: (p: any) => string;
   getClientNic: (p: any) => string;
   getCleanDescription: (p: any) => string;
@@ -1276,6 +1335,7 @@ function PawnDetailsModal({
   const [billNo, setBillNo]               = useState<string>('');
   const [billMonths, setBillMonths]       = useState<string>('3');
   const [billDate, setBillDate]           = useState<string>('');
+  const [billBranchAddress, setBillBranchAddress] = useState<string>('');
   const [billName, setBillName]           = useState<string>('');
   const [billAddress, setBillAddress]     = useState<string>('');
   const [billNic, setBillNic]             = useState<string>('');
@@ -1329,10 +1389,12 @@ function PawnDetailsModal({
       const formattedLastDate = lastD.toLocaleDateString('en-GB');
 
       const cDetails = resolveClientDetails(pawn);
+      const bAddress = getBranchAddress(pawn, branchesList);
 
       setBillNo(bNo);
       setBillMonths('3');
       setBillDate(formattedDate);
+      setBillBranchAddress(bAddress);
       setBillName(cDetails.name);
       setBillAddress(cDetails.address);
       setBillNic(cDetails.nic);
@@ -1358,10 +1420,12 @@ function PawnDetailsModal({
       const formattedLastDate = lastD.toLocaleDateString('en-GB');
 
       const cDetails = resolveClientDetails(pawn);
+      const bAddress = getBranchAddress(pawn, branchesList);
 
       setBillNo(bNo);
       setBillMonths('3');
       setBillDate(formattedDate);
+      setBillBranchAddress(bAddress);
       setBillName(cDetails.name);
       setBillAddress(cDetails.address);
       setBillNic(cDetails.nic);
@@ -1400,7 +1464,7 @@ function PawnDetailsModal({
             <p style="font-size: 11px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
             <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1e293b; margin-top: 4px;">
               <span>Phone: 011 7006588</span>
-              <span>No. 3/B/1, Station Road, Dehiwala.</span>
+              <span style="font-weight: 700;">${billBranchAddress}</span>
             </div>
           </div>
 
@@ -1542,7 +1606,13 @@ function PawnDetailsModal({
               <p className="text-xs font-bold tracking-wide italic text-slate-700 font-sans">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
               <div className="flex justify-between items-center text-xs font-sans font-bold text-slate-800 mt-2 px-1">
                 <span>Phone: 011 7006588</span>
-                <span>No. 3/B/1, Station Road, Dehiwala.</span>
+                <input
+                  type="text"
+                  value={billBranchAddress}
+                  onChange={(e) => setBillBranchAddress(e.target.value)}
+                  className="border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 text-right font-sans font-bold px-2 py-0.5 rounded outline-none text-xs transition-all w-72"
+                  placeholder="Branch Address"
+                />
               </div>
             </div>
 
