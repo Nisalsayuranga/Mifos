@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Plus, Search, FileText, Package, TrendingUp, AlertTriangle,
-  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale
+  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -48,6 +48,7 @@ export default function PawnesPage() {
 
   // Admin branch filter
   const [filterBranch, setFilterBranch] = useState('ALL');
+  const [redemptionReceiptData, setRedemptionReceiptData] = useState<any>(null);
 
   // Form state
   const BILL_PREFIXES = ['1R', '3M', '3R', '6R', '12R', '6M', 'A'];
@@ -534,8 +535,27 @@ export default function PawnesPage() {
 
       const data = await res.json();
       toast.success(`Pawn redeemed! Posted GL Journal Entry: ${data.journalEntryId}`, { id: toastId });
+
+      const calc = calculateRedemption(
+        redeemingPawn.disbursed_amount || 0,
+        redeemDays,
+        redeemInsurance
+      );
+
+      const receiptObj = {
+        pawn: redeemingPawn,
+        journalEntryId: data.journalEntryId,
+        days: redeemDays,
+        insurance: redeemInsurance,
+        principal: redeemingPawn.disbursed_amount || 0,
+        interest: calc.accruedCharges,
+        settlement: calc.settlement,
+        redeemedAt: new Date().toLocaleDateString('en-GB')
+      };
+
       setIsRedeemOpen(false);
       setRedeemingPawn(null);
+      setRedemptionReceiptData(receiptObj);
       loadPawns();
     } catch (err: any) {
       toast.error('Redemption failed', { description: err.message, id: toastId });
@@ -1387,6 +1407,18 @@ export default function PawnesPage() {
         getCleanDescription={getCleanDescription}
         calculateRedemption={calculateRedemption}
       />
+
+      {/* Pawn Redemption / Settlement Receipt Modal */}
+      <RedemptionReceiptModal
+        data={redemptionReceiptData}
+        onClose={() => setRedemptionReceiptData(null)}
+        clientsList={clientsList}
+        clientsMap={clientsMap}
+        branchesList={branches}
+        getBillNo={getBillNo}
+        getClientNic={getClientNic}
+        getCleanDescription={getCleanDescription}
+      />
     </div>
   );
 }
@@ -1518,6 +1550,9 @@ function PawnDetailsModal({
     return { name, address, nic, phone };
   };
 
+  // Auto-print flag: trigger once when pawn first opens
+  const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
+
   useEffect(() => {
     if (pawn) {
       const bNo = getBillNo(pawn);
@@ -1544,8 +1579,20 @@ function PawnDetailsModal({
       setBillAppraised(String(pawn.appraised_value || 0));
       setBillWeight(String(pawn.weight || '12.5'));
       setBillLastDate(formattedLastDate);
+      setHasAutoPrinted(false); // reset for new pawn
     }
   }, [pawn]);
+
+  // Auto-trigger print dialog ~800ms after bill opens (so fields are populated)
+  useEffect(() => {
+    if (pawn && !hasAutoPrinted) {
+      const timer = setTimeout(() => {
+        setHasAutoPrinted(true);
+        handlePrint();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [pawn, hasAutoPrinted]);
 
   if (!pawn) return null;
 
@@ -1704,6 +1751,105 @@ function PawnDetailsModal({
     printWindow.document.close();
   };
 
+  const handleDownloadPdf = () => {
+    // Open print-ready window so user can Save as PDF via browser print dialog
+    const printWin = window.open('', '_blank', 'width=800,height=900');
+    if (!printWin) {
+      toast.error('Popup blocked. Please allow popups and try again.');
+      return;
+    }
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Pawn Bill - ${billNo}</title>
+        <style>
+          @media print {
+            @page { size: A4 portrait; margin: 15mm; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+            .no-print { display: none !important; }
+          }
+          body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; padding: 20px; background: white; color: #0f172a; }
+          .save-btn { position: fixed; top: 12px; right: 12px; background: #1e3a8a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 900; cursor: pointer; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+          .save-btn:hover { background: #1e40af; }
+        </style>
+      </head>
+      <body>
+        <button class="save-btn no-print" onclick="window.print()">⬇ Save as PDF / Print</button>
+        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px;">
+          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px;">
+            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+            <p style="font-size: 11px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1e293b; margin-top: 4px;">
+              <span>Phone: 011 7006588</span>
+              <span style="font-weight: 700;">${billBranchAddress}</span>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 10px;">
+            <div><span>මාස / Months } </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span></div>
+            <div><span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span></div>
+          </div>
+          <div style="font-size: 12px; margin-bottom: 14px; line-height: 1.8;">
+            <div>I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${billName}</span></div>
+            <div>of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${billAddress}</span></div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+              <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${billNic}</span></div>
+              <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${billPhone}</span></div>
+            </div>
+            <div style="margin-top: 4px;">being the lawful owner of the articles mentioned below has sold out right for</div>
+            <div style="margin-top: 4px;">Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 14px; padding: 0 8px;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span></div>
+          </div>
+          <div style="border: 1px solid #94a3b8; border-radius: 6px; padding: 10px; margin-bottom: 14px; background: #f8fafc;">
+            <div style="font-weight: bold; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Articles Description:</div>
+            <div style="font-weight: bold; font-size: 15px; color: #0f172a; margin-bottom: 8px;">${billDesc}</div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 6px; color: #1e293b;">
+              <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
+              <span>Total Weight: <b style="font-family: monospace;">${billWeight} g</b></span>
+            </div>
+          </div>
+          <div style="font-size: 10px; color: #1e293b; margin-bottom: 14px; line-height: 1.4;">
+            <p style="margin: 2px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
+            <p style="font-weight: bold; color: #0f172a; margin: 2px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
+            <p style="font-size: 9.5px; margin: 2px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 10px 0; margin-bottom: 14px;">
+            <div style="width: 58%;">
+              <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 6px; text-align: center; background: #f8fafc; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #475569; display: block;">Rs.</span>
+                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+              </div>
+              <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px;">
+                <span>අවසාන දිනය / Last Date } </span>
+                <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
+              </div>
+              <div style="font-size: 11px; margin-bottom: 4px;">
+                <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
+                <span style="border-bottom: 1px solid #0f172a;">.........................</span>
+              </div>
+              <div style="font-size: 11px;">
+                <span>නම: </span>
+                <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${billName}</span>
+              </div>
+            </div>
+            <div style="width: 38%; text-align: center;">
+              <div style="width: 80px; height: 80px; border: 2px solid #0f172a; border-radius: 6px; margin: 0 auto 8px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #94a3b8;">STAMP</div>
+              <div style="font-size: 15px; font-weight: 900; font-family: monospace; color: #0f172a;">R No. <span style="color: #1e3a8a;">${billNo}</span></div>
+            </div>
+          </div>
+          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-family: monospace; font-weight: bold;">
+            <div>R No. <span style="color: #1e3a8a;">${billNo}</span></div>
+            <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
+          </div>
+        </div>
+        <script>setTimeout(() => { window.print(); }, 500);</script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    toast.success('Print dialog opened — select "Save as PDF" to download.');
+  };
+
   return (
     <Dialog open={!!pawn} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-4xl max-w-4xl w-[95vw] max-h-[94vh] border border-slate-700 shadow-2xl rounded-3xl p-5 bg-slate-950 text-slate-100 flex flex-col overflow-y-auto">
@@ -1724,6 +1870,14 @@ function PawnDetailsModal({
                 className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl"
               >
                 Reset Defaults
+              </Button>
+              <Button
+                onClick={handleDownloadPdf}
+                type="button"
+                variant="outline"
+                className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/60 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+              >
+                <Download className="w-4 h-4" /> Download PDF
               </Button>
               <Button
                 onClick={handlePrint}
@@ -1934,6 +2088,341 @@ function PawnDetailsModal({
               <div className="text-xs font-normal text-slate-600 font-sans">......................................... Signature</div>
             </div>
 
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Sub-Component: Official Pawn Redemption / Settlement Receipt Modal (Print & PDF Auto-Download)
+function RedemptionReceiptModal({
+  data,
+  onClose,
+  clientsList,
+  clientsMap,
+  branchesList,
+  getBillNo,
+  getClientNic,
+  getCleanDescription
+}: {
+  data: any;
+  onClose: () => void;
+  clientsList?: any[];
+  clientsMap?: Record<string, string>;
+  branchesList?: any[];
+  getBillNo: (p: any) => string;
+  getClientNic: (p: any) => string;
+  getCleanDescription: (p: any) => string;
+}) {
+  // Pre-compute all derived values (before any hooks)
+  const resolvedData = data ? (() => {
+    const { pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt } = data;
+    const billNo = pawn ? getBillNo(pawn) : 'RED-001';
+    const pCidStr = String(pawn?.client_id || '').toLowerCase().trim();
+    const clientObj = clientsList?.find((c: any) => {
+      const cId  = String(c.id || '').toLowerCase().trim();
+      const cNic = String(c.nationalId || c.national_id || c.nic || '').toLowerCase().trim();
+      return (cId && cId === pCidStr) || (cNic && cNic === pCidStr);
+    });
+    const cName = pawn?.client_name || pawn?.customerName || (pCidStr && clientsMap?.[pCidStr]) || (clientObj ? `${clientObj.firstName || ''} ${clientObj.lastName || ''}`.trim() : '') || 'S. A. Perera';
+    const cAddress = pawn?.client_address || clientObj?.address || 'Station Road, Dehiwala';
+    const cNic = pawn?.client_nic || clientObj?.nationalId || getClientNic(pawn) || '200125102002';
+    const bAddress = getBranchAddress(pawn, branchesList);
+    return { pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt, billNo, cName, cAddress, cNic, bAddress };
+  })() : null;
+
+  // Auto-trigger print when receipt first appears
+  const [hasAutoPrintedReceipt, setHasAutoPrintedReceipt] = useState(false);
+
+  useEffect(() => {
+    if (data && !hasAutoPrintedReceipt && resolvedData) {
+      const timer = setTimeout(() => {
+        setHasAutoPrintedReceipt(true);
+        // Inline print to avoid calling handlePrint before it's defined
+        const { billNo, cName, cNic, cAddress, bAddress, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt } = resolvedData;
+        const printWindow = window.open('', '_blank', 'width=800,height=900');
+        if (printWindow) {
+          printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Pawn Redemption Receipt - ${billNo}</title><style>@media print{@page{size:A4 portrait;margin:15mm}body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}.no-print{display:none!important}</style></head><body><div style="max-width:650px;margin:0 auto;padding:28px;border:2px solid #6b21a8;border-radius:16px;font-family:sans-serif;color:#0f172a"><div style="text-align:center;border-bottom:2px solid #6b21a8;padding-bottom:12px;margin-bottom:16px"><div style="font-size:11px;font-weight:900;color:#6b21a8;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px">OFFICIAL PAWN REDEMPTION RECEIPT</div><h2 style="font-size:22px;font-weight:900;text-transform:uppercase;color:#581c87;margin:0">RUPASINGHE TRUST INVESTMENTS LTD.</h2><p style="font-size:11px;color:#475569;margin-top:4px">${bAddress}</p></div><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:16px;background:#faf5ff;padding:10px 14px;border-radius:10px;border:1px solid #e9d5ff"><div>Pawn Bill No: <span style="font-family:monospace;color:#6b21a8;font-weight:900">${billNo}</span></div><div>Date: <span style="font-family:monospace">${redeemedAt}</span></div></div><div style="border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;line-height:1.6"><div><strong>Customer:</strong> ${cName}</div><div><strong>NIC:</strong> ${cNic}</div><div><strong>Address:</strong> ${cAddress}</div></div><table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px"><thead><tr style="background:#f3e8ff;color:#581c87"><th style="padding:10px;border:1px solid #e9d5ff;text-align:left">Description</th><th style="padding:10px;border:1px solid #e9d5ff;text-align:right">Amount (LKR)</th></tr></thead><tbody><tr><td style="padding:10px;border:1px solid #e2e8f0">Principal (මූලික ණය)</td><td style="padding:10px;border:1px solid #e2e8f0;font-family:monospace;text-align:right">Rs. ${principal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr><tr><td style="padding:10px;border:1px solid #e2e8f0">Interest - ${days} Days (පොලී)</td><td style="padding:10px;border:1px solid #e2e8f0;font-family:monospace;text-align:right">Rs. ${interest.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr><tr><td style="padding:10px;border:1px solid #e2e8f0">Insurance &amp; Charges (රක්ෂණ)</td><td style="padding:10px;border:1px solid #e2e8f0;font-family:monospace;text-align:right">Rs. ${parseFloat(insurance||'0').toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr><tr style="background:#581c87;color:white"><td style="padding:12px;font-weight:900;text-transform:uppercase">Total Settlement (මුළු ගෙවූ)</td><td style="padding:12px;font-family:monospace;font-weight:900;font-size:16px;text-align:right">Rs. ${settlement.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr></tbody></table><div style="font-size:10px;color:#64748b;margin-bottom:24px">GL Entry: ${journalEntryId||'N/A'}</div><div style="display:flex;justify-content:space-between;margin-top:30px"><div style="text-align:center;font-size:11px"><div style="width:140px;border-bottom:1px solid #0f172a;margin-bottom:4px"></div><span>Customer Signature</span></div><div style="text-align:center;font-size:11px"><div style="width:140px;border-bottom:1px solid #0f172a;margin-bottom:4px"></div><span>Cashier Signature</span></div></div></div><script>setTimeout(()=>{window.print();},500);</script></body></html>`);
+          printWindow.document.close();
+        }
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [data, hasAutoPrintedReceipt]);
+
+  if (!data) return null;
+
+  const { pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt } = resolvedData!;
+  const { billNo, cName, cAddress, cNic, bAddress } = resolvedData!;
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Pawn Redemption Receipt - ${billNo}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          @media print {
+            @page { size: A4 portrait; margin: 15mm; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+          }
+          body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 24px; background: white; color: #0f172a; }
+        </style>
+      </head>
+      <body>
+        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 28px; border: 2px solid #6b21a8; border-radius: 16px;">
+          <div style="text-align: center; border-bottom: 2px solid #6b21a8; padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="font-size: 11px; font-weight: 900; color: #6b21a8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">OFFICIAL PAWN REDEMPTION RECEIPT</div>
+            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #581c87; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+            <p style="font-size: 13px; font-weight: 700; color: #6b21a8; margin: 2px 0 0 0;">උගස් නිදහස් කිරීමේ රසීද පත්‍රය</p>
+            <p style="font-size: 11px; color: #475569; margin-top: 4px;">${bAddress}</p>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 16px; background: #faf5ff; padding: 10px 14px; border-radius: 10px; border: 1px solid #e9d5ff;">
+            <div><span>Pawn Bill No: </span> <span style="font-family: monospace; color: #6b21a8; font-weight: 900;">${billNo}</span></div>
+            <div><span>Redemption Date: </span> <span style="font-family: monospace; color: #0f172a;">${redeemedAt}</span></div>
+          </div>
+
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+            <div><strong>Customer Name (නම):</strong> ${cName}</div>
+            <div><strong>NIC No (හැඳුනුම්පත් අංකය):</strong> ${cNic}</div>
+            <div><strong>Address (ලිපිනය):</strong> ${cAddress}</div>
+            <div><strong>Item Description (උගස් භාණ්ඩය):</strong> ${getCleanDescription(pawn)}</div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+            <thead>
+              <tr style="background: #f3e8ff; color: #581c87; text-align: left;">
+                <th style="padding: 10px; border: 1px solid #e9d5ff;">Payment Description</th>
+                <th style="padding: 10px; border: 1px solid #e9d5ff; text-align: right;">Amount (LKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Principal Loan Amount Disbursed (මූලික ණය මුදල)</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Accrued Interest (${days} Days) (පොලී මුදල)</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Insurance & Service Charges (රක්ෂණ / සේවා ගාස්තු)</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+              <tr style="background: #581c87; color: white;">
+                <td style="padding: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase;">Total Settlement Amount Paid (මුළු ගෙවූ මුදල)</td>
+                <td style="padding: 12px; font-family: monospace; font-weight: 900; font-size: 16px; text-align: right;">Rs. ${settlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="font-size: 10px; color: #64748b; margin-bottom: 24px; font-style: italic;">
+            Posted GL Journal Entry: <span style="font-family: monospace; font-weight: bold; color: #475569;">${journalEntryId || 'N/A'}</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px;">
+            <div style="text-align: center; font-size: 11px;">
+              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
+              <span>Customer Signature / පාරිභෝගික අත්සන</span>
+            </div>
+            <div style="text-align: center; font-size: 11px;">
+              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
+              <span>Cashier / Authorized Signature</span>
+            </div>
+          </div>
+        </div>
+        <script>
+          setTimeout(() => {
+            window.print();
+            window.close();
+          }, 600);
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleDownloadPdf = () => {
+    // Open print-ready popup so user can Save as PDF
+    const printWin = window.open('', '_blank', 'width=800,height=900');
+    if (!printWin) {
+      toast.error('Popup blocked. Please allow popups and try again.');
+      return;
+    }
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Pawn Redemption Receipt - ${billNo}</title>
+        <style>
+          @media print {
+            @page { size: A4 portrait; margin: 15mm; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+            .no-print { display: none !important; }
+          }
+          body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 24px; background: white; color: #0f172a; }
+          .save-btn { position: fixed; top: 12px; right: 12px; background: #6b21a8; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 900; cursor: pointer; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+          .save-btn:hover { background: #7c3aed; }
+        </style>
+      </head>
+      <body>
+        <button class="save-btn no-print" onclick="window.print()">⬇ Save as PDF / Print</button>
+        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 28px; border: 2px solid #6b21a8; border-radius: 16px;">
+          <div style="text-align: center; border-bottom: 2px solid #6b21a8; padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="font-size: 11px; font-weight: 900; color: #6b21a8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">OFFICIAL PAWN REDEMPTION RECEIPT</div>
+            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #581c87; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+            <p style="font-size: 13px; font-weight: 700; color: #6b21a8; margin: 2px 0 0 0;">උගස් නිදහස් කිරීමේ රසීද පත්‍රය</p>
+            <p style="font-size: 11px; color: #475569; margin-top: 4px;">${bAddress}</p>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 16px; background: #faf5ff; padding: 10px 14px; border-radius: 10px; border: 1px solid #e9d5ff;">
+            <div><span>Pawn Bill No: </span> <span style="font-family: monospace; color: #6b21a8; font-weight: 900;">${billNo}</span></div>
+            <div><span>Redemption Date: </span> <span style="font-family: monospace; color: #0f172a;">${redeemedAt}</span></div>
+          </div>
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+            <div><strong>Customer Name (නම):</strong> ${cName}</div>
+            <div><strong>NIC No (හැඳුනුම්පත් අංකය):</strong> ${cNic}</div>
+            <div><strong>Address (ලිපිනය):</strong> ${cAddress}</div>
+            <div><strong>Item Description (උගස් භාණ්ඩය):</strong> ${getCleanDescription(pawn)}</div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+            <thead>
+              <tr style="background: #f3e8ff; color: #581c87; text-align: left;">
+                <th style="padding: 10px; border: 1px solid #e9d5ff;">Payment Description</th>
+                <th style="padding: 10px; border: 1px solid #e9d5ff; text-align: right;">Amount (LKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Principal Loan Amount Disbursed (මූලික ණය මුදල)</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Accrued Interest (${days} Days) (පොලී මුදල)</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Insurance &amp; Service Charges (රක්ෂණ / සේවා ගාස්තු)</td>
+                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+              <tr style="background: #581c87; color: white;">
+                <td style="padding: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase;">Total Settlement Amount Paid (මුළු ගෙවූ මුදල)</td>
+                <td style="padding: 12px; font-family: monospace; font-weight: 900; font-size: 16px; text-align: right;">Rs. ${settlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="font-size: 10px; color: #64748b; margin-bottom: 24px; font-style: italic;">
+            Posted GL Journal Entry: <span style="font-family: monospace; font-weight: bold; color: #475569;">${journalEntryId || 'N/A'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px;">
+            <div style="text-align: center; font-size: 11px;">
+              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
+              <span>Customer Signature / පාරිභෝගික අත්සන</span>
+            </div>
+            <div style="text-align: center; font-size: 11px;">
+              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
+              <span>Cashier / Authorized Signature</span>
+            </div>
+          </div>
+        </div>
+        <script>setTimeout(() => { window.print(); }, 500);</script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    toast.success('Print dialog opened — select "Save as PDF" to download.');
+  };
+
+
+
+  return (
+    <Dialog open={!!data} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl max-w-2xl w-[95vw] border border-purple-200 shadow-2xl rounded-3xl p-6 bg-white text-slate-900">
+        <DialogHeader className="border-b border-purple-100 pb-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-purple-700">
+              <Coins className="w-6 h-6" />
+              <DialogTitle className="text-xl font-black tracking-tight text-purple-900">
+                Pawn Redemption Receipt / උගස් නිදහස් කිරීමේ රසීද පත්‍රය
+              </DialogTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleDownloadPdf}
+                type="button"
+                variant="outline"
+                className="border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+              >
+                <Download className="w-4 h-4" /> Download PDF
+              </Button>
+              <Button
+                onClick={handlePrint}
+                type="button"
+                className="bg-purple-700 hover:bg-purple-800 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
+              >
+                <Printer className="w-4 h-4" /> Print Redemption Bill
+              </Button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {/* Receipt Display Content */}
+        <div className="py-4 space-y-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5 space-y-3">
+            <div className="flex justify-between items-center text-xs font-bold text-purple-900 border-b border-purple-200 pb-2">
+              <span>Pawn Bill No: <strong className="font-mono text-purple-700 text-sm">{billNo}</strong></span>
+              <span>Redemption Date: <strong className="font-mono">{redeemedAt}</strong></span>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-slate-500 font-bold block text-[10px] uppercase">Customer Name</span>
+                <span className="font-black text-slate-900">{cName}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-bold block text-[10px] uppercase">NIC Number</span>
+                <span className="font-mono font-bold text-slate-900">{cNic}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-500 font-bold block text-[10px] uppercase">Item Description</span>
+                <span className="font-bold text-slate-800">{getCleanDescription(pawn)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <table className="w-full text-xs">
+              <thead className="bg-purple-100/60 text-purple-900 font-black uppercase text-[10px]">
+                <tr>
+                  <th className="p-3 text-left">Payment Breakdown</th>
+                  <th className="p-3 text-right">Amount (LKR)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-bold">
+                <tr>
+                  <td className="p-3 text-slate-700">Principal Disbursed Amount (මූලික ණය මුදල)</td>
+                  <td className="p-3 text-right font-mono text-slate-900">Rs. {principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+                <tr>
+                  <td className="p-3 text-slate-700">Accrued Interest ({days} Days) (පොලී මුදල)</td>
+                  <td className="p-3 text-right font-mono text-purple-700">Rs. {interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+                <tr>
+                  <td className="p-3 text-slate-700">Insurance & Service Fee (රක්ෂණ / සේවා ගාස්තු)</td>
+                  <td className="p-3 text-right font-mono text-slate-900">Rs. {parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+                <tr className="bg-purple-900 text-white font-black text-sm">
+                  <td className="p-3.5 uppercase tracking-wider">Total Settlement Paid (මුළු ගෙවූ මුදල)</td>
+                  <td className="p-3.5 text-right font-mono tracking-tight">Rs. {settlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </DialogContent>
