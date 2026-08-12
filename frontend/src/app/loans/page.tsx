@@ -1236,6 +1236,7 @@ export default function PawnesPage() {
         onClose={() => setDetailsPawn(null)}
         clientsMap={clientsMap}
         clientsNicMap={clientsNicMap}
+        clientsList={clientsList}
         getBillNo={getBillNo}
         getClientNic={getClientNic}
         getCleanDescription={getCleanDescription}
@@ -1245,12 +1246,13 @@ export default function PawnesPage() {
   );
 }
 
-// Ultra-Fast Isolated Sub-Component for Pawn Details & Bill Receipt (No Lag, Fits 1 Screen, No Gradients)
+// Ultra-Fast Isolated Sub-Component for Pawn Details & Interactive Bill Receipt (100% Editable Fields)
 function PawnDetailsModal({
   pawn,
   onClose,
   clientsMap,
   clientsNicMap,
+  clientsList,
   getBillNo,
   getClientNic,
   getCleanDescription,
@@ -1260,52 +1262,101 @@ function PawnDetailsModal({
   onClose: () => void;
   clientsMap: Record<string, string>;
   clientsNicMap: Record<string, string>;
+  clientsList: any[];
   getBillNo: (p: any) => string;
   getClientNic: (p: any) => string;
   getCleanDescription: (p: any) => string;
   calculateRedemption: (p: number, d: number, ins: string) => any;
 }) {
-  const [detailsDays, setDetailsDays]                         = useState<number>(1);
-  const [detailsInsurance, setDetailsInsurance]               = useState<string>('50');
-  const [detailsCustomRate, setDetailsCustomRate]             = useState<string>('');
-  const [detailsCustomInterest, setDetailsCustomInterest]     = useState<string>('');
-  const [detailsCustomSettlement, setDetailsCustomSettlement] = useState<string>('');
-  const [detailsCustomAppraised, setDetailsCustomAppraised]   = useState<string>('');
-  const [detailsCustomDisbursed, setDetailsCustomDisbursed]   = useState<string>('');
+  // Inline Editable States directly inside the Bill
+  const [billNo, setBillNo]               = useState<string>('');
+  const [billMonths, setBillMonths]       = useState<string>('3');
+  const [billDate, setBillDate]           = useState<string>('');
+  const [billName, setBillName]           = useState<string>('');
+  const [billAddress, setBillAddress]     = useState<string>('');
+  const [billNic, setBillNic]             = useState<string>('');
+  const [billPhone, setBillPhone]         = useState<string>('');
+  const [billAmount, setBillAmount]       = useState<string>('0');
+  const [billDesc, setBillDesc]           = useState<string>('');
+  const [billAppraised, setBillAppraised] = useState<string>('0');
+  const [billWeight, setBillWeight]       = useState<string>('12.5');
+  const [billLastDate, setBillLastDate]   = useState<string>('');
 
   useEffect(() => {
     if (pawn) {
+      const bNo = getBillNo(pawn);
       const createdDate = pawn.created_at ? new Date(pawn.created_at) : new Date();
-      const today = new Date();
-      const diffTime = Math.abs(today.getTime() - createdDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-      setDetailsDays(diffDays);
-      setDetailsInsurance('50');
+      const formattedDate = createdDate.toLocaleDateString('en-GB');
 
-      const p = pawn.disbursed_amount || 0;
-      const calc = calculateRedemption(p, diffDays, '50');
-      setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-      setDetailsCustomInterest(calc.accruedCharges.toString());
-      setDetailsCustomSettlement(calc.settlement.toString());
-      setDetailsCustomAppraised(String(pawn.appraised_value || 0));
-      setDetailsCustomDisbursed(String(pawn.disbursed_amount || 0));
+      const lastD = new Date(createdDate);
+      lastD.setMonth(lastD.getMonth() + 3);
+      const formattedLastDate = lastD.toLocaleDateString('en-GB');
+
+      const clientObj = (pawn.client_id) ? clientsList?.find((c: any) =>
+        c.id?.toLowerCase() === pawn.client_id?.toLowerCase() ||
+        c.nationalId?.toLowerCase() === pawn.client_id?.toLowerCase() ||
+        c.national_id?.toLowerCase() === pawn.client_id?.toLowerCase()
+      ) : null;
+
+      const cName  = clientsMap[pawn.client_id?.toLowerCase()] || clientObj?.name || clientObj?.full_name || '—';
+      const cAddr  = clientObj?.address || clientObj?.address_line1 || 'Station Road, Dehiwala';
+      const cNic   = getClientNic(pawn);
+      const cPhone = clientObj?.phone || clientObj?.mobile || '011 7006588';
+
+      setBillNo(bNo);
+      setBillMonths('3');
+      setBillDate(formattedDate);
+      setBillName(cName);
+      setBillAddress(cAddr);
+      setBillNic(cNic);
+      setBillPhone(cPhone);
+      setBillAmount(String(pawn.disbursed_amount || 0));
+      setBillDesc(getCleanDescription(pawn));
+      setBillAppraised(String(pawn.appraised_value || 0));
+      setBillWeight(String(pawn.weight || '12.5'));
+      setBillLastDate(formattedLastDate);
     }
   }, [pawn]);
 
   if (!pawn) return null;
 
-  const principal = pawn.disbursed_amount || 0;
-  const { interestRate, accruedCharges, settlement } = calculateRedemption(principal, detailsDays, detailsInsurance);
+  const resetDefaults = () => {
+    if (pawn) {
+      const bNo = getBillNo(pawn);
+      const createdDate = pawn.created_at ? new Date(pawn.created_at) : new Date();
+      const formattedDate = createdDate.toLocaleDateString('en-GB');
 
-  const displayDisbursed  = parseFloat(detailsCustomDisbursed) || pawn.disbursed_amount || 0;
-  const displayAppraised  = parseFloat(detailsCustomAppraised) || pawn.appraised_value || 0;
-  const displayRate       = detailsCustomRate || (interestRate * 100).toFixed(2);
-  const displayInterest   = parseFloat(detailsCustomInterest) || accruedCharges;
-  const displaySettlement = parseFloat(detailsCustomSettlement) || settlement;
+      const lastD = new Date(createdDate);
+      lastD.setMonth(lastD.getMonth() + 3);
+      const formattedLastDate = lastD.toLocaleDateString('en-GB');
+
+      const clientObj = (pawn.client_id) ? clientsList?.find((c: any) =>
+        c.id?.toLowerCase() === pawn.client_id?.toLowerCase() ||
+        c.nationalId?.toLowerCase() === pawn.client_id?.toLowerCase() ||
+        c.national_id?.toLowerCase() === pawn.client_id?.toLowerCase()
+      ) : null;
+
+      const cName  = clientsMap[pawn.client_id?.toLowerCase()] || clientObj?.name || '—';
+      const cAddr  = clientObj?.address || clientObj?.address_line1 || 'Station Road, Dehiwala';
+      const cNic   = getClientNic(pawn);
+      const cPhone = clientObj?.phone || clientObj?.mobile || '011 7006588';
+
+      setBillNo(bNo);
+      setBillMonths('3');
+      setBillDate(formattedDate);
+      setBillName(cName);
+      setBillAddress(cAddr);
+      setBillNic(cNic);
+      setBillPhone(cPhone);
+      setBillAmount(String(pawn.disbursed_amount || 0));
+      setBillDesc(getCleanDescription(pawn));
+      setBillAppraised(String(pawn.appraised_value || 0));
+      setBillWeight(String(pawn.weight || '12.5'));
+      setBillLastDate(formattedLastDate);
+    }
+  };
 
   const handlePrint = () => {
-    const receiptEl = document.getElementById('printable-pawn-receipt');
-    if (!receiptEl) return;
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) return;
     printWindow.document.write(`
@@ -1313,19 +1364,111 @@ function PawnDetailsModal({
       <html>
       <head>
         <meta charset="utf-8"/>
-        <title>Pawn Bill - ${getBillNo(pawn)}</title>
+        <title>Pawn Bill - ${billNo}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
             @page { size: A4 portrait; margin: 15mm; }
             body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
           }
-          body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 20px; background: white; color: #0f172a; }
+          body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; padding: 20px; background: white; color: #0f172a; }
         </style>
       </head>
       <body>
-        <div style="max-width: 650px; margin: 0 auto;">
-          ${receiptEl.innerHTML}
+        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px;">
+          <!-- Header -->
+          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px;">
+            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+            <p style="font-size: 11px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1e293b; margin-top: 4px;">
+              <span>Phone: 011 7006588</span>
+              <span>No. 3/B/1, Station Road, Dehiwala.</span>
+            </div>
+          </div>
+
+          <!-- Top Row: Months & Date -->
+          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 10px;">
+            <div>
+              <span>මාස / Months } </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span>
+            </div>
+            <div>
+              <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span>
+            </div>
+          </div>
+
+          <!-- Customer Declaration -->
+          <div style="font-size: 12px; margin-bottom: 14px; line-height: 1.8;">
+            <div>
+              I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${billName}</span>
+            </div>
+            <div>
+              of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${billAddress}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+              <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${billNic}</span></div>
+              <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${billPhone}</span></div>
+            </div>
+            <div style="margin-top: 4px;">
+              being the lawful owner of the articles mentioned below has sold out right for
+            </div>
+            <div style="margin-top: 4px;">
+              Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 14px; padding: 0 8px;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+            </div>
+          </div>
+
+          <!-- Articles Description & Weight -->
+          <div style="border: 1px solid #94a3b8; border-radius: 6px; padding: 10px; margin-bottom: 14px; background: #f8fafc;">
+            <div style="font-weight: bold; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Articles Description:</div>
+            <div style="font-weight: bold; font-size: 15px; color: #0f172a; margin-bottom: 8px;">${billDesc}</div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 6px; color: #1e293b;">
+              <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
+              <span>Total Weight: <b style="font-family: monospace;">${billWeight} g</b></span>
+            </div>
+          </div>
+
+          <!-- Legal Terms -->
+          <div style="font-size: 10px; color: #1e293b; margin-bottom: 14px; line-height: 1.4;">
+            <p style="margin: 2px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
+            <p style="font-weight: bold; color: #0f172a; margin: 2px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
+            <p style="font-size: 9.5px; margin: 2px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
+          </div>
+
+          <!-- Boxed Amount, Last Date, Signature & Stamp -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 10px 0; margin-bottom: 14px;">
+            <div style="width: 58%;">
+              <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 6px; text-align: center; background: #f8fafc; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #475569; display: block;">Rs.</span>
+                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+              </div>
+              <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px;">
+                <span>අවසාන දිනය / Last Date } </span>
+                <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
+              </div>
+              <div style="font-size: 11px; margin-bottom: 4px;">
+                <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
+                <span style="border-bottom: 1px solid #0f172a;">............................</span>
+              </div>
+              <div style="font-size: 11px;">
+                <span>නම: </span>
+                <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${billName}</span>
+              </div>
+            </div>
+
+            <div style="width: 38%; text-align: center;">
+              <div style="width: 80px; height: 80px; border: 2px solid #0f172a; border-radius: 6px; margin: 0 auto 8px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #94a3b8;">
+                STAMP
+              </div>
+              <div style="font-size: 15px; font-weight: 900; font-family: monospace; color: #0f172a;">
+                R No. <span style="color: #1e3a8a;">${billNo}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Perforated Stub Line -->
+          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-family: monospace; font-weight: bold;">
+            <div>R No. <span style="color: #1e3a8a;">${billNo}</span></div>
+            <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
+          </div>
         </div>
         <script>
           setTimeout(() => {
@@ -1341,337 +1484,228 @@ function PawnDetailsModal({
 
   return (
     <Dialog open={!!pawn} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="w-[98vw] max-w-6xl h-[92vh] max-h-[92vh] border border-slate-700 shadow-2xl rounded-3xl p-5 bg-slate-950 text-slate-100 flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-4xl max-w-4xl w-[95vw] max-h-[94vh] border border-slate-700 shadow-2xl rounded-3xl p-5 bg-slate-950 text-slate-100 flex flex-col overflow-y-auto">
         {/* Modal Header */}
         <DialogHeader className="border-b border-slate-800 pb-3 shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-blue-400">
               <FileText className="w-5 h-5" />
               <DialogTitle className="text-xl font-black tracking-tight text-white">
-                Pawn Ticket Details & Printable Bill
+                Pawn Bill Generator & Interactive Editor
               </DialogTitle>
             </div>
-            <Button
-              onClick={handlePrint}
-              type="button"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
-            >
-              <Printer className="w-4 h-4" /> Print Customer Bill
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={resetDefaults}
+                type="button"
+                variant="outline"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl"
+              >
+                Reset Defaults
+              </Button>
+              <Button
+                onClick={handlePrint}
+                type="button"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
+              >
+                <Printer className="w-4 h-4" /> Print Customer Bill
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
-        {/* Modal Body: 2-Column Side-by-Side Grid fitting exactly 1 screen without scroll */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 overflow-hidden pt-2">
-          {/* Left Column: Live Interest Simulator & Editable Controls */}
-          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between overflow-y-auto space-y-4">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h3 className="text-xs font-black uppercase tracking-widest text-blue-400">Live Simulator (Editable)</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const p = pawn.disbursed_amount || 0;
-                    const calc = calculateRedemption(p, detailsDays, '50');
-                    setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                    setDetailsCustomInterest(calc.accruedCharges.toString());
-                    setDetailsCustomSettlement(calc.settlement.toString());
-                    setDetailsCustomAppraised(String(pawn.appraised_value || 0));
-                    setDetailsCustomDisbursed(String(pawn.disbursed_amount || 0));
-                    setDetailsInsurance('50');
-                  }}
-                  className="text-[10px] font-bold text-blue-400 hover:text-blue-300 underline"
-                >
-                  Reset Defaults
-                </button>
+        {/* Interactive Bill Editor Container */}
+        <div className="py-4 flex justify-center bg-slate-900/80 rounded-2xl border border-slate-800 my-2">
+          <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-300 text-xs font-serif leading-relaxed" id="printable-pawn-receipt">
+            
+            {/* Header */}
+            <div className="text-center border-b-2 border-slate-900 pb-3 mb-4">
+              <h2 className="text-2xl font-black tracking-tight uppercase text-blue-900 font-sans">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+              <p className="text-xs font-bold tracking-wide italic text-slate-700 font-sans">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
+              <div className="flex justify-between items-center text-xs font-sans font-bold text-slate-800 mt-2 px-1">
+                <span>Phone: 011 7006588</span>
+                <span>No. 3/B/1, Station Road, Dehiwala.</span>
               </div>
+            </div>
 
-              {/* Days Input & Slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-slate-300 font-bold text-xs">Simulate Days Elapsed</Label>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="number"
-                      min="1"
-                      max="365"
-                      value={detailsDays}
-                      onChange={e => {
-                        const d = parseInt(e.target.value) || 1;
-                        setDetailsDays(d);
-                        const p = displayDisbursed;
-                        const calc = calculateRedemption(p, d, detailsInsurance);
-                        setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                        setDetailsCustomInterest(calc.accruedCharges.toString());
-                        setDetailsCustomSettlement(calc.settlement.toString());
-                      }}
-                      className="w-16 h-7 bg-blue-500/20 text-blue-300 border border-blue-500/40 text-center font-mono font-black text-xs rounded-lg"
-                    />
-                    <span className="text-[10px] text-slate-400 font-bold">Days</span>
-                  </div>
-                </div>
+            {/* Top Row: Months & Date */}
+            <div className="flex justify-between items-center text-xs mb-3 font-sans font-bold">
+              <div className="flex items-center gap-1">
+                <span>මාස / Months &#125;</span>
                 <input
-                  type="range"
-                  min="1"
-                  max="365"
-                  value={detailsDays}
-                  onChange={e => {
-                    const d = parseInt(e.target.value) || 1;
-                    setDetailsDays(d);
-                    const p = displayDisbursed;
-                    const calc = calculateRedemption(p, d, detailsInsurance);
-                    setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                    setDetailsCustomInterest(calc.accruedCharges.toString());
-                    setDetailsCustomSettlement(calc.settlement.toString());
-                  }}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none"
+                  type="text"
+                  value={billMonths}
+                  onChange={(e) => setBillMonths(e.target.value)}
+                  className="w-16 border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 text-center font-mono font-bold px-1 py-0.5 rounded outline-none text-sm transition-all"
+                  placeholder="3"
                 />
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {[5, 15, 35, 42, 55, 95].map(d => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => {
-                        setDetailsDays(d);
-                        const p = displayDisbursed;
-                        const calc = calculateRedemption(p, d, detailsInsurance);
-                        setDetailsCustomRate((calc.interestRate * 100).toFixed(2));
-                        setDetailsCustomInterest(calc.accruedCharges.toString());
-                        setDetailsCustomSettlement(calc.settlement.toString());
-                      }}
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all ${
-                        detailsDays === d
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Day {d}
-                    </button>
-                  ))}
-                </div>
               </div>
+              <div className="flex items-center gap-1">
+                <span>Date:</span>
+                <input
+                  type="text"
+                  value={billDate}
+                  onChange={(e) => setBillDate(e.target.value)}
+                  className="w-32 border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 text-center font-mono font-bold px-1 py-0.5 rounded outline-none text-xs transition-all"
+                  placeholder="12/08/2026"
+                />
+              </div>
+            </div>
 
-              {/* Financial Inputs Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-slate-300 text-[10px] font-bold">Disbursed Capital (Rs.)</Label>
-                  <Input
-                    type="number"
-                    value={detailsCustomDisbursed}
-                    onChange={e => {
-                      setDetailsCustomDisbursed(e.target.value);
-                      const p = parseFloat(e.target.value) || 0;
-                      const calc = calculateRedemption(p, detailsDays, detailsInsurance);
-                      setDetailsCustomInterest(calc.accruedCharges.toString());
-                      setDetailsCustomSettlement(calc.settlement.toString());
-                    }}
-                    className="h-8 bg-slate-800 border-slate-700 text-white font-mono text-xs font-bold rounded-lg"
+            {/* Customer Declaration */}
+            <div className="space-y-2 text-xs mb-4 leading-relaxed font-sans">
+              <div className="flex flex-wrap items-center gap-1">
+                <span>I the undersigned</span>
+                <input
+                  type="text"
+                  value={billName}
+                  onChange={(e) => setBillName(e.target.value)}
+                  className="flex-1 min-w-[200px] border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded outline-none text-xs transition-all"
+                  placeholder="Customer Name"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <span>of</span>
+                <input
+                  type="text"
+                  value={billAddress}
+                  onChange={(e) => setBillAddress(e.target.value)}
+                  className="flex-1 min-w-[250px] border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-slate-900 font-medium px-2 py-0.5 rounded outline-none text-xs transition-all"
+                  placeholder="Address"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div className="flex items-center gap-1">
+                  <span className="shrink-0">N.I.C. No.</span>
+                  <input
+                    type="text"
+                    value={billNic}
+                    onChange={(e) => setBillNic(e.target.value)}
+                    className="w-full border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 font-mono font-bold px-2 py-0.5 rounded outline-none text-xs transition-all"
+                    placeholder="NIC Number"
                   />
                 </div>
-
-                <div className="space-y-1">
-                  <Label className="text-slate-300 text-[10px] font-bold">Appraised Value (Rs.)</Label>
-                  <Input
-                    type="number"
-                    value={detailsCustomAppraised}
-                    onChange={e => setDetailsCustomAppraised(e.target.value)}
-                    className="h-8 bg-slate-800 border-slate-700 text-amber-300 font-mono text-xs font-bold rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-slate-300 text-[10px] font-bold">Interest Rate (%)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={detailsCustomRate}
-                    onChange={e => {
-                      setDetailsCustomRate(e.target.value);
-                      const r = parseFloat(e.target.value) / 100 || 0;
-                      const p = displayDisbursed;
-                      const ins = parseFloat(detailsInsurance) || 0;
-                      const interest = Math.round(p * r * (detailsDays / 30));
-                      const totalInsInt = interest + ins;
-                      setDetailsCustomInterest(totalInsInt.toString());
-                      setDetailsCustomSettlement((p + totalInsInt).toString());
-                    }}
-                    className="h-8 bg-slate-800 border-slate-700 text-purple-300 font-mono text-xs font-bold rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-slate-300 text-[10px] font-bold">Insurance Cost (Rs.)</Label>
-                  <Input
-                    type="number"
-                    value={detailsInsurance}
-                    onChange={e => {
-                      setDetailsInsurance(e.target.value);
-                      const p = displayDisbursed;
-                      const calc = calculateRedemption(p, detailsDays, e.target.value);
-                      setDetailsCustomInterest(calc.accruedCharges.toString());
-                      setDetailsCustomSettlement(calc.settlement.toString());
-                    }}
-                    className="h-8 bg-slate-800 border-slate-700 text-white font-mono text-xs font-bold rounded-lg"
+                <div className="flex items-center gap-1">
+                  <span className="shrink-0">Phone No.</span>
+                  <input
+                    type="text"
+                    value={billPhone}
+                    onChange={(e) => setBillPhone(e.target.value)}
+                    className="w-full border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-slate-900 font-mono font-medium px-2 py-0.5 rounded outline-none text-xs transition-all"
+                    placeholder="Phone Number"
                   />
                 </div>
               </div>
+              <div className="pt-1">
+                being the lawful owner of the articles mentioned below has sold out right for
+              </div>
+              <div className="flex items-center gap-1 font-bold">
+                <span>Rs.</span>
+                <input
+                  type="number"
+                  value={billAmount}
+                  onChange={(e) => setBillAmount(e.target.value)}
+                  className="w-44 border-b-2 border-emerald-600 bg-emerald-50/80 focus:bg-emerald-100 text-emerald-900 font-mono font-black text-sm px-2 py-0.5 rounded outline-none transition-all"
+                  placeholder="Loan Capital Amount"
+                />
+              </div>
+            </div>
 
-              {/* Accrued Interest & Total Settlement Overrides */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
-                <div className="space-y-1">
-                  <Label className="text-blue-400 text-[10px] font-bold">Accrued Interest + Ins (Rs.)</Label>
-                  <Input
+            {/* Collateral Articles Table & Weight */}
+            <div className="border-2 border-slate-300 rounded-xl p-3 mb-4 bg-slate-50/80 font-sans text-xs">
+              <div className="font-bold text-xs text-slate-600 uppercase tracking-wider mb-1">Articles Description:</div>
+              <textarea
+                rows={2}
+                value={billDesc}
+                onChange={(e) => setBillDesc(e.target.value)}
+                className="w-full border-2 border-blue-500/40 bg-white text-slate-900 font-bold p-2 rounded-lg outline-none text-xs focus:border-blue-600 transition-all resize-none mb-2"
+                placeholder="Collateral Item Description"
+              />
+              <div className="grid grid-cols-2 gap-4 border-t border-slate-300 pt-2 text-xs font-semibold">
+                <div className="flex items-center gap-1">
+                  <span className="shrink-0">Appraised Valuation: Rs.</span>
+                  <input
                     type="number"
-                    value={detailsCustomInterest}
-                    onChange={e => {
-                      setDetailsCustomInterest(e.target.value);
-                      const p = displayDisbursed;
-                      const charges = parseFloat(e.target.value) || 0;
-                      setDetailsCustomSettlement((p + charges).toString());
-                    }}
-                    className="h-9 bg-slate-800 border-blue-500/40 text-blue-300 font-mono text-xs font-black rounded-lg"
+                    value={billAppraised}
+                    onChange={(e) => setBillAppraised(e.target.value)}
+                    className="w-full border-b-2 border-amber-600 bg-amber-50/80 text-amber-900 font-mono font-bold px-2 py-0.5 rounded outline-none text-xs"
                   />
                 </div>
+                <div className="flex items-center gap-1">
+                  <span className="shrink-0">Total Weight:</span>
+                  <input
+                    type="text"
+                    value={billWeight}
+                    onChange={(e) => setBillWeight(e.target.value)}
+                    className="w-20 border-b-2 border-blue-600 bg-blue-50/80 text-slate-900 font-mono font-bold text-center px-1 py-0.5 rounded outline-none text-xs"
+                  />
+                  <span>g</span>
+                </div>
+              </div>
+            </div>
 
-                <div className="space-y-1">
-                  <Label className="text-emerald-400 text-[10px] font-bold">Total Settlement (Rs.)</Label>
-                  <Input
-                    type="number"
-                    value={detailsCustomSettlement}
-                    onChange={e => {
-                      setDetailsCustomSettlement(e.target.value);
-                      const p = displayDisbursed;
-                      const total = parseFloat(e.target.value) || 0;
-                      const charges = Math.max(0, total - p);
-                      setDetailsCustomInterest(charges.toString());
-                    }}
-                    className="h-9 bg-slate-800 border-emerald-500/40 text-emerald-300 font-mono text-xs font-black rounded-lg"
+            {/* Sinhala & Legal Terms */}
+            <div className="text-[10px] text-slate-800 space-y-1 mb-4 leading-normal font-sans bg-slate-100 p-2 rounded-lg border border-slate-200">
+              <p>I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
+              <p className="font-bold text-slate-900">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
+              <p className="text-[9.5px]">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
+            </div>
+
+            {/* Amount Box, Last Date, Signature & Stamp Box */}
+            <div className="grid grid-cols-12 gap-3 items-end mb-4 border-t-2 border-b-2 border-slate-300 py-3 font-sans">
+              {/* Left: Boxed Amount & Last Date */}
+              <div className="col-span-7 space-y-2">
+                <div className="border-2 border-slate-900 rounded-xl p-2 text-center bg-slate-50 shadow-inner">
+                  <span className="text-xs font-bold text-slate-600 block">Rs.</span>
+                  <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                    Rs. {parseFloat(billAmount || '0').toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-xs font-bold">
+                  <span className="shrink-0">අවසාන දිනය / Last Date &#125;</span>
+                  <input
+                    type="text"
+                    value={billLastDate}
+                    onChange={(e) => setBillLastDate(e.target.value)}
+                    className="w-32 border-b-2 border-blue-600 bg-blue-50/80 text-slate-900 font-mono font-bold text-center px-1 py-0.5 rounded outline-none text-xs"
+                  />
+                </div>
+                <div className="text-xs">
+                  <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
+                  <span className="border-b border-slate-800 font-semibold px-2">............................</span>
+                </div>
+                <div className="text-xs">
+                  <span>නම: </span>
+                  <span className="border-b border-slate-800 font-bold text-slate-900 px-2">{billName}</span>
+                </div>
+              </div>
+
+              {/* Right: STAMP Box & Bill Number */}
+              <div className="col-span-5 flex flex-col items-center justify-end text-center space-y-2">
+                <div className="w-24 h-24 border-2 border-dashed border-slate-800 rounded-xl flex items-center justify-center text-xs font-black text-slate-400 bg-slate-50">
+                  STAMP
+                </div>
+                <div className="flex items-center justify-center gap-1 text-sm font-black text-slate-900 font-mono">
+                  <span>R No.</span>
+                  <input
+                    type="text"
+                    value={billNo}
+                    onChange={(e) => setBillNo(e.target.value)}
+                    className="w-28 border-b-2 border-blue-800 bg-blue-50/80 text-blue-900 font-mono font-black text-center px-1 py-0.5 rounded outline-none text-sm"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Total Settlement Badge Card (Solid Dark Slate styling) */}
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mt-auto">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Settlement ({detailsDays} Days)</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-lg font-bold text-slate-400">Rs.</span>
-                <span className="text-3xl font-black text-emerald-400 tracking-tight">
-                  {displaySettlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+            {/* Perforated Stub Line */}
+            <div className="border-t-2 border-dashed border-slate-400 pt-3 flex justify-between items-center text-xs font-mono font-bold font-sans">
+              <div className="flex items-center gap-1">
+                <span>R No.</span>
+                <span className="text-blue-900 font-black">{billNo}</span>
               </div>
-              <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between text-xs font-bold text-slate-400">
-                <span>Accrued Interest: <b className="text-blue-400">Rs. {displayInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></span>
-                <span>Rate: <b className="text-purple-300">{displayRate}%</b></span>
-              </div>
+              <div className="text-xs font-normal text-slate-600 font-sans">......................................... Signature</div>
             </div>
-          </div>
 
-          {/* Right Column: Clean White Print Preview Card */}
-          <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
-            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-3 shrink-0">Print Preview (Exact Voucher Layout)</h3>
-            <div className="flex-1 overflow-y-auto bg-slate-200 p-4 rounded-xl">
-              {/* Outer Wrapper for Print isolation (Matching physical RUPASINGHE TRUST INVESTMENTS LTD bill book.pdf) */}
-              <div className="bg-white text-slate-900 p-6 rounded-xl shadow max-w-xl mx-auto border border-slate-300 text-xs font-serif leading-relaxed" id="printable-pawn-receipt">
-                {/* Header */}
-                <div className="text-center border-b-2 border-slate-900 pb-2 mb-3">
-                  <h2 className="text-xl font-extrabold tracking-tight uppercase text-blue-900 font-sans">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
-                  <p className="text-[10px] font-bold tracking-wide italic text-slate-700 font-sans">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
-                  <div className="flex justify-between items-center text-[10px] font-sans font-semibold text-slate-800 mt-1 px-1">
-                    <span>Phone: 011 7006588</span>
-                    <span>No. 3/B/1, Station Road, Dehiwala.</span>
-                  </div>
-                </div>
-
-                {/* Top Row: Months & Date */}
-                <div className="flex justify-between items-center text-xs mb-2 font-sans font-bold">
-                  <div>
-                    <span className="font-bold">මාස / Months &#125;</span> <span className="border-b border-slate-800 px-3 font-mono text-sm">{detailsDays > 30 ? Math.ceil(detailsDays / 30) : 1}</span>
-                  </div>
-                  <div>
-                    <span>Date: </span> <span className="border-b border-slate-800 px-3 font-mono text-sm">{pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</span>
-                  </div>
-                </div>
-
-                {/* Customer Declaration */}
-                <div className="space-y-1.5 text-[11px] mb-3 leading-normal font-sans">
-                  <div>
-                    I the undersigned <span className="border-b border-slate-800 font-bold px-2 text-slate-900">{clientsMap[pawn.client_id?.toLowerCase()] || '—'}</span>
-                  </div>
-                  <div>
-                    of <span className="border-b border-slate-800 font-medium px-2 text-slate-800">Dehiwala, Sri Lanka</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <div>N.I.C. No. <span className="border-b border-slate-800 font-bold font-mono px-2">{getClientNic(pawn)}</span></div>
-                    <div>Phone No. <span className="border-b border-slate-800 font-mono px-2">011 7006588</span></div>
-                  </div>
-                  <div>
-                    being the lawful owner of the articles mentioned below has sold out right for
-                  </div>
-                  <div>
-                    Rs. <span className="border-b border-slate-800 font-bold font-mono px-2 text-sm">Rs. {displayDisbursed.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {/* Collateral Articles Table & Weight */}
-                <div className="border border-slate-400 rounded p-2 mb-3 bg-slate-50 font-sans text-xs">
-                  <div className="font-bold text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Articles Description:</div>
-                  <div className="font-bold text-slate-900 text-sm mb-2">{getCleanDescription(pawn)}</div>
-                  <div className="flex justify-between items-center text-xs font-semibold border-t border-slate-300 pt-1 text-slate-800">
-                    <span>Appraised Valuation: <b>Rs. {displayAppraised.toLocaleString()}</b></span>
-                    <span>Total Weight: <b className="font-mono">{pawn.weight || '12.5'} g</b></span>
-                  </div>
-                </div>
-
-                {/* Sinhala & Legal Terms */}
-                <div className="text-[9px] text-slate-800 space-y-0.5 mb-3 leading-snug font-sans">
-                  <p>I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
-                  <p className="font-bold text-slate-900">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
-                  <p className="text-[8.5px]">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
-                </div>
-
-                {/* Amount Box, Last Date, Signature & Stamp Box */}
-                <div className="grid grid-cols-12 gap-2 items-end mb-3 border-t border-b border-slate-300 py-2 font-sans">
-                  {/* Left: Boxed Amount & Last Date */}
-                  <div className="col-span-7 space-y-1.5">
-                    <div className="border-2 border-slate-900 rounded p-1.5 text-center bg-slate-50">
-                      <span className="text-xs font-bold text-slate-600 block">Rs.</span>
-                      <span className="text-xl font-black text-slate-900 font-mono tracking-tight">Rs. {displayDisbursed.toLocaleString()}</span>
-                    </div>
-                    <div className="text-[10px] font-bold">
-                      <span>අවසාන දිනය / Last Date &#125; </span>
-                      <span className="border-b border-slate-800 font-mono">
-                        {new Date(new Date(pawn.created_at || Date.now()).setMonth(new Date(pawn.created_at || Date.now()).getMonth() + (detailsDays > 30 ? Math.ceil(detailsDays / 30) : 1))).toLocaleDateString('en-GB')}
-                      </span>
-                    </div>
-                    <div className="text-[10px]">
-                      <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
-                      <span className="border-b border-slate-800">............................</span>
-                    </div>
-                    <div className="text-[10px]">
-                      <span>නම: </span>
-                      <span className="border-b border-slate-800 font-semibold">{clientsMap[pawn.client_id?.toLowerCase()] || '—'}</span>
-                    </div>
-                  </div>
-
-                  {/* Right: STAMP Box & Bill Number */}
-                  <div className="col-span-5 flex flex-col items-center justify-end text-center space-y-2">
-                    <div className="w-20 h-20 border-2 border-slate-800 rounded flex items-center justify-center text-[10px] font-black text-slate-400">
-                      STAMP
-                    </div>
-                    <div className="text-sm font-black text-slate-900 font-mono">
-                      R No. <span className="text-base text-blue-900">{getBillNo(pawn)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Perforated Stub Line */}
-                <div className="border-t-2 border-dashed border-slate-400 pt-2 flex justify-between items-center text-xs font-mono font-bold font-sans">
-                  <div>R No. <span className="text-sm text-blue-900">{getBillNo(pawn)}</span></div>
-                  <div className="text-[10px] font-normal text-slate-600 font-sans">......................................... Signature</div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </DialogContent>
