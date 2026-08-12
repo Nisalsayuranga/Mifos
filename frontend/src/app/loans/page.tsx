@@ -954,7 +954,7 @@ export default function PawnesPage() {
                     {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                   </TableCell>
                   <TableCell className="px-8 py-5">
-                    <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 justify-end">
                       {pawn.status === 'PENDING_APPROVAL' && (
                         <Button
                           variant="outline"
