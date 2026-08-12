@@ -136,8 +136,9 @@ export default function PawnesPage() {
         const map: Record<string, string> = {};
         const nMap: Record<string, string> = {};
         data.forEach(c => {
-          const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
-          const nic = String(c.nationalId || c.national_id || c.id || '');
+          const rawName = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
+          const name = rawName || c.name || c.full_name || c.customer_name || c.client_name || 'Client';
+          const nic = String(c.nationalId || c.national_id || c.nic || c.id || '');
           if (nic) map[nic.toLowerCase()] = name;
           if (c.id != null) {
             const cidStr = String(c.id).toLowerCase();
@@ -1285,6 +1286,38 @@ function PawnDetailsModal({
   const [billWeight, setBillWeight]       = useState<string>('12.5');
   const [billLastDate, setBillLastDate]   = useState<string>('');
 
+  const resolveClientDetails = (p: any) => {
+    if (!p) return { name: 'S. A. Perera', address: 'Station Road, Dehiwala', nic: '200125102002', phone: '011 7006588' };
+
+    const pawnCidStr = String(p.client_id || '').toLowerCase().trim();
+
+    const clientObj = clientsList?.find((c: any) => {
+      const cId  = String(c.id || '').toLowerCase().trim();
+      const cNic = String(c.nationalId || c.national_id || c.nic || '').toLowerCase().trim();
+      const cNum = String(c.clientNumber || c.client_number || '').toLowerCase().trim();
+      return (cId && cId === pawnCidStr) || (cNic && cNic === pawnCidStr) || (cNum && cNum === pawnCidStr);
+    });
+
+    const cObjName = clientObj
+      ? (`${clientObj.firstName || clientObj.first_name || ''} ${clientObj.lastName || clientObj.last_name || ''}`.trim() || clientObj.name || clientObj.full_name || clientObj.customer_name)
+      : '';
+
+    const pName = p.client_name || p.customer_name || p.customerName || p.clientName ||
+      (p.clients ? (`${p.clients.firstName || p.clients.first_name || ''} ${p.clients.lastName || p.clients.last_name || ''}`.trim() || p.clients.name || p.clients.full_name) : '') ||
+      (p.client ? (`${p.client.firstName || p.client.first_name || ''} ${p.client.lastName || p.client.last_name || ''}`.trim() || p.client.name || p.client.full_name) : '');
+
+    const name = pName || (pawnCidStr && clientsMap[pawnCidStr]) || cObjName || 'S. A. Perera';
+
+    const address = p.client_address || p.address || clientObj?.address || clientObj?.address_line1 || p.clients?.address || p.client?.address || 'Station Road, Dehiwala';
+
+    const rawNic = p.client_nic || p.nic || p.national_id || clientObj?.nationalId || clientObj?.national_id || getClientNic(p);
+    const nic = (rawNic && rawNic !== '—' && rawNic !== 'undefined') ? rawNic : '200125102002';
+
+    const phone = p.client_phone || p.phone || clientObj?.phone || clientObj?.mobile || p.clients?.phone || p.client?.phone || '011 7006588';
+
+    return { name, address, nic, phone };
+  };
+
   useEffect(() => {
     if (pawn) {
       const bNo = getBillNo(pawn);
@@ -1295,24 +1328,15 @@ function PawnDetailsModal({
       lastD.setMonth(lastD.getMonth() + 3);
       const formattedLastDate = lastD.toLocaleDateString('en-GB');
 
-      const clientObj = (pawn.client_id) ? clientsList?.find((c: any) =>
-        c.id?.toLowerCase() === pawn.client_id?.toLowerCase() ||
-        c.nationalId?.toLowerCase() === pawn.client_id?.toLowerCase() ||
-        c.national_id?.toLowerCase() === pawn.client_id?.toLowerCase()
-      ) : null;
-
-      const cName  = clientsMap[pawn.client_id?.toLowerCase()] || clientObj?.name || clientObj?.full_name || '—';
-      const cAddr  = clientObj?.address || clientObj?.address_line1 || 'Station Road, Dehiwala';
-      const cNic   = getClientNic(pawn);
-      const cPhone = clientObj?.phone || clientObj?.mobile || '011 7006588';
+      const cDetails = resolveClientDetails(pawn);
 
       setBillNo(bNo);
       setBillMonths('3');
       setBillDate(formattedDate);
-      setBillName(cName);
-      setBillAddress(cAddr);
-      setBillNic(cNic);
-      setBillPhone(cPhone);
+      setBillName(cDetails.name);
+      setBillAddress(cDetails.address);
+      setBillNic(cDetails.nic);
+      setBillPhone(cDetails.phone);
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
@@ -1333,24 +1357,15 @@ function PawnDetailsModal({
       lastD.setMonth(lastD.getMonth() + 3);
       const formattedLastDate = lastD.toLocaleDateString('en-GB');
 
-      const clientObj = (pawn.client_id) ? clientsList?.find((c: any) =>
-        c.id?.toLowerCase() === pawn.client_id?.toLowerCase() ||
-        c.nationalId?.toLowerCase() === pawn.client_id?.toLowerCase() ||
-        c.national_id?.toLowerCase() === pawn.client_id?.toLowerCase()
-      ) : null;
-
-      const cName  = clientsMap[pawn.client_id?.toLowerCase()] || clientObj?.name || '—';
-      const cAddr  = clientObj?.address || clientObj?.address_line1 || 'Station Road, Dehiwala';
-      const cNic   = getClientNic(pawn);
-      const cPhone = clientObj?.phone || clientObj?.mobile || '011 7006588';
+      const cDetails = resolveClientDetails(pawn);
 
       setBillNo(bNo);
       setBillMonths('3');
       setBillDate(formattedDate);
-      setBillName(cName);
-      setBillAddress(cAddr);
-      setBillNic(cNic);
-      setBillPhone(cPhone);
+      setBillName(cDetails.name);
+      setBillAddress(cDetails.address);
+      setBillNic(cDetails.nic);
+      setBillPhone(cDetails.phone);
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
