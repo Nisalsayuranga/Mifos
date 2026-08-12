@@ -882,14 +882,14 @@ export default function PawnesPage() {
         <Table>
           <TableHeader className="bg-slate-50/50 border-b border-slate-100">
             <TableRow>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill #</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer NIC & Name</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Date</TableHead>
-              <TableHead className="px-8 py-5" />
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill #</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer NIC & Name</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Date</TableHead>
+              <TableHead className="px-4 py-3 text-right font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-slate-50">
@@ -912,33 +912,33 @@ export default function PawnesPage() {
             ) : (
               filtered.map(pawn => (
                 <TableRow key={pawn.id} className="group hover:bg-primary/5 transition-all duration-300">
-                  <TableCell className="px-8 py-5 font-black text-primary text-xs tracking-widest">
+                  <TableCell className="px-4 py-3 font-black text-primary text-xs tracking-widest whitespace-nowrap">
                     {getBillNo(pawn)}
                   </TableCell>
-                  <TableCell className="px-8 py-5">
+                  <TableCell className="px-4 py-3">
                     <div className="flex flex-col">
-                      <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-xs">
+                      <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-xs whitespace-nowrap">
                         {getClientNic(pawn)}
                       </span>
                       {pawn.client_id != null && clientsMap[String(pawn.client_id).toLowerCase()] && (
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5 whitespace-nowrap">
                           <UserCheck className="w-3 h-3" />
                           {clientsMap[String(pawn.client_id).toLowerCase()]}
                         </span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="px-8 py-5 font-bold text-slate-700 max-w-[200px] truncate">
+                  <TableCell className="px-4 py-3 font-bold text-slate-700 max-w-[180px] truncate">
                     {getCleanDescription(pawn)}
                   </TableCell>
-                  <TableCell className="px-8 py-5 font-bold text-amber-700">
+                  <TableCell className="px-4 py-3 font-bold text-amber-700 whitespace-nowrap">
                     Rs. {(pawn.appraised_value || 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="px-8 py-5 font-black text-blue-700 text-lg tracking-tighter">
+                  <TableCell className="px-4 py-3 font-black text-blue-700 text-base tracking-tighter whitespace-nowrap">
                     Rs. {(pawn.disbursed_amount || 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="px-8 py-5">
-                    <Badge className={`font-black text-[9px] uppercase tracking-widest px-3 border ${
+                  <TableCell className="px-4 py-3">
+                    <Badge className={`font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 border ${
                       pawn.status === 'PENDING_APPROVAL' 
                         ? "bg-amber-50 text-amber-800 border-amber-200"
                         : pawn.status === 'ACTIVE'
@@ -950,17 +950,17 @@ export default function PawnesPage() {
                       {pawn.status || 'ACTIVE'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="px-8 py-5 text-slate-400 font-bold text-xs uppercase tracking-widest">
+                  <TableCell className="px-4 py-3 text-slate-400 font-bold text-xs uppercase tracking-widest whitespace-nowrap">
                     {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                   </TableCell>
-                  <TableCell className="px-8 py-5">
-                    <div className="flex items-center gap-2 justify-end">
+                  <TableCell className="px-4 py-3 text-right">
+                    <div className="flex items-center gap-1.5 justify-end">
                       {pawn.status === 'PENDING_APPROVAL' && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleApprove(pawn)}
-                          className="h-9 px-3 rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex items-center gap-1 font-bold text-xs"
+                          className="h-8 px-2.5 rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex items-center gap-1 font-bold text-xs shrink-0"
                         >
                           <UserCheck className="h-3.5 w-3.5" />
                           Approve
@@ -970,7 +970,7 @@ export default function PawnesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => openDetails(pawn)}
-                        className="h-9 px-3 rounded-xl border-blue-200 text-blue-700 hover:bg-blue-50 flex items-center gap-1 font-bold text-xs"
+                        className="h-8 px-2.5 rounded-lg border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-100 flex items-center gap-1 font-bold text-xs shrink-0 shadow-sm"
                       >
                         <FileText className="h-3.5 w-3.5" />
                         Print / Details
@@ -980,7 +980,7 @@ export default function PawnesPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => openRedeem(pawn)}
-                          className="h-9 px-3 rounded-xl border-purple-200 text-purple-700 hover:bg-purple-50 flex items-center gap-1 font-bold text-xs"
+                          className="h-8 px-2.5 rounded-lg border-purple-200 text-purple-700 bg-purple-50/50 hover:bg-purple-100 flex items-center gap-1 font-bold text-xs shrink-0 shadow-sm"
                         >
                           <Coins className="h-3.5 w-3.5" />
                           Settle
@@ -990,7 +990,8 @@ export default function PawnesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => openEdit(pawn)}
-                        className="h-9 w-9 p-0 rounded-xl hover:bg-primary/10 hover:text-primary"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 shrink-0"
+                        title="Edit Pawn"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -998,7 +999,8 @@ export default function PawnesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(pawn)}
-                        className="h-9 w-9 p-0 rounded-xl hover:bg-rose-50 hover:text-rose-600"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 shrink-0"
+                        title="Delete Pawn"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
