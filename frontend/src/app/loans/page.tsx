@@ -1571,85 +1571,104 @@ function PawnDetailsModal({
           <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
             <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-3 shrink-0">Print Preview (Exact Voucher Layout)</h3>
             <div className="flex-1 overflow-y-auto bg-slate-200 p-4 rounded-xl">
-              {/* Outer Wrapper for Print isolation */}
-              <div className="bg-white text-slate-900 p-6 rounded-xl shadow max-w-xl mx-auto border border-slate-300 text-xs" id="printable-pawn-receipt">
-                <div className="text-center border-b-2 border-dashed border-slate-300 pb-3 mb-4">
-                  <h2 className="text-lg font-black tracking-tighter uppercase text-slate-900">RUPASINGHE PAWNING</h2>
-                  <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Core Management Hub | Branch Office</p>
-                  <p className="text-[9px] font-medium text-slate-400">Authorized Pawning & Financial Services</p>
+              {/* Outer Wrapper for Print isolation (Matching physical RUPASINGHE TRUST INVESTMENTS LTD bill book.pdf) */}
+              <div className="bg-white text-slate-900 p-6 rounded-xl shadow max-w-xl mx-auto border border-slate-300 text-xs font-serif leading-relaxed" id="printable-pawn-receipt">
+                {/* Header */}
+                <div className="text-center border-b-2 border-slate-900 pb-2 mb-3">
+                  <h2 className="text-xl font-extrabold tracking-tight uppercase text-blue-900 font-sans">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+                  <p className="text-[10px] font-bold tracking-wide italic text-slate-700 font-sans">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
+                  <div className="flex justify-between items-center text-[10px] font-sans font-semibold text-slate-800 mt-1 px-1">
+                    <span>Phone: 011 7006588</span>
+                    <span>No. 3/B/1, Station Road, Dehiwala.</span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 text-xs mb-4 border-b border-slate-100 pb-3">
+                {/* Top Row: Months & Date */}
+                <div className="flex justify-between items-center text-xs mb-2 font-sans font-bold">
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Bill Details</p>
-                    <p className="font-mono font-bold mt-0.5">Bill #: <span className="font-black text-sm text-slate-900">{getBillNo(pawn)}</span></p>
-                    <p className="mt-0.5">Date: <b>{pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</b></p>
-                    <p className="mt-0.5">Status: <span className="font-bold text-emerald-600 uppercase text-[9px] bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">{pawn.status || 'ACTIVE'}</span></p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Customer Details</p>
-                    <p className="font-bold mt-0.5">NIC: <span className="font-mono text-slate-900">{getClientNic(pawn)}</span></p>
-                    <p className="mt-0.5">Name: <b>{clientsMap[pawn.client_id?.toLowerCase()] || '—'}</b></p>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Collateral & Gold Assessment</p>
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-[9px] font-black uppercase text-slate-400">
-                        <th className="py-1">Item Description</th>
-                        <th className="py-1 text-right">Appraised Value</th>
-                        <th className="py-1 text-right">Disbursed Capital</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-slate-100">
-                        <td className="py-2 font-bold text-slate-800">{getCleanDescription(pawn)}</td>
-                        <td className="py-2 text-right font-semibold text-slate-700">Rs. {displayAppraised.toLocaleString()}</td>
-                        <td className="py-2 text-right font-black text-slate-900 text-sm">Rs. {displayDisbursed.toLocaleString()}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="space-y-1.5 border-t border-slate-200 pt-3 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Pawn Capital Loan:</span>
-                    <span className="font-bold">Rs. {displayDisbursed.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Base Interest rate:</span>
-                    <span className="font-semibold">{displayRate}% per month</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Standard Base Monthly Interest / Charges:</span>
-                    <span className="font-semibold text-slate-700">Rs. {displayInterest.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Accrued Days:</span>
-                    <span className="font-semibold">{detailsDays} Days</span>
-                  </div>
-                  <div className="flex justify-between border-t border-slate-100 pt-1.5 text-sm font-black">
-                    <span className="text-slate-800">Total Settlement Value:</span>
-                    <span className="text-slate-900 text-base">Rs. {displaySettlement.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-300 text-[8px] text-slate-400 leading-tight">
-                  <p className="font-bold uppercase text-slate-600 mb-0.5">Terms & Conditions</p>
-                  <p>1. Interest is accrued progressively in slabs as per the Rupasinghe pawning scheme guidelines.</p>
-                  <p>2. A discount rate is applied for early settlements within the first 10 days.</p>
-                  <p className="mt-2 text-center font-bold text-slate-500">Thank you for banking with Rupasinghe Pawning!</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8 mt-8 pt-6 text-center text-xs text-slate-500">
-                  <div>
-                    <div className="border-t border-slate-300 pt-1 font-medium text-[10px]">Customer Signature</div>
+                    <span className="font-bold">මාස / Months &#125;</span> <span className="border-b border-slate-800 px-3 font-mono text-sm">{detailsDays > 30 ? Math.ceil(detailsDays / 30) : 1}</span>
                   </div>
                   <div>
-                    <div className="border-t border-slate-300 pt-1 font-medium text-[10px]">Authorized Officer</div>
+                    <span>Date: </span> <span className="border-b border-slate-800 px-3 font-mono text-sm">{pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</span>
                   </div>
+                </div>
+
+                {/* Customer Declaration */}
+                <div className="space-y-1.5 text-[11px] mb-3 leading-normal font-sans">
+                  <div>
+                    I the undersigned <span className="border-b border-slate-800 font-bold px-2 text-slate-900">{clientsMap[pawn.client_id?.toLowerCase()] || '—'}</span>
+                  </div>
+                  <div>
+                    of <span className="border-b border-slate-800 font-medium px-2 text-slate-800">Dehiwala, Sri Lanka</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <div>N.I.C. No. <span className="border-b border-slate-800 font-bold font-mono px-2">{getClientNic(pawn)}</span></div>
+                    <div>Phone No. <span className="border-b border-slate-800 font-mono px-2">011 7006588</span></div>
+                  </div>
+                  <div>
+                    being the lawful owner of the articles mentioned below has sold out right for
+                  </div>
+                  <div>
+                    Rs. <span className="border-b border-slate-800 font-bold font-mono px-2 text-sm">Rs. {displayDisbursed.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Collateral Articles Table & Weight */}
+                <div className="border border-slate-400 rounded p-2 mb-3 bg-slate-50 font-sans text-xs">
+                  <div className="font-bold text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Articles Description:</div>
+                  <div className="font-bold text-slate-900 text-sm mb-2">{getCleanDescription(pawn)}</div>
+                  <div className="flex justify-between items-center text-xs font-semibold border-t border-slate-300 pt-1 text-slate-800">
+                    <span>Appraised Valuation: <b>Rs. {displayAppraised.toLocaleString()}</b></span>
+                    <span>Total Weight: <b className="font-mono">{pawn.weight || '12.5'} g</b></span>
+                  </div>
+                </div>
+
+                {/* Sinhala & Legal Terms */}
+                <div className="text-[9px] text-slate-800 space-y-0.5 mb-3 leading-snug font-sans">
+                  <p>I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
+                  <p className="font-bold text-slate-900">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
+                  <p className="text-[8.5px]">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
+                </div>
+
+                {/* Amount Box, Last Date, Signature & Stamp Box */}
+                <div className="grid grid-cols-12 gap-2 items-end mb-3 border-t border-b border-slate-300 py-2 font-sans">
+                  {/* Left: Boxed Amount & Last Date */}
+                  <div className="col-span-7 space-y-1.5">
+                    <div className="border-2 border-slate-900 rounded p-1.5 text-center bg-slate-50">
+                      <span className="text-xs font-bold text-slate-600 block">Rs.</span>
+                      <span className="text-xl font-black text-slate-900 font-mono tracking-tight">Rs. {displayDisbursed.toLocaleString()}</span>
+                    </div>
+                    <div className="text-[10px] font-bold">
+                      <span>අවසාන දිනය / Last Date &#125; </span>
+                      <span className="border-b border-slate-800 font-mono">
+                        {new Date(new Date(pawn.created_at || Date.now()).setMonth(new Date(pawn.created_at || Date.now()).getMonth() + (detailsDays > 30 ? Math.ceil(detailsDays / 30) : 1))).toLocaleDateString('en-GB')}
+                      </span>
+                    </div>
+                    <div className="text-[10px]">
+                      <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
+                      <span className="border-b border-slate-800">............................</span>
+                    </div>
+                    <div className="text-[10px]">
+                      <span>නම: </span>
+                      <span className="border-b border-slate-800 font-semibold">{clientsMap[pawn.client_id?.toLowerCase()] || '—'}</span>
+                    </div>
+                  </div>
+
+                  {/* Right: STAMP Box & Bill Number */}
+                  <div className="col-span-5 flex flex-col items-center justify-end text-center space-y-2">
+                    <div className="w-20 h-20 border-2 border-slate-800 rounded flex items-center justify-center text-[10px] font-black text-slate-400">
+                      STAMP
+                    </div>
+                    <div className="text-sm font-black text-slate-900 font-mono">
+                      R No. <span className="text-base text-blue-900">{getBillNo(pawn)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Perforated Stub Line */}
+                <div className="border-t-2 border-dashed border-slate-400 pt-2 flex justify-between items-center text-xs font-mono font-bold font-sans">
+                  <div>R No. <span className="text-sm text-blue-900">{getBillNo(pawn)}</span></div>
+                  <div className="text-[10px] font-normal text-slate-600 font-sans">......................................... Signature</div>
                 </div>
               </div>
             </div>
