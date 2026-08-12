@@ -291,7 +291,7 @@ export default function ClientsPage() {
   // Form State
   const [nic, setNic] = useState('');
   const [firstName, setFirstName] = useState(''); // Mapped to Name with Initials
-  const [lastName, setLastName] = useState('.');  // Fallback placeholder to maintain backward compatibility
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');         // Mapped to TP
   const [address, setAddress] = useState('');
   const [nicFrontImage, setNicFrontImage] = useState<string | null>(null);

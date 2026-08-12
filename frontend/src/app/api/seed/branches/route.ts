@@ -24,6 +24,7 @@ const INITIAL_BRANCHES = [
   { id: 'W2',  name: 'Wattala 2' },
   { id: 'W3',  name: 'Wattala 3' },
   { id: 'W4',  name: 'Wattala 4' },
+  { id: 'KHT', name: 'Kahathuduwa' },
   { id: 'HQ',  name: 'Head Office' },
 ];
 

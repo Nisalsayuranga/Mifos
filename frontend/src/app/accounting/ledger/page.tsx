@@ -52,7 +52,9 @@ const BRANCHES = [
   { id: 'DHW', name: 'Dehiwala' },
   { id: 'PND', name: 'Panadura' },
   { id: 'KTW', name: 'Kottawa' },
-  { id: 'HMG', name: 'Homagama' }
+  { id: 'HMG', name: 'Homagama' },
+  { id: 'KHT', name: 'Kahathuduwa' },
+  { id: 'HQ',  name: 'Head Office' }
 ];
 
 const BILL_PREFIXES = ["1R", "12R", "3R", "6R", "M", "A"];

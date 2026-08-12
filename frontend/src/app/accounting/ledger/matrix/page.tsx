@@ -28,7 +28,7 @@ const MONTH_NAMES = [
 ];
 
 export default function LedgerMatrixPage() {
-  const [selectedYear, setSelectedYear] = useState('2025');
+  const [selectedYear, setSelectedYear] = useState('2026');
   const [matrixData, setMatrixData] = useState<Record<string, BranchMatrixItem>>({});
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,14 +74,14 @@ export default function LedgerMatrixPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
                 <BarChart3 className="w-7 h-7 text-emerald-400" />
-                11 Branches Ledger Progress Matrix
+                14 Branches Ledger Progress Matrix
               </h1>
               <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-bold uppercase tracking-wider">
                 Multi-Branch Audit
               </span>
             </div>
             <p className="text-slate-400 text-sm mt-1">
-              Track month-by-month paper ledger completion and audit flags across all 11 branches.
+              Track month-by-month paper ledger completion and audit flags across all 14 branches.
             </p>
           </div>
         </div>

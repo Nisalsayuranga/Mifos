@@ -895,7 +895,17 @@ export default function PawnesPage() {
                           type="number" 
                           placeholder="10" 
                           value={goldWeight} 
-                          onChange={e => setGoldWeight(e.target.value)} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            setGoldWeight(val);
+                            const wNum = parseFloat(val) || 0;
+                            if (wNum > 0) {
+                              const g = Math.floor(wNum);
+                              const mg = Math.round((wNum - g) * 1000);
+                              setWeightGrams(String(g || ''));
+                              setWeightMg(mg > 0 ? String(mg) : '');
+                            }
+                          }} 
                           className="h-10 bg-white border-slate-200 text-xs"
                         />
                       </div>
