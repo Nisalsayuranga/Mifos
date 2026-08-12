@@ -78,21 +78,22 @@ export default function PawnesPage() {
 
   const getClientNic = (pawn: any) => {
     if (!pawn) return '—';
-    const cid = (pawn.client_id || '').toLowerCase();
-    return clientsNicMap[cid] || pawn.client_id || '—';
+    const cid = String(pawn.client_id || '').toLowerCase();
+    return clientsNicMap[cid] || String(pawn.client_id || '—');
   };
 
   const getBillNo = (pawn: any) => {
     if (!pawn) return '—';
-    const desc = pawn.description || '';
+    const desc = String(pawn.description || '');
     const match = desc.match(/^([A-Za-z0-9]+\s+[0-9A-Za-z]+)\s*\|?\s*(.*)/);
     if (match && match[1]) return match[1].trim();
-    return `#${pawn.id?.substring(0, 8).toUpperCase()}`;
+    const pid = String(pawn.id || '');
+    return `#${pid.substring(0, 8).toUpperCase()}`;
   };
 
   const getCleanDescription = (pawn: any) => {
     if (!pawn) return '—';
-    const desc = pawn.description || '';
+    const desc = String(pawn.description || '');
     const match = desc.match(/^([A-Za-z0-9]+\s+[0-9A-Za-z]+)\s*\|\s*(.*)/);
     if (match && match[2]) return match[2].trim();
     return desc;
@@ -136,11 +137,12 @@ export default function PawnesPage() {
         const nMap: Record<string, string> = {};
         data.forEach(c => {
           const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
-          const nic = c.nationalId || c.national_id || c.id || '';
+          const nic = String(c.nationalId || c.national_id || c.id || '');
           if (nic) map[nic.toLowerCase()] = name;
-          if (c.id) {
-            map[c.id.toLowerCase()] = name;
-            nMap[c.id.toLowerCase()] = nic;
+          if (c.id != null) {
+            const cidStr = String(c.id).toLowerCase();
+            map[cidStr] = name;
+            nMap[cidStr] = nic;
           }
           if (nic) {
             nMap[nic.toLowerCase()] = nic;
@@ -502,10 +504,11 @@ export default function PawnesPage() {
   };
 
   const totalDisbursed = pawns.reduce((s, p) => s + (p.disbursed_amount || 0), 0);
+  const searchLower = (search || '').toLowerCase();
   const filtered = pawns.filter(p =>
-    p.client_id?.toLowerCase().includes(search.toLowerCase()) ||
-    p.description?.toLowerCase().includes(search.toLowerCase()) ||
-    p.id?.toLowerCase().includes(search.toLowerCase())
+    String(p.client_id || '').toLowerCase().includes(searchLower) ||
+    String(p.description || '').toLowerCase().includes(searchLower) ||
+    String(p.id || '').toLowerCase().includes(searchLower)
   );
 
   return (
@@ -916,10 +919,10 @@ export default function PawnesPage() {
                       <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-xs">
                         {getClientNic(pawn)}
                       </span>
-                      {clientsMap[pawn.client_id?.toLowerCase()] && (
+                      {pawn.client_id != null && clientsMap[String(pawn.client_id).toLowerCase()] && (
                         <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5">
                           <UserCheck className="w-3 h-3" />
-                          {clientsMap[pawn.client_id?.toLowerCase()]}
+                          {clientsMap[String(pawn.client_id).toLowerCase()]}
                         </span>
                       )}
                     </div>
