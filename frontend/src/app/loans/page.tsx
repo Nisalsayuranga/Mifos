@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Plus, Search, FileText, Package, TrendingUp, AlertTriangle,
-  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins
+  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -61,12 +61,29 @@ export default function PawnesPage() {
   const [appraisal, setAppraisal]       = useState('');
   const [amount, setAmount]             = useState('');
 
+  // Dedicated Grams & Milligrams Weight State
+  const [weightGrams, setWeightGrams]   = useState('');
+  const [weightMg, setWeightMg]         = useState('');
+
   // Gold Calculator State
   const [showGoldCalc, setShowGoldCalc] = useState(false);
   const [goldPurity, setGoldPurity]     = useState('22K');
   const [goldWeight, setGoldWeight]     = useState('');
   const [goldRate, setGoldRate]         = useState('23500'); // Default market price per gram LKR
   const [goldLtv, setGoldLtv]           = useState('80'); // Default LTV %
+
+  const handleWeightChange = (gVal: string, mgVal: string) => {
+    setWeightGrams(gVal);
+    setWeightMg(mgVal);
+
+    const g = parseFloat(gVal) || 0;
+    const mg = parseFloat(mgVal) || 0;
+    
+    const totalGrams = g + (mg / 1000);
+    const formattedWeight = totalGrams > 0 ? (totalGrams % 1 === 0 ? String(totalGrams) : totalGrams.toFixed(3).replace(/\.?0+$/, '')) : '';
+    
+    setGoldWeight(formattedWeight);
+  };
 
   // Client lookup maps: { nationalId/id -> "First Last" } and { id -> NIC }
   const [clientsMap, setClientsMap]     = useState<Record<string, string>>({});
@@ -258,7 +275,8 @@ export default function PawnesPage() {
   const resetForm = () => {
     setClientId(''); setDescription(''); setAppraisal(''); setAmount('');
     setBillPrefix('1R'); setBillNo(''); setItemType('CH'); setGoldWeight('');
-    setEditingPawn(null); setResolvedName('');
+    setWeightGrams(''); setWeightMg('');
+    setEditingPawn(null); setResolvedName(''); setShowSuggestions(false);
   };
 
   const openAdd = () => { resetForm(); setIsOpen(true); };
@@ -278,6 +296,20 @@ export default function PawnesPage() {
       setDescription(match[3] || desc);
     } else {
       setDescription(desc);
+    }
+
+    // Extract Grams & mg from pawn weight
+    const wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    if (wNum > 0) {
+      const g = Math.floor(wNum);
+      const mg = Math.round((wNum - g) * 1000);
+      setWeightGrams(String(g || ''));
+      setWeightMg(mg > 0 ? String(mg) : '');
+      setGoldWeight(String(wNum));
+    } else {
+      setWeightGrams('');
+      setWeightMg('');
+      setGoldWeight('');
     }
 
     setAppraisal(String(pawn.appraised_value || ''));
@@ -770,9 +802,56 @@ export default function PawnesPage() {
                 <Input
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  placeholder="E.g., 22k Gold Chain, 18g"
+                  placeholder="E.g., 22k Gold Chain"
                   className="h-12 bg-white/50 rounded-xl"
                 />
+              </div>
+
+              {/* Dedicated Grams & Milligrams (mg) Weight Field */}
+              <div className="grid gap-2 p-4 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-50/80 border border-amber-200 rounded-2xl shadow-sm">
+                <div className="flex items-center justify-between">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-amber-900 flex items-center gap-1.5">
+                    <Scale className="w-4 h-4 text-amber-600" />
+                    Item Gold Weight (Grams & Milligrams)
+                  </Label>
+                  {goldWeight && (
+                    <span className="px-2.5 py-0.5 bg-amber-600 text-white font-black text-[10px] rounded-lg tracking-wider shadow-sm">
+                      Weight: {goldWeight} g {weightMg ? `(${weightGrams || 0}g ${weightMg}mg)` : ''}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div className="grid gap-1">
+                    <Label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Grams (g)</Label>
+                    <div className="relative flex items-center">
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="E.g., 12"
+                        value={weightGrams}
+                        onChange={e => handleWeightChange(e.target.value, weightMg)}
+                        className="h-11 bg-white border-amber-200 rounded-xl font-bold text-slate-900 pr-8"
+                      />
+                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">g</span>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <Label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Milligrams (mg)</Label>
+                    <div className="relative flex items-center">
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="E.g., 500"
+                        value={weightMg}
+                        onChange={e => handleWeightChange(weightGrams, e.target.value)}
+                        className="h-11 bg-white border-amber-200 rounded-xl font-bold text-slate-900 pr-10"
+                      />
+                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">mg</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Gold Calculator Collapsible Helper */}
