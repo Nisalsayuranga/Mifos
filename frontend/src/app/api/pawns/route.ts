@@ -95,6 +95,8 @@ export async function POST(request: Request) {
 
     // 1. Resolve valid Client UUID
     let targetClientId = clientId;
+    let fullClientObj: any = null;
+
     if (!isUUID(clientId)) {
       const { data: existingClients } = await adminSupabase
         .from('clients')
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
 
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;
+        fullClientObj = existingClients[0];
       } else {
         const newClientId = crypto.randomUUID();
         const resolvedName = clientName || customerName || '';
@@ -118,10 +121,15 @@ export async function POST(request: Request) {
 
         if (!clientErr && newClient) {
           targetClientId = newClient.id;
+          fullClientObj = newClient;
         } else {
           targetClientId = newClientId;
+          fullClientObj = { firstName: resolvedName, nationalId: clientId };
         }
       }
+    } else {
+      const { data: existingClient } = await adminSupabase.from('clients').select('*').eq('id', clientId).single();
+      if (existingClient) fullClientObj = existingClient;
     }
 
     const pawnId = crypto.randomUUID();
@@ -204,13 +212,20 @@ export async function POST(request: Request) {
       }
     });
 
+    let computedWeight = parseFloat(weight) || 0;
+    if (computedWeight === 0 && Array.isArray(items) && items.length > 0) {
+      items.forEach((it: any) => {
+        computedWeight += (parseFloat(it.weightGrams) || 0) + ((parseFloat(it.weightMg) || 0) / 1000);
+      });
+    }
+
     return NextResponse.json({
       ...pawnData,
-      weight: weight || '',
+      weight: computedWeight > 0 ? computedWeight : '',
       client_id: targetClientId,
       raw_client_uuid: targetClientId,
       items: items || [],
-      client: {
+      client: fullClientObj || {
         firstName: clientName || customerName || '',
         nationalId: isUUID(clientId) ? '' : clientId
       }
