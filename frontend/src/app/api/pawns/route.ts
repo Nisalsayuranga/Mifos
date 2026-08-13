@@ -106,7 +106,6 @@ export async function POST(request: Request) {
       branch_id: targetBranchId,
       created_by_user_id: targetUserId,
       status: 'ACTIVE',
-      weight: String(weight || ''),
       created_at: new Date().toISOString()
     }]).select().single();
 
@@ -178,6 +177,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...pawnData,
+      weight: weight || '',
       client_id: targetClientId,
       raw_client_uuid: targetClientId,
       items: items || [],

@@ -40,7 +40,6 @@ export async function PATCH(request: Request, context: any) {
     if (description) updateObj.description = description;
     if (appraisedValue !== undefined) updateObj.appraised_value = parseFloat(appraisedValue) || 0;
     if (disbursedAmount !== undefined) updateObj.disbursed_amount = parseFloat(disbursedAmount) || 0;
-    if (weight !== undefined) updateObj.weight = String(weight || '');
 
     const { data, error } = await adminSupabase.from('pawns').update(updateObj).eq('id', id).select().single();
 
