@@ -317,7 +317,7 @@ export default function PawnesPage() {
     setEditingPawn(pawn);
     const cid = pawn.client_id || '';
     setClientId(cid);
-    setResolvedName(clientsMap[cid.toLowerCase()] || '');
+    setResolvedName(pawn.clients ? `${pawn.clients.firstName || ''} ${pawn.clients.lastName || ''}`.trim() : (clientsMap[cid.toLowerCase()] || ''));
     
     // Parse description for bill prefix and bill no if present
     const desc = pawn.description || '';
@@ -330,8 +330,12 @@ export default function PawnesPage() {
       setDescription(desc);
     }
 
-    // Extract Grams & mg from pawn weight
-    const wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    // Extract Grams & mg from pawn weight or items
+    let wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    if (wNum <= 0 && Array.isArray(pawn.items) && pawn.items.length > 0) {
+      wNum = pawn.items.reduce((s: number, it: any) => s + (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000), 0);
+    }
+
     if (wNum > 0) {
       const g = Math.floor(wNum);
       const mg = Math.round((wNum - g) * 1000);
@@ -1599,6 +1603,18 @@ function PawnDetailsModal({
       const cDetails = resolveClientDetails(pawn);
       const bAddress = getBranchAddress(pawn, branchesList);
 
+      let wVal = parseFloat(pawn.weight || 0);
+      if (wVal <= 0 && Array.isArray(pawn.items) && pawn.items.length > 0) {
+        wVal = pawn.items.reduce((s: number, it: any) => s + (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000), 0);
+      }
+
+      let formattedWeightStr = '';
+      if (wVal > 0) {
+        const g = Math.floor(wVal);
+        const mg = Math.round((wVal - g) * 1000);
+        formattedWeightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      }
+
       setBillNo(bNo);
       setBillMonths('3');
       setBillDate(formattedDate);
@@ -1610,7 +1626,7 @@ function PawnDetailsModal({
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
-      setBillWeight(String(pawn.weight || ''));
+      setBillWeight(formattedWeightStr || String(pawn.weight || ''));
       setBillLastDate(formattedLastDate);
       setHasAutoPrinted(false); // reset for new pawn
     }

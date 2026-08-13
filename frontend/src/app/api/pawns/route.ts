@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedBranch = searchParams.get('branchId') || searchParams.get('filterBranch');
 
-    let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
+    let query = adminSupabase.from('pawns').select('*, clients(*)').order('created_at', { ascending: false });
 
     if (session) {
       if (session.role === 'TELLER') {
@@ -34,7 +34,20 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Fetch pawn_items manually to avoid missing foreign key relation errors
+    // Fetch clients manually if clients relation join returned null or missing
+    const clientIds = Array.from(new Set((data || []).map((p: any) => p.client_id).filter(Boolean)));
+    let clientsByIdMap: Record<string, any> = {};
+    if (clientIds.length > 0) {
+      const { data: clientRows } = await adminSupabase.from('clients').select('*').in('id', clientIds);
+      if (clientRows) {
+        clientRows.forEach(c => {
+          clientsByIdMap[c.id] = c;
+          if (c.nationalId) clientsByIdMap[c.nationalId] = c;
+        });
+      }
+    }
+
+    // Fetch pawn_items manually
     const pawnIds = data?.map(p => p.id) || [];
     let itemsMap: Record<string, any[]> = {};
     
@@ -50,15 +63,19 @@ export async function GET(request: Request) {
 
     const mappedData = (data || []).map((pawn: any) => {
        const pItems = itemsMap[pawn.id] || [];
+       let totalWeight = 0;
        if (pItems.length > 0) {
-           let totalWeight = 0;
            pItems.forEach((item: any) => {
                totalWeight += (parseFloat(item.weight_grams) || 0) + ((parseFloat(item.weight_mg) || 0) / 1000);
            });
-           pawn.weight = totalWeight;
        }
+       pawn.weight = totalWeight;
+       pawn.items = pItems;
        
-       // Add clients manually in case foreign key is also missing for clients
+       if (!pawn.clients && pawn.client_id && clientsByIdMap[pawn.client_id]) {
+         pawn.clients = clientsByIdMap[pawn.client_id];
+       }
+
        return pawn;
     });
 
@@ -151,24 +168,60 @@ export async function POST(request: Request) {
       throw pawnError;
     }
 
-    // 2. Insert itemized breakdown into pawn_items if provided
+    // 2. Insert itemized breakdown into pawn_items
+    let insertedItems: any[] = [];
     if (Array.isArray(items) && items.length > 0) {
-      const itemRows = items.map((it: any) => ({
+      const itemRows = items.map((it: any) => {
+        let g = parseFloat(it.weightGrams);
+        let mg = parseFloat(it.weightMg);
+        if (isNaN(g) && isNaN(mg) && weight) {
+          const totW = parseFloat(weight) || 0;
+          g = Math.floor(totW);
+          mg = Math.round((totW - g) * 1000);
+        }
+        return {
+          pawn_id: pawnId,
+          item_type: it.itemType || itemType || 'CH',
+          description: it.description || description || 'Collateral Article',
+          weight_grams: !isNaN(g) ? g : (parseFloat(weightGrams) || 0),
+          weight_mg: !isNaN(mg) ? mg : (parseFloat(weightMg) || 0),
+          appraised_value: parseFloat(it.appraisedValue) || parseFloat(appraisedValue) || 0
+        };
+      });
+      const { data: itemRes } = await adminSupabase.from('pawn_items').insert(itemRows).select();
+      if (itemRes) insertedItems = itemRes;
+    } else {
+      let g = parseFloat(weightGrams);
+      let mg = parseFloat(weightMg);
+      if (isNaN(g) && isNaN(mg) && weight) {
+        const totW = parseFloat(weight) || 0;
+        g = Math.floor(totW);
+        mg = Math.round((totW - g) * 1000);
+      }
+      const singleRow = [{
         pawn_id: pawnId,
-        item_type: it.itemType || 'CH',
-        description: it.description || 'Collateral Article',
-        weight_grams: parseFloat(it.weightGrams) || 0,
-        weight_mg: parseFloat(it.weightMg) || 0,
-        appraised_value: parseFloat(it.appraisedValue) || 0
-      }));
-      await adminSupabase.from('pawn_items').insert(itemRows);
+        item_type: itemType || 'CH',
+        description: description || 'Collateral Article',
+        weight_grams: !isNaN(g) ? g : 0,
+        weight_mg: !isNaN(mg) ? mg : 0,
+        appraised_value: parseFloat(appraisedValue) || 0
+      }];
+      const { data: itemRes } = await adminSupabase.from('pawn_items').insert(singleRow).select();
+      if (itemRes) insertedItems = itemRes;
+    }
+
+    let computedWeight = 0;
+    insertedItems.forEach((it: any) => {
+      computedWeight += (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000);
+    });
+    if (computedWeight === 0 && weight) {
+      computedWeight = parseFloat(weight) || 0;
     }
 
     // 3. Automatically sync into stock_items table so it appears in Vault Stock
     if (billNo) {
       const today = new Date().toISOString().split('T')[0];
       if (Array.isArray(items) && items.length > 1) {
-        // Sync each individual item
         const stockRows = items.map((it: any, idx: number) => {
           const g = parseFloat(it.weightGrams) || 0;
           const mg = parseFloat(it.weightMg) || 0;
@@ -188,7 +241,7 @@ export async function POST(request: Request) {
         await adminSupabase.from('stock_items').insert([{
           bill_no: billNo.trim(),
           price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
-          weight: parseFloat(weight) || 0,
+          weight: computedWeight,
           date: today,
           item_type: itemType || 'PAWN',
           status: 'Active',
@@ -212,20 +265,13 @@ export async function POST(request: Request) {
       }
     });
 
-    let computedWeight = parseFloat(weight) || 0;
-    if (computedWeight === 0 && Array.isArray(items) && items.length > 0) {
-      items.forEach((it: any) => {
-        computedWeight += (parseFloat(it.weightGrams) || 0) + ((parseFloat(it.weightMg) || 0) / 1000);
-      });
-    }
-
     return NextResponse.json({
       ...pawnData,
-      weight: computedWeight > 0 ? computedWeight : '',
+      weight: computedWeight,
       client_id: targetClientId,
       raw_client_uuid: targetClientId,
-      items: items || [],
-      client: fullClientObj || {
+      items: insertedItems,
+      clients: fullClientObj || {
         firstName: clientName || customerName || '',
         nationalId: isUUID(clientId) ? '' : clientId
       }
