@@ -1653,7 +1653,11 @@ function PawnDetailsModal({
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
       setBillWeight(String(pawn.weight || ''));
-      setBillLastDate(formatte  const handlePrint = () => {
+      setBillLastDate(formattedLastDate);
+    }
+  };
+
+  const handlePrint = () => {
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) return;
     printWindow.document.write(`
