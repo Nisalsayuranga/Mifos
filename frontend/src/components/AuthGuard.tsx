@@ -11,17 +11,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('user');
+    const isAuth = Boolean(token && storedUser);
 
-    if (token && storedUser) {
-      setIsAuthenticated(true);
-      if (pathname === '/login') {
-        router.push('/');
-      }
-    } else {
-      setIsAuthenticated(false);
-      if (pathname !== '/login') {
-        router.push('/login');
-      }
+    setIsAuthenticated(prev => (prev !== isAuth ? isAuth : prev));
+
+    if (isAuth && pathname === '/login') {
+      router.push('/');
+    } else if (!isAuth && pathname !== '/login') {
+      router.push('/login');
     }
   }, [pathname, router]);
 
