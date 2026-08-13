@@ -178,9 +178,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...pawnData,
-      client_id: clientId,
+      client_id: targetClientId,
       raw_client_uuid: targetClientId,
-      items: items || []
+      items: items || [],
+      client: {
+        firstName: clientName || customerName || '',
+        nationalId: isUUID(clientId) ? '' : clientId
+      }
     }, { status: 201 });
   } catch (error: any) {
     console.error('Pawns POST error:', error);

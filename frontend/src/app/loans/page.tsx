@@ -383,6 +383,7 @@ export default function PawnesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
+          clientName: resolvedName,
           description: fullDescription,
           appraisedValue: appraisal,
           disbursedAmount: amount,
@@ -1669,15 +1670,17 @@ function PawnDetailsModal({
         <style>
           @media print {
             @page { size: A4 portrait; margin: 15mm; }
-            body { 
+            html, body { 
               -webkit-print-color-adjust: exact !important; 
               print-color-adjust: exact !important; 
               background: white !important; 
-              margin: 0; padding: 0; height: 100vh;
+              margin: 0 !important; padding: 0 !important; 
+              height: 100% !important; overflow: hidden !important;
             }
             .bill-container {
               max-width: 100% !important;
-              height: 98vh !important;
+              height: 100% !important;
+              max-height: 250mm !important;
               margin: 0 !important;
               border: none !important;
               display: flex !important;
