@@ -1575,7 +1575,7 @@ function PawnDetailsModal({
 
     const address = p.client_address || p.address || clientObj?.address || clientObj?.address_line1 || p.clients?.address || p.client?.address || '';
 
-    const rawNic = p.client_nic || p.nic || p.national_id || clientObj?.nationalId || clientObj?.national_id || getClientNic(p);
+    const rawNic = p.client_nic || p.nic || p.national_id || p.client?.nationalId || p.client?.national_id || p.clients?.nationalId || p.clients?.national_id || clientObj?.nationalId || clientObj?.national_id || getClientNic(p);
     const nic = (rawNic && rawNic !== '—' && rawNic !== 'undefined') ? rawNic : '';
 
     const phone = p.client_phone || p.phone || clientObj?.phone || clientObj?.mobile || p.clients?.phone || p.client?.phone || '';

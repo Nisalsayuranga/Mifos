@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedBranch = searchParams.get('branchId') || searchParams.get('filterBranch');
 
-    let query = adminSupabase.from('pawns').select('*, pawn_items(*)').order('created_at', { ascending: false });
+    let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
 
     if (session) {
       if (session.role === 'TELLER') {
@@ -34,15 +34,31 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Map pawn_items to weight for the frontend since pawns table doesn't have a weight column
+    // Fetch pawn_items manually to avoid missing foreign key relation errors
+    const pawnIds = data?.map(p => p.id) || [];
+    let itemsMap: Record<string, any[]> = {};
+    
+    if (pawnIds.length > 0) {
+      const { data: allItems } = await adminSupabase.from('pawn_items').select('*').in('pawn_id', pawnIds);
+      if (allItems) {
+         allItems.forEach(item => {
+            if (!itemsMap[item.pawn_id]) itemsMap[item.pawn_id] = [];
+            itemsMap[item.pawn_id].push(item);
+         });
+      }
+    }
+
     const mappedData = (data || []).map((pawn: any) => {
-       if (pawn.pawn_items && pawn.pawn_items.length > 0) {
+       const pItems = itemsMap[pawn.id] || [];
+       if (pItems.length > 0) {
            let totalWeight = 0;
-           pawn.pawn_items.forEach((item: any) => {
+           pItems.forEach((item: any) => {
                totalWeight += (parseFloat(item.weight_grams) || 0) + ((parseFloat(item.weight_mg) || 0) / 1000);
            });
            pawn.weight = totalWeight;
        }
+       
+       // Add clients manually in case foreign key is also missing for clients
        return pawn;
     });
 
