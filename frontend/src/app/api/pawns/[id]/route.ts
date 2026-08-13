@@ -54,7 +54,19 @@ export async function PATCH(request: Request, context: any) {
       }).eq('bill_no', billNo.trim());
     }
 
-    return NextResponse.json(data);
+    // Update pawn_items if weight is provided (assuming single item for simple pawn edit)
+    if (weightGrams !== undefined || weightMg !== undefined) {
+       await adminSupabase.from('pawn_items').update({
+          weight_grams: parseFloat(weightGrams) || 0,
+          weight_mg: parseFloat(weightMg) || 0,
+          appraised_value: parseFloat(appraisedValue) || 0
+       }).eq('pawn_id', id);
+    }
+
+    return NextResponse.json({
+       ...data,
+       weight: parseFloat(weight) || 0
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

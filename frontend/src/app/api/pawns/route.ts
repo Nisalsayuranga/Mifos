@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedBranch = searchParams.get('branchId') || searchParams.get('filterBranch');
 
-    let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
+    let query = adminSupabase.from('pawns').select('*, pawn_items(*)').order('created_at', { ascending: false });
 
     if (session) {
       if (session.role === 'TELLER') {
@@ -33,7 +33,20 @@ export async function GET(request: Request) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return NextResponse.json(data || []);
+
+    // Map pawn_items to weight for the frontend since pawns table doesn't have a weight column
+    const mappedData = (data || []).map((pawn: any) => {
+       if (pawn.pawn_items && pawn.pawn_items.length > 0) {
+           let totalWeight = 0;
+           pawn.pawn_items.forEach((item: any) => {
+               totalWeight += (parseFloat(item.weight_grams) || 0) + ((parseFloat(item.weight_mg) || 0) / 1000);
+           });
+           pawn.weight = totalWeight;
+       }
+       return pawn;
+    });
+
+    return NextResponse.json(mappedData);
   } catch (error: any) {
     console.error('Pawns GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
