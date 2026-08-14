@@ -46,15 +46,51 @@ export async function PATCH(request: Request, context: any) {
     if (error) throw error;
 
     // Update stock item if billNo is present
+    let totWeight = parseFloat(weight) || 0;
+    let g = parseFloat(weightGrams);
+    let mg = parseFloat(weightMg);
+    if (isNaN(g) && isNaN(mg) && totWeight > 0) {
+      g = Math.floor(totWeight);
+      mg = Math.round((totWeight - g) * 1000);
+    }
+    if (isNaN(g)) g = 0;
+    if (isNaN(mg)) mg = 0;
+    if (totWeight === 0 && (g > 0 || mg > 0)) {
+      totWeight = g + (mg / 1000);
+    }
+
     if (billNo) {
       await adminSupabase.from('stock_items').update({
         price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
-        weight: parseFloat(weight) || 0,
+        weight: totWeight,
         item_type: itemType || 'PAWN'
       }).eq('bill_no', billNo.trim());
     }
 
-    return NextResponse.json(data);
+    // Update or Insert pawn_items if weight or items are provided
+    const { data: existingItems } = await adminSupabase.from('pawn_items').select('*').eq('pawn_id', id);
+    if (existingItems && existingItems.length > 0) {
+      await adminSupabase.from('pawn_items').update({
+        weight_grams: g,
+        weight_mg: mg,
+        appraised_value: parseFloat(appraisedValue) || 0,
+        description: description || existingItems[0].description
+      }).eq('id', existingItems[0].id);
+    } else {
+      await adminSupabase.from('pawn_items').insert([{
+        pawn_id: id,
+        item_type: itemType || 'CH',
+        description: description || 'Collateral Article',
+        weight_grams: g,
+        weight_mg: mg,
+        appraised_value: parseFloat(appraisedValue) || 0
+      }]);
+    }
+
+    return NextResponse.json({
+       ...data,
+       weight: totWeight
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

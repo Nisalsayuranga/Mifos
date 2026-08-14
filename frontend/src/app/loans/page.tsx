@@ -317,7 +317,7 @@ export default function PawnesPage() {
     setEditingPawn(pawn);
     const cid = pawn.client_id || '';
     setClientId(cid);
-    setResolvedName(clientsMap[cid.toLowerCase()] || '');
+    setResolvedName(pawn.clients ? `${pawn.clients.firstName || ''} ${pawn.clients.lastName || ''}`.trim() : (clientsMap[cid.toLowerCase()] || ''));
     
     // Parse description for bill prefix and bill no if present
     const desc = pawn.description || '';
@@ -330,8 +330,12 @@ export default function PawnesPage() {
       setDescription(desc);
     }
 
-    // Extract Grams & mg from pawn weight
-    const wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    // Extract Grams & mg from pawn weight or items
+    let wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    if (wNum <= 0 && Array.isArray(pawn.items) && pawn.items.length > 0) {
+      wNum = pawn.items.reduce((s: number, it: any) => s + (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000), 0);
+    }
+
     if (wNum > 0) {
       const g = Math.floor(wNum);
       const mg = Math.round((wNum - g) * 1000);
@@ -383,6 +387,7 @@ export default function PawnesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
+          clientName: resolvedName,
           description: fullDescription,
           appraisedValue: appraisal,
           disbursedAmount: amount,
@@ -1547,11 +1552,11 @@ function PawnDetailsModal({
   const [billAmount, setBillAmount]       = useState<string>('0');
   const [billDesc, setBillDesc]           = useState<string>('');
   const [billAppraised, setBillAppraised] = useState<string>('0');
-  const [billWeight, setBillWeight]       = useState<string>('12.5');
+  const [billWeight, setBillWeight]       = useState<string>('');
   const [billLastDate, setBillLastDate]   = useState<string>('');
 
   const resolveClientDetails = (p: any) => {
-    if (!p) return { name: 'S. A. Perera', address: 'Station Road, Dehiwala', nic: '200125102002', phone: '011 7006588' };
+    if (!p) return { name: '', address: '', nic: '', phone: '' };
 
     const pawnCidStr = String(p.client_id || '').toLowerCase().trim();
 
@@ -1570,14 +1575,14 @@ function PawnDetailsModal({
       (p.clients ? (`${p.clients.firstName || p.clients.first_name || ''} ${p.clients.lastName || p.clients.last_name || ''}`.trim() || p.clients.name || p.clients.full_name) : '') ||
       (p.client ? (`${p.client.firstName || p.client.first_name || ''} ${p.client.lastName || p.client.last_name || ''}`.trim() || p.client.name || p.client.full_name) : '');
 
-    const name = pName || (pawnCidStr && clientsMap[pawnCidStr]) || cObjName || 'S. A. Perera';
+    const name = pName || (pawnCidStr && clientsMap[pawnCidStr]) || cObjName || '';
 
-    const address = p.client_address || p.address || clientObj?.address || clientObj?.address_line1 || p.clients?.address || p.client?.address || 'Station Road, Dehiwala';
+    const address = p.client_address || p.address || clientObj?.address || clientObj?.address_line1 || p.clients?.address || p.client?.address || '';
 
-    const rawNic = p.client_nic || p.nic || p.national_id || clientObj?.nationalId || clientObj?.national_id || getClientNic(p);
-    const nic = (rawNic && rawNic !== '—' && rawNic !== 'undefined') ? rawNic : '200125102002';
+    const rawNic = p.client_nic || p.nic || p.national_id || p.client?.nationalId || p.client?.national_id || p.clients?.nationalId || p.clients?.national_id || clientObj?.nationalId || clientObj?.national_id || getClientNic(p);
+    const nic = (rawNic && rawNic !== '—' && rawNic !== 'undefined') ? rawNic : '';
 
-    const phone = p.client_phone || p.phone || clientObj?.phone || clientObj?.mobile || p.clients?.phone || p.client?.phone || '011 7006588';
+    const phone = p.client_phone || p.phone || clientObj?.phone || clientObj?.mobile || p.clients?.phone || p.client?.phone || '';
 
     return { name, address, nic, phone };
   };
@@ -1599,6 +1604,18 @@ function PawnDetailsModal({
       const cDetails = resolveClientDetails(pawn);
       const bAddress = getBranchAddress(pawn, branchesList);
       const computedWeight = pawn.weight_grams || pawn.weight || (Array.isArray(pawn.pawn_items) && pawn.pawn_items.length > 0 ? pawn.pawn_items.reduce((s: number, i: any) => s + (Number(i.weight_grams) || 0), 0) : '0.0');
+
+      let wVal = parseFloat(pawn.weight || 0);
+      if (wVal <= 0 && Array.isArray(pawn.items) && pawn.items.length > 0) {
+        wVal = pawn.items.reduce((s: number, it: any) => s + (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000), 0);
+      }
+
+      let formattedWeightStr = '';
+      if (wVal > 0) {
+        const g = Math.floor(wVal);
+        const mg = Math.round((wVal - g) * 1000);
+        formattedWeightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      }
 
       setBillNo(bNo);
       setBillMonths(String(pawnTenorMonths));
@@ -1654,7 +1671,7 @@ function PawnDetailsModal({
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
-      setBillWeight(String(pawn.weight || '12.5'));
+      setBillWeight(String(pawn.weight || ''));
       setBillLastDate(formattedLastDate);
     }
   };
@@ -1668,13 +1685,40 @@ function PawnDetailsModal({
       <head>
         <meta charset="utf-8"/>
         <title>Pawn Bill - ${billNo}</title>
-        <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
             @page { size: A4 portrait; margin: 15mm; }
-            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+            html, body { 
+              -webkit-print-color-adjust: exact !important; 
+              print-color-adjust: exact !important; 
+              background: white !important; 
+              margin: 0 !important; padding: 0 !important; 
+              height: 100% !important; overflow: hidden !important;
+            }
+            .bill-container {
+              max-width: 100% !important;
+              height: 100% !important;
+              max-height: 250mm !important;
+              margin: 0 !important;
+              border: none !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              padding: 0 !important;
+            }
+            .stretch-content {
+               flex-grow: 1;
+               display: flex;
+               flex-direction: column;
+            }
+            .push-bottom {
+               margin-top: auto;
+            }
           }
           body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; padding: 20px; background: white; color: #0f172a; }
+          .bill-container {
+            max-width: 700px; margin: 0 auto; background: white; color: #0f172a; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px;
+          }
         </style>
       </head>
       <body>
@@ -1757,20 +1801,89 @@ function PawnDetailsModal({
               </div>
             </div>
 
-            <div style="width: 38%; text-align: center;">
-              <div style="width: 80px; height: 80px; border: 2px solid #0f172a; border-radius: 6px; margin: 0 auto 8px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #94a3b8;">
-                STAMP
+            <!-- Top Row: Months & Date -->
+            <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 14px;">
+              <div>
+                <span>මාස / Months } </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span>
               </div>
-              <div style="font-size: 15px; font-weight: 900; font-family: monospace; color: #0f172a;">
-                R No. <span style="color: #1e3a8a;">${billNo}</span>
+              <div>
+                <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span>
+              </div>
+            </div>
+
+            <!-- Customer Declaration -->
+            <div style="font-size: 14px; margin-bottom: 18px; line-height: 1.8;">
+              <div>
+                I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${billName}</span>
+              </div>
+              <div>
+                of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${billAddress}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+                <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${billNic}</span></div>
+                <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${billPhone}</span></div>
+              </div>
+              <div style="margin-top: 6px;">
+                being the lawful owner of the articles mentioned below has sold out right for
+              </div>
+              <div style="margin-top: 6px;">
+                Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 17px; padding: 0 8px;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+              </div>
+            </div>
+
+            <!-- Articles Description & Weight -->
+            <div style="border: 2px solid #94a3b8; border-radius: 6px; padding: 14px; margin-bottom: 18px; background: #f8fafc;">
+              <div style="font-weight: bold; font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 3px;">Articles Description:</div>
+              <div style="font-weight: bold; font-size: 17px; color: #0f172a; margin-bottom: 10px;">${billDesc}</div>
+              <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 8px; color: #1e293b;">
+                <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
+                <span>Total Weight: <b style="font-family: monospace;">${billWeight} g</b></span>
+              </div>
+            </div>
+
+            <!-- Legal Terms -->
+            <div style="font-size: 12px; color: #1e293b; margin-bottom: 20px; line-height: 1.5;">
+              <p style="margin: 3px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
+              <p style="font-weight: bold; color: #0f172a; margin: 3px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
+              <p style="font-size: 11px; margin: 3px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
+            </div>
+
+            <!-- Boxed Amount, Last Date, Signature & Stamp -->
+            <div class="push-bottom" style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1; padding: 14px 0; margin-bottom: 20px;">
+              <div style="width: 58%;">
+                <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 10px; text-align: center; background: #f8fafc; margin-bottom: 10px;">
+                  <span style="font-size: 13px; font-weight: bold; color: #475569; display: block;">Rs.</span>
+                  <span style="font-size: 26px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+                </div>
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px;">
+                  <span>අවසාන දිනය / Last Date } </span>
+                  <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
+                </div>
+                <div style="font-size: 13px; margin-bottom: 6px;">
+                  <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
+                  <span style="border-bottom: 1px solid #0f172a;">............................</span>
+                </div>
+                <div style="font-size: 13px;">
+                  <span>නම: </span>
+                  <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${billName}</span>
+                </div>
+              </div>
+
+              <div style="width: 38%; text-align: center;">
+                <div style="width: 100px; height: 100px; border: 2px solid #0f172a; border-radius: 6px; margin: 0 auto 10px auto; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: #94a3b8;">
+                  STAMP
+                </div>
+                <div style="font-size: 17px; font-weight: 900; font-family: monospace; color: #0f172a;">
+                  R No. <span style="color: #1e3a8a;">${billNo}</span>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Perforated Stub Line -->
-          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-family: monospace; font-weight: bold;">
+          <div style="border-top: 2px dashed #94a3b8; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-family: monospace; font-weight: bold;">
             <div>R No. <span style="color: #1e3a8a;">${billNo}</span></div>
-            <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
+            <div style="font-weight: normal; font-size: 12px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
           </div>
         </div>
         <script>

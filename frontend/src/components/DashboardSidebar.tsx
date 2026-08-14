@@ -78,10 +78,10 @@ export default function DashboardSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<Record<string, any> | null>(null);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
-  const groupIcons: { [key: string]: any } = {
+  const groupIcons: { [key: string]: React.ElementType } = {
     "Overview": LayoutDashboard,
     "Finance": Wallet,
     "Transactions": ArrowRightLeft,
@@ -93,7 +93,7 @@ export default function DashboardSidebar({
       group.items.some(item => pathname === item.href)
     );
     if (active) {
-      setOpenGroup(active.label);
+      setOpenGroup(prev => (prev !== active.label ? active.label : prev));
     }
   }, [pathname]);
 
