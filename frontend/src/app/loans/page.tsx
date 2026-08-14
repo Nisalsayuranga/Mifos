@@ -379,12 +379,13 @@ export default function PawnesPage() {
       const itemDesc = description.trim() || `${goldPurity} Gold Collateral (${itemType})`;
       const fullDescription = finalBillNo ? `${finalBillNo} | ${itemDesc}` : itemDesc;
 
-      const url    = editingPawn ? `/api/pawns/${editingPawn.id}` : '/api/pawns';
-      const method = editingPawn ? 'PATCH' : 'POST';
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           clientId,
           clientName: resolvedName,
