@@ -1715,120 +1715,149 @@ function PawnDetailsModal({
     }
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank', 'width=800,height=900');
-    if (!printWindow) return;
-    printWindow.document.write(`
+  const getPrintableBillHtml = (targetPawn: any, state: any) => {
+    const p = targetPawn || {};
+
+    const finalBillNo = state.billNo || getBillNo(p) || '—';
+    const createdDate = p.created_at ? new Date(p.created_at) : new Date();
+    const finalDate = state.billDate || createdDate.toLocaleDateString('en-GB');
+
+    const pTenor = parseInt(state.billMonths || p.period_months, 10) || 3;
+    const finalMonths = String(pTenor);
+
+    const lastD = new Date(createdDate);
+    lastD.setMonth(lastD.getMonth() + pTenor);
+    const finalLastDate = state.billLastDate || lastD.toLocaleDateString('en-GB');
+
+    const cDetails = resolveClientDetails(p);
+    const finalName = state.billName || cDetails.name || 'Valued Customer';
+    const finalAddress = state.billAddress || cDetails.address || '—';
+    const finalNic = state.billNic || cDetails.nic || '—';
+    const finalPhone = state.billPhone || cDetails.phone || '—';
+
+    const finalAmount = parseFloat(state.billAmount) || parseFloat(p.disbursed_amount) || 0;
+    const finalAppraised = parseFloat(state.billAppraised) || parseFloat(p.appraised_value) || finalAmount;
+    const finalDesc = state.billDesc || getCleanDescription(p) || 'Gold Collateral';
+    const finalBranchAddress = state.billBranchAddress || getBranchAddress(p, branchesList) || 'Branch Office';
+
+    let wVal = (parseFloat(p.weight_grams) || 0) + ((parseFloat(p.weight_mg) || 0) / 1000);
+    if (wVal <= 0) {
+      wVal = parseFloat(String(p.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    }
+    let finalWeight = state.billWeight;
+    if (!finalWeight || finalWeight === 'g' || finalWeight === '0 g' || finalWeight === '0') {
+      if (wVal > 0) {
+        const g = Math.floor(wVal);
+        const mg = Math.round((wVal - g) * 1000);
+        finalWeight = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      } else {
+        finalWeight = '—';
+      }
+    }
+
+    return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8"/>
-        <title>Pawn Bill - ${billNo}</title>
+        <title>Pawn Bill - ${finalBillNo}</title>
         <style>
           @media print {
-            @page { size: A4 portrait; margin: 15mm; }
+            @page { size: A4 portrait; margin: 10mm 15mm; }
             html, body { 
               -webkit-print-color-adjust: exact !important; 
               print-color-adjust: exact !important; 
               background: white !important; 
               margin: 0 !important; padding: 0 !important; 
-              height: 100% !important; overflow: hidden !important;
             }
-            .bill-container {
-              max-width: 100% !important;
-              height: 100% !important;
-              max-height: 250mm !important;
-              margin: 0 !important;
-              border: none !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: space-between !important;
-              padding: 0 !important;
-            }
-            .stretch-content {
-               flex-grow: 1;
-               display: flex;
-               flex-direction: column;
-            }
-            .push-bottom {
-               margin-top: auto;
-            }
+            .no-print { display: none !important; }
           }
-          body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; padding: 20px; background: white; color: #0f172a; }
-          .bill-container {
-            max-width: 700px; margin: 0 auto; background: white; color: #0f172a; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px;
+          body { 
+            font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; 
+            padding: 20px; 
+            background: white; 
+            color: #0f172a; 
+          }
+          .bill-card {
+            max-width: 650px; 
+            margin: 0 auto; 
+            background: white; 
+            color: #0f172a; 
+            padding: 20px; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px;
           }
         </style>
       </head>
       <body>
-        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px;">
+        <div class="bill-card">
           <!-- Header -->
-          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px;">
-            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
-            <p style="font-size: 11px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
-            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1e293b; margin-top: 4px;">
+          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 12px;">
+            <h2 style="font-size: 20px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
+            <p style="font-size: 10px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
+            <div style="display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 600; color: #1e293b; margin-top: 4px;">
               <span>Phone: 011 7006588</span>
-              <span style="font-weight: 700;">${billBranchAddress}</span>
+              <span style="font-weight: 700;">${finalBranchAddress}</span>
             </div>
           </div>
 
           <!-- Top Row: Months & Date -->
-          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; margin-bottom: 10px;">
             <div>
-              <span>මාස / Months: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span>
+              <span>මාස / Months: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${finalMonths}</span>
             </div>
             <div>
-              <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span>
+              <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${finalDate}</span>
             </div>
           </div>
 
           <!-- Customer Declaration -->
-          <div style="font-size: 12px; margin-bottom: 14px; line-height: 1.8;">
+          <div style="font-size: 11.5px; margin-bottom: 12px; line-height: 1.7;">
             <div>
-              I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${billName}</span>
+              I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${finalName}</span>
             </div>
             <div>
-              of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${billAddress}</span>
+              of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${finalAddress}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 4px;">
-              <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${billNic}</span></div>
-              <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${billPhone}</span></div>
+              <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${finalNic}</span></div>
+              <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${finalPhone}</span></div>
             </div>
             <div style="margin-top: 4px;">
               being the lawful owner of the articles mentioned below has sold out right for
             </div>
             <div style="margin-top: 4px;">
-              Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 14px; padding: 0 8px;">${parseFloat(billAmount || '0').toLocaleString()}</span>
+              Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 15px; padding: 0 8px;">Rs. ${finalAmount.toLocaleString()}</span>
             </div>
           </div>
 
           <!-- Articles Description & Weight -->
-          <div style="border: 1px solid #94a3b8; border-radius: 6px; padding: 10px; margin-bottom: 14px; background: #f8fafc;">
+          <div style="border: 1px solid #94a3b8; border-radius: 6px; padding: 10px; margin-bottom: 12px; background: #f8fafc;">
             <div style="font-weight: bold; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Articles Description:</div>
-            <div style="font-weight: bold; font-size: 15px; color: #0f172a; margin-bottom: 8px;">${billDesc}</div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 6px; color: #1e293b;">
-              <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
-              <span>Total Weight: <b style="font-family: monospace;">${billWeight} g</b></span>
+            <div style="font-weight: bold; font-size: 14px; color: #0f172a; margin-bottom: 6px;">${finalDesc}</div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 6px; color: #1e293b;">
+              <span>Appraised Valuation: <b>Rs. ${finalAppraised.toLocaleString()}</b></span>
+              <span>Total Weight: <b style="font-family: monospace;">${finalWeight}</b></span>
             </div>
           </div>
 
           <!-- Legal Terms -->
-          <div style="font-size: 10px; color: #1e293b; margin-bottom: 14px; line-height: 1.4;">
+          <div style="font-size: 10px; color: #1e293b; margin-bottom: 12px; line-height: 1.4;">
             <p style="margin: 2px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
             <p style="font-weight: bold; color: #0f172a; margin: 2px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
             <p style="font-size: 9.5px; margin: 2px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
           </div>
 
           <!-- Boxed Amount, Last Date, Signature & Stamp -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 10px 0; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 10px 0; margin-bottom: 12px;">
             <div style="width: 58%;">
               <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 6px; text-align: center; background: #f8fafc; margin-bottom: 8px;">
                 <span style="font-size: 11px; font-weight: bold; color: #475569; display: block;">Rs.</span>
-                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">${parseFloat(billAmount || '0').toLocaleString()}</span>
+                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${finalAmount.toLocaleString()}</span>
               </div>
               <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px;">
                 <span>අවසාන දිනය / Last Date: </span>
-                <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
+                <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${finalLastDate}</span>
               </div>
               <div style="font-size: 11px; margin-bottom: 4px;">
                 <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
@@ -1836,202 +1865,57 @@ function PawnDetailsModal({
               </div>
               <div style="font-size: 11px;">
                 <span>නම: </span>
-                <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${billName}</span>
+                <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${finalName}</span>
               </div>
             </div>
 
-            <!-- Top Row: Months & Date -->
-            <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 14px;">
-              <div>
-                <span>මාස / Months } </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span>
+            <div style="width: 38%; text-align: center;">
+              <div style="width: 90px; height: 90px; border: 2px dashed #94a3b8; border-radius: 6px; margin: 0 auto 8px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #94a3b8;">
+                STAMP
               </div>
-              <div>
-                <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span>
-              </div>
-            </div>
-
-            <!-- Customer Declaration -->
-            <div style="font-size: 14px; margin-bottom: 18px; line-height: 1.8;">
-              <div>
-                I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${billName}</span>
-              </div>
-              <div>
-                of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${billAddress}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${billNic}</span></div>
-                <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${billPhone}</span></div>
-              </div>
-              <div style="margin-top: 6px;">
-                being the lawful owner of the articles mentioned below has sold out right for
-              </div>
-              <div style="margin-top: 6px;">
-                Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 17px; padding: 0 8px;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
-              </div>
-            </div>
-
-            <!-- Articles Description & Weight -->
-            <div style="border: 2px solid #94a3b8; border-radius: 6px; padding: 14px; margin-bottom: 18px; background: #f8fafc;">
-              <div style="font-weight: bold; font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 3px;">Articles Description:</div>
-              <div style="font-weight: bold; font-size: 17px; color: #0f172a; margin-bottom: 10px;">${billDesc}</div>
-              <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 8px; color: #1e293b;">
-                <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
-                <span>Total Weight: <b style="font-family: monospace;">${billWeight}</b></span>
-              </div>
-            </div>
-
-            <!-- Legal Terms -->
-            <div style="font-size: 12px; color: #1e293b; margin-bottom: 20px; line-height: 1.5;">
-              <p style="margin: 3px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
-              <p style="font-weight: bold; color: #0f172a; margin: 3px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
-              <p style="font-size: 11px; margin: 3px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
-            </div>
-
-            <!-- Boxed Amount, Last Date, Signature & Stamp -->
-            <div class="push-bottom" style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1; padding: 14px 0; margin-bottom: 20px;">
-              <div style="width: 58%;">
-                <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 10px; text-align: center; background: #f8fafc; margin-bottom: 10px;">
-                  <span style="font-size: 13px; font-weight: bold; color: #475569; display: block;">Rs.</span>
-                  <span style="font-size: 26px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
-                </div>
-                <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px;">
-                  <span>අවසාන දිනය / Last Date } </span>
-                  <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
-                </div>
-                <div style="font-size: 13px; margin-bottom: 6px;">
-                  <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
-                  <span style="border-bottom: 1px solid #0f172a;">............................</span>
-                </div>
-                <div style="font-size: 13px;">
-                  <span>නම: </span>
-                  <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${billName}</span>
-                </div>
-              </div>
-
-              <div style="width: 38%; text-align: center;">
-                <div style="width: 100px; height: 100px; border: 2px solid #0f172a; border-radius: 6px; margin: 0 auto 10px auto; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: #94a3b8;">
-                  STAMP
-                </div>
-                <div style="font-size: 17px; font-weight: 900; font-family: monospace; color: #0f172a;">
-                  R No. <span style="color: #1e3a8a;">${billNo}</span>
-                </div>
+              <div style="font-size: 15px; font-weight: 900; font-family: monospace; color: #0f172a;">
+                R No. <span style="color: #1e3a8a;">${finalBillNo}</span>
               </div>
             </div>
           </div>
 
           <!-- Perforated Stub Line -->
-          <div style="border-top: 2px dashed #94a3b8; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-family: monospace; font-weight: bold;">
-            <div>R No. <span style="color: #1e3a8a;">${billNo}</span></div>
-            <div style="font-weight: normal; font-size: 12px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
+          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-family: monospace; font-weight: bold;">
+            <div>R No. <span style="color: #1e3a8a;">${finalBillNo}</span></div>
+            <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
           </div>
         </div>
         <script>
           setTimeout(() => {
             window.print();
             window.close();
-          }, 600);
+          }, 500);
         </script>
       </body>
       </html>
-    `);
+    `;
+  };
+
+  const handlePrint = (targetPawn?: any) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+    if (!printWindow) return;
+    const html = getPrintableBillHtml(targetPawn || pawn, {
+      billNo, billMonths, billDate, billBranchAddress, billName, billAddress, billNic, billPhone, billAmount, billDesc, billAppraised, billWeight, billLastDate
+    });
+    printWindow.document.write(html);
     printWindow.document.close();
   };
 
   const handleDownloadPdf = () => {
-    // Open print-ready window so user can Save as PDF via browser print dialog
     const printWin = window.open('', '_blank', 'width=800,height=900');
     if (!printWin) {
       toast.error('Popup blocked. Please allow popups and try again.');
       return;
     }
-    printWin.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8"/>
-        <title>Pawn Bill - ${billNo}</title>
-        <style>
-          @media print {
-            @page { size: A4 portrait; margin: 15mm; }
-            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
-            .no-print { display: none !important; }
-          }
-          body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; padding: 20px; background: white; color: #0f172a; }
-          .save-btn { position: fixed; top: 12px; right: 12px; background: #1e3a8a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 900; cursor: pointer; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-          .save-btn:hover { background: #1e40af; }
-        </style>
-      </head>
-      <body>
-        <button class="save-btn no-print" onclick="window.print()">⬇ Save as PDF / Print</button>
-        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px;">
-          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px;">
-            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
-            <p style="font-size: 11px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
-            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1e293b; margin-top: 4px;">
-              <span>Phone: 011 7006588</span>
-              <span style="font-weight: 700;">${billBranchAddress}</span>
-            </div>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 10px;">
-            <div><span>මාස / Months } </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span></div>
-            <div><span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span></div>
-          </div>
-          <div style="font-size: 12px; margin-bottom: 14px; line-height: 1.8;">
-            <div>I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${billName}</span></div>
-            <div>of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${billAddress}</span></div>
-            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
-              <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${billNic}</span></div>
-              <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${billPhone}</span></div>
-            </div>
-            <div style="margin-top: 4px;">being the lawful owner of the articles mentioned below has sold out right for</div>
-            <div style="margin-top: 4px;">Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 14px; padding: 0 8px;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span></div>
-          </div>
-          <div style="border: 1px solid #94a3b8; border-radius: 6px; padding: 10px; margin-bottom: 14px; background: #f8fafc;">
-            <div style="font-weight: bold; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Articles Description:</div>
-            <div style="font-weight: bold; font-size: 15px; color: #0f172a; margin-bottom: 8px;">${billDesc}</div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 6px; color: #1e293b;">
-              <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
-              <span>Total Weight: <b style="font-family: monospace;">${billWeight} g</b></span>
-            </div>
-          </div>
-          <div style="font-size: 10px; color: #1e293b; margin-bottom: 14px; line-height: 1.4;">
-            <p style="margin: 2px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
-            <p style="font-weight: bold; color: #0f172a; margin: 2px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
-            <p style="font-size: 9.5px; margin: 2px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 10px 0; margin-bottom: 14px;">
-            <div style="width: 58%;">
-              <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 6px; text-align: center; background: #f8fafc; margin-bottom: 8px;">
-                <span style="font-size: 11px; font-weight: bold; color: #475569; display: block;">Rs.</span>
-                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
-              </div>
-              <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px;">
-                <span>අවසාන දිනය / Last Date } </span>
-                <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
-              </div>
-              <div style="font-size: 11px; margin-bottom: 4px;">
-                <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
-                <span style="border-bottom: 1px solid #0f172a;">.........................</span>
-              </div>
-              <div style="font-size: 11px;">
-                <span>නම: </span>
-                <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${billName}</span>
-              </div>
-            </div>
-            <div style="width: 38%; text-align: center;">
-              <div style="width: 80px; height: 80px; border: 2px solid #0f172a; border-radius: 6px; margin: 0 auto 8px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #94a3b8;">STAMP</div>
-              <div style="font-size: 15px; font-weight: 900; font-family: monospace; color: #0f172a;">R No. <span style="color: #1e3a8a;">${billNo}</span></div>
-            </div>
-          </div>
-          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-family: monospace; font-weight: bold;">
-            <div>R No. <span style="color: #1e3a8a;">${billNo}</span></div>
-            <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
-          </div>
-        </div>
-        <script>setTimeout(() => { window.print(); }, 500);</script>
-      </body>
-      </html>
-    `);
+    const html = getPrintableBillHtml(pawn, {
+      billNo, billMonths, billDate, billBranchAddress, billName, billAddress, billNic, billPhone, billAmount, billDesc, billAppraised, billWeight, billLastDate
+    });
+    printWin.document.write(html);
     printWin.document.close();
     toast.success('Print dialog opened — select "Save as PDF" to download.');
   };
