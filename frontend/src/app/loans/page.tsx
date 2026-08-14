@@ -383,6 +383,9 @@ export default function PawnesPage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      const url    = editingPawn ? `/api/pawns/${editingPawn.id}` : '/api/pawns';
+      const method = editingPawn ? 'PATCH' : 'POST';
+
       const res = await fetch(url, {
         method,
         headers,
