@@ -90,7 +90,7 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, interestRate, periodMonths, itemType, items } = body;
+    const { clientId, clientName, customerName, phone: clientPhone, address: clientAddress, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, interestRate, periodMonths, itemType, items } = body;
 
     if (!clientId || !disbursedAmount) {
       return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
