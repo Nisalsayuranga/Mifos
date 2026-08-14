@@ -231,15 +231,15 @@ export default function PawnesPage() {
         data.forEach(c => {
           const rawName = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
           const name = rawName || c.name || c.full_name || c.customer_name || c.client_name || 'Client';
-          const nic = String(c.nationalId || c.national_id || c.nic || c.id || '');
-          if (nic) map[nic.toLowerCase()] = name;
+          const nic = String(c.nationalId || c.national_id || c.nic || c.id || '').trim();
+          if (nic) {
+            map[nic.toLowerCase()] = name;
+            nMap[nic.toLowerCase()] = nic;
+          }
           if (c.id != null) {
-            const cidStr = String(c.id).toLowerCase();
+            const cidStr = String(c.id).toLowerCase().trim();
             map[cidStr] = name;
             nMap[cidStr] = nic;
-          }
-          if (nic) {
-            nMap[nic.toLowerCase()] = nic;
           }
         });
         setClientsMap(map);
@@ -290,8 +290,20 @@ export default function PawnesPage() {
   // Resolve customer name when NIC/ID is typed
   const handleClientIdChange = (val: string) => {
     setClientId(val);
-    const name = clientsMap[val.toLowerCase().trim()];
-    setResolvedName(name || '');
+    const cleanVal = val.toLowerCase().trim();
+    let matchedName = clientsMap[cleanVal] || '';
+
+    if (!matchedName && clientsList.length > 0) {
+      const matchedClient = clientsList.find(c => {
+        const nic = String(c.nationalId || c.national_id || c.nic || c.id || '').toLowerCase().trim();
+        return nic === cleanVal;
+      });
+      if (matchedClient) {
+        matchedName = `${matchedClient.firstName || matchedClient.first_name || ''} ${matchedClient.lastName || matchedClient.last_name || ''}`.trim();
+      }
+    }
+
+    setResolvedName(matchedName || '');
     setShowSuggestions(true);
     setActiveSuggestion(0);
   };
@@ -312,7 +324,7 @@ export default function PawnesPage() {
     setEditingPawn(null); setResolvedName(''); setShowSuggestions(false);
   };
 
-  const openAdd = () => { resetForm(); setIsOpen(true); };
+  const openAdd = () => { resetForm(); loadClients(); setIsOpen(true); };
 
   const openEdit = (pawn: any) => {
     setEditingPawn(pawn);
