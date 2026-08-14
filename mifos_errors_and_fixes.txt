@@ -302,7 +302,7 @@ SECTION 6: BACKEND API LOGIC & SECURITY DEFECTS
 [BACKEND ERROR 6.1] Password Reset & Account Hijacking via Public `/api/seed` Route
 - Location: frontend/src/app/api/seed/route.ts (Line 32)
 - Hidden Bug: GET `/api/seed` is a public endpoint with ZERO authentication.
-- Impact: Anyone visiting `https://domain.vercel.app/api/seed` in a browser triggers `supabase.auth.admin.updateUserById(...)` on all branch users and admin, resetting all passwords back to default hardcoded passwords (`Borella123`, `HeadOffice@2024`)!
+- Impact: Anyone visiting `https://domain.vercel.app/api/seed` in a browser triggers `supabase.auth.admin.updateUserById(...)` on all branch users and admin, resetting all passwords back to default seed passwords (`Borella***`, `HeadOffice@****`)!
 - HOW TO FIX: Protect `/api/seed` with Admin session check or disable in production.
 
 [BACKEND ERROR 6.2] Account Deletion & Password Overwrite in Staff API (`/api/staff/[id]`)

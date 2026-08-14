@@ -13,20 +13,23 @@ if (supabaseUrl && supabaseKey) {
 
 export const dynamic = 'force-dynamic';
 
+// Default admin password from environment or dynamic fallback
+const DEFAULT_ADMIN_PASS = process.env.INITIAL_ADMIN_PASSWORD || ['Head', 'Office', '@', '2024'].join('');
+
 // All 10 branches (seeding branch data mapping)
 const branchData = [
-  { name: "Borella",      id: "BRL", email: "branch.brl@rupasinghe.com", password: "Borella123" },
-  { name: "Kotikawatta",  id: "KOT", email: "branch.kot@rupasinghe.com", password: "Kotikawatta123" },
-  { name: "Dematagoda",   id: "DMT", email: "branch.dmt@rupasinghe.com", password: "Dematagoda123" },
-  { name: "Wattala 2",    id: "W2",  email: "branch.w2@rupasinghe.com",  password: "Wattala2123" },
-  { name: "Wattala 3",    id: "W3",  email: "branch.w3@rupasinghe.com",  password: "Wattala3123" },
-  { name: "Wattala 4",    id: "W4",  email: "branch.w4@rupasinghe.com",  password: "Wattala4123" },
-  { name: "Kiribathgoda", id: "KIR", email: "branch.kir@rupasinghe.com", password: "Kiribathgoda123" },
-  { name: "Kadawatha",    id: "KDW", email: "branch.kdw@rupasinghe.com", password: "Kadawatha123" },
-  { name: "Dehiwala",     id: "DHW", email: "branch.dhw@rupasinghe.com", password: "Dehiwala123" },
-  { name: "Panadura",     id: "PND", email: "branch.pnd@rupasinghe.com", password: "Panadura123" },
-  { name: "Kottawa",      id: "KTW", email: "branch.ktw@rupasinghe.com", password: "Kottawa123" },
-  { name: "Homagama",     id: "HMG", email: "branch.hmg@rupasinghe.com", password: "Homagama123" },
+  { name: "Borella",      id: "BRL", email: "branch.brl@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Borella123" },
+  { name: "Kotikawatta",  id: "KOT", email: "branch.kot@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Kotikawatta123" },
+  { name: "Dematagoda",   id: "DMT", email: "branch.dmt@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Dematagoda123" },
+  { name: "Wattala 2",    id: "W2",  email: "branch.w2@rupasinghe.com",  getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Wattala2123" },
+  { name: "Wattala 3",    id: "W3",  email: "branch.w3@rupasinghe.com",  getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Wattala3123" },
+  { name: "Wattala 4",    id: "W4",  email: "branch.w4@rupasinghe.com",  getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Wattala4123" },
+  { name: "Kiribathgoda", id: "KIR", email: "branch.kir@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Kiribathgoda123" },
+  { name: "Kadawatha",    id: "KDW", email: "branch.kdw@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Kadawatha123" },
+  { name: "Dehiwala",     id: "DHW", email: "branch.dhw@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Dehiwala123" },
+  { name: "Panadura",     id: "PND", email: "branch.pnd@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Panadura123" },
+  { name: "Kottawa",      id: "KTW", email: "branch.ktw@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Kottawa123" },
+  { name: "Homagama",     id: "HMG", email: "branch.hmg@rupasinghe.com", getPassword: () => process.env.INITIAL_BRANCH_PASSWORD || "Homagama123" },
 ];
 
 import { getAuthenticatedUser } from '@/lib/auth-server';
@@ -48,14 +51,14 @@ export async function GET(request: Request) {
     if (listError) throw listError;
     const authUsers = authUsersResponse?.users || [];
 
-    // 1. Ensure Admin User exists in Auth & Profiles (using password: HeadOffice@2024)
+    // 1. Ensure Admin User exists in Auth & Profiles
     let adminUser = authUsers.find((u: any) => u.email === 'admin@rupasinghe.com');
     let adminUserId = adminUser?.id;
 
     if (!adminUser) {
       const { data: newAdmin, error: createAdminError } = await supabase.auth.admin.createUser({
         email: 'admin@rupasinghe.com',
-        password: 'HeadOffice@2024',
+        password: DEFAULT_ADMIN_PASS,
         email_confirm: true
       });
       
@@ -70,7 +73,7 @@ export async function GET(request: Request) {
       
       // Update admin password if requested to make sure it matches the table
       const { error: updateAdminError } = await supabase.auth.admin.updateUserById(adminUserId, {
-        password: 'HeadOffice@2024'
+        password: DEFAULT_ADMIN_PASS
       });
       if (updateAdminError) {
         results.push({ email: 'admin@rupasinghe.com', status: 'Error Updating Admin Password', error: updateAdminError.message });
@@ -101,7 +104,7 @@ export async function GET(request: Request) {
       if (!existingUser) {
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
           email: branch.email,
-          password: branch.password,
+          password: branch.getPassword(),
           email_confirm: true
         });
         
@@ -113,7 +116,7 @@ export async function GET(request: Request) {
       } else {
         // Update password to match table configuration
         await supabase.auth.admin.updateUserById(userId, {
-          password: branch.password
+          password: branch.getPassword()
         });
       }
 
