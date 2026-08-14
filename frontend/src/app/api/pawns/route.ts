@@ -229,13 +229,12 @@ export async function POST(request: Request) {
       created_at: new Date().toISOString()
     }]);
 
-    await recordAuditLog({
+    await recordAuditLog(session, {
       action: 'ORIGINATE_PAWN',
-      entity: 'pawns',
-      entityId: pawnId,
-      actorId: targetUserId,
+      resource: 'pawns',
       branchId: targetBranchId,
-      details: { disbursedAmount: finalDisbursed, billNo, clientId: targetClientId }
+      userId: targetUserId,
+      details: { pawnId, disbursedAmount: finalDisbursed, billNo, clientId: targetClientId }
     });
 
     // Attach client details to response
