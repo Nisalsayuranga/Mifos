@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedBranch = searchParams.get('branchId') || searchParams.get('filterBranch');
 
-    let query = adminSupabase.from('pawns').select('*, clients(*), pawn_items(*)').order('created_at', { ascending: false });
+    let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
 
     if (session) {
       if (session.role === 'TELLER') {
