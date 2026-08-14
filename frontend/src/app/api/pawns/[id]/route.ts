@@ -27,7 +27,7 @@ export async function PATCH(request: Request, context: any) {
     if (clientId && !isUUID(clientId)) {
       const { data: existingClients } = await adminSupabase
         .from('clients')
-        .select('id')
+        .select('id, phone, address')
         .or(`nationalId.eq.${clientId},id.eq.${clientId}`);
 
       if (existingClients && existingClients.length > 0) {
