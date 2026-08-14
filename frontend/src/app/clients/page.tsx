@@ -428,6 +428,7 @@ export default function ClientsPage() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     if (!nic || !firstName) {
       toast.error("Missing Information", {
         description: "NIC and Name with Initials are required."

@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields (nic, firstName)" }, { status: 400 });
     }
 
+    const trimmedNic = String(nic).trim();
     let effectiveBranchId = branchId || 'HQ';
     let effectiveUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : null);
 
@@ -66,12 +67,42 @@ export async function POST(request: Request) {
       effectiveBranchId = session.branchId;
     }
 
+    // 0. DUPLICATE NIC PREVENTION: If customer with this NIC already exists, update instead of creating duplicate
+    const { data: existingClient } = await adminSupabase
+      .from('clients')
+      .select('*')
+      .or(`nationalId.eq.${trimmedNic},national_id.eq.${trimmedNic}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingClient) {
+      const updateData: any = {
+        firstName: firstName,
+        first_name: firstName,
+        lastName: lastName || existingClient.lastName || existingClient.last_name || '.',
+        last_name: lastName || existingClient.last_name || existingClient.lastName || '.',
+        phone: phone || existingClient.phone,
+        address: address || existingClient.address,
+        nic_image: nicImage || existingClient.nic_image,
+        signature_image: signatureImage || existingClient.signature_image
+      };
+      
+      const { data: updatedClient } = await adminSupabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', existingClient.id)
+        .select()
+        .single();
+
+      return NextResponse.json(updatedClient || existingClient, { status: 200 });
+    }
+
     const clientId = crypto.randomUUID();
 
     // 1. Try camelCase insert (Active Database Schema standard)
     const camelPayload: any = {
       id: clientId,
-      nationalId: nic,
+      nationalId: trimmedNic,
       firstName: firstName,
       lastName: lastName || '.',
       phone: phone || null,
@@ -97,7 +128,7 @@ export async function POST(request: Request) {
     // 2. Try snake_case insert (Migration 003 standard)
     const snakePayload: any = {
       id: clientId,
-      national_id: nic,
+      national_id: trimmedNic,
       first_name: firstName,
       last_name: lastName || '.',
       phone: phone || null,

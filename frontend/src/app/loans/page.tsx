@@ -2064,7 +2064,22 @@ function PawnDetailsModal({
                 <input
                   type="text"
                   value={billMonths}
-                  onChange={(e) => setBillMonths(e.target.value)}
+                  onChange={(e) => {
+                    const mVal = e.target.value;
+                    setBillMonths(mVal);
+                    const parsedM = parseInt(mVal, 10);
+                    if (!isNaN(parsedM) && parsedM > 0 && billDate) {
+                      const parts = billDate.split('/');
+                      if (parts.length === 3) {
+                        const d = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10) - 1;
+                        const y = parseInt(parts[2], 10);
+                        const dt = new Date(y, m, d);
+                        dt.setMonth(dt.getMonth() + parsedM);
+                        setBillLastDate(dt.toLocaleDateString('en-GB'));
+                      }
+                    }
+                  }}
                   className="w-16 border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 text-center font-mono font-bold px-1 py-0.5 rounded outline-none text-sm transition-all"
                   placeholder="3"
                 />
@@ -2074,7 +2089,22 @@ function PawnDetailsModal({
                 <input
                   type="text"
                   value={billDate}
-                  onChange={(e) => setBillDate(e.target.value)}
+                  onChange={(e) => {
+                    const dVal = e.target.value;
+                    setBillDate(dVal);
+                    const parsedM = parseInt(billMonths, 10) || 3;
+                    const parts = dVal.split('/');
+                    if (parts.length === 3) {
+                      const d = parseInt(parts[0], 10);
+                      const m = parseInt(parts[1], 10) - 1;
+                      const y = parseInt(parts[2], 10);
+                      if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+                        const dt = new Date(y, m, d);
+                        dt.setMonth(dt.getMonth() + parsedM);
+                        setBillLastDate(dt.toLocaleDateString('en-GB'));
+                      }
+                    }
+                  }}
                   className="w-32 border-b-2 border-blue-600 bg-blue-50/80 focus:bg-blue-100 text-blue-900 text-center font-mono font-bold px-1 py-0.5 rounded outline-none text-xs transition-all"
                   placeholder="12/08/2026"
                 />
