@@ -62,9 +62,10 @@ export default function PawnesPage() {
   const [appraisal, setAppraisal]       = useState('');
   const [amount, setAmount]             = useState('');
 
-  // Dedicated Grams & Milligrams Weight State
+  // Dedicated Grams & Milligrams Weight & Period State
   const [weightGrams, setWeightGrams]   = useState('');
   const [weightMg, setWeightMg]         = useState('');
+  const [periodMonths, setPeriodMonths] = useState('3');
 
   // Multi-Item Pawn State
   const [itemsList, setItemsList] = useState<any[]>([
@@ -401,6 +402,7 @@ export default function PawnesPage() {
           weight: goldWeight,
           weightGrams,
           weightMg,
+          periodMonths,
           itemType,
           items: itemsList
         }),
