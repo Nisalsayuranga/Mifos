@@ -331,23 +331,29 @@ export default function PawnesPage() {
       setDescription(desc);
     }
 
-    // Extract Grams & mg from pawn weight or items
-    let wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    // Extract Grams & mg from pawn weight_grams/weight_mg or weight or items
+    let gVal = pawn.weight_grams !== undefined && pawn.weight_grams !== null ? String(pawn.weight_grams) : '';
+    let mgVal = pawn.weight_mg !== undefined && pawn.weight_mg !== null ? String(pawn.weight_mg) : '';
+
+    let wNum = (parseFloat(gVal) || 0) + ((parseFloat(mgVal) || 0) / 1000);
+    if (wNum <= 0) {
+      wNum = parseFloat(String(pawn.weight || '').replace(/[^0-9.]/g, '')) || 0;
+    }
     if (wNum <= 0 && Array.isArray(pawn.items) && pawn.items.length > 0) {
       wNum = pawn.items.reduce((s: number, it: any) => s + (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000), 0);
     }
 
-    if (wNum > 0) {
+    if (!gVal && !mgVal && wNum > 0) {
       const g = Math.floor(wNum);
       const mg = Math.round((wNum - g) * 1000);
-      setWeightGrams(String(g || ''));
-      setWeightMg(mg > 0 ? String(mg) : '');
-      setGoldWeight(String(wNum));
-    } else {
-      setWeightGrams('');
-      setWeightMg('');
-      setGoldWeight('');
+      gVal = String(g || '');
+      mgVal = mg > 0 ? String(mg) : '';
     }
+
+    setWeightGrams(gVal);
+    setWeightMg(mgVal);
+    setGoldWeight(wNum > 0 ? String(wNum) : '');
+    setPeriodMonths(String(pawn.period_months || '3'));
 
     setAppraisal(String(pawn.appraised_value || ''));
     setAmount(String(pawn.disbursed_amount || ''));

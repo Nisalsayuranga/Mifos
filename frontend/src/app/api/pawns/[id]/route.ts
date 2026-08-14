@@ -46,17 +46,7 @@ export async function PATCH(request: Request, context: any) {
       }
     }
 
-    const updateObj: any = {};
-    if (targetClientId && isUUID(targetClientId)) updateObj.client_id = targetClientId;
-    if (description) updateObj.description = description;
-    if (appraisedValue !== undefined) updateObj.appraised_value = parseFloat(appraisedValue) || 0;
-    if (disbursedAmount !== undefined) updateObj.disbursed_amount = parseFloat(disbursedAmount) || 0;
-
-    const { data, error } = await adminSupabase.from('pawns').update(updateObj).eq('id', id).select().single();
-
-    if (error) throw error;
-
-    // Update stock item if billNo is present
+    // Calculate weight values
     let totWeight = parseFloat(weight) || 0;
     let g = parseFloat(weightGrams);
     let mg = parseFloat(weightMg);
@@ -69,6 +59,23 @@ export async function PATCH(request: Request, context: any) {
     if (totWeight === 0 && (g > 0 || mg > 0)) {
       totWeight = g + (mg / 1000);
     }
+
+    const updateObj: any = {};
+    if (targetClientId && isUUID(targetClientId)) updateObj.client_id = targetClientId;
+    if (description) updateObj.description = description;
+    if (appraisedValue !== undefined) updateObj.appraised_value = parseFloat(appraisedValue) || 0;
+    if (disbursedAmount !== undefined) updateObj.disbursed_amount = parseFloat(disbursedAmount) || 0;
+    if (g > 0 || mg > 0 || totWeight > 0) {
+      updateObj.weight_grams = g;
+      updateObj.weight_mg = mg;
+    }
+    if (body.periodMonths !== undefined) {
+      updateObj.period_months = parseInt(body.periodMonths, 10) || 3;
+    }
+
+    const { data, error } = await adminSupabase.from('pawns').update(updateObj).eq('id', id).select().single();
+
+    if (error) throw error;
 
     if (billNo) {
       await adminSupabase.from('stock_items').update({

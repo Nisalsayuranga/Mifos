@@ -65,8 +65,8 @@ export async function GET(request: Request) {
 
     const mappedData = (data || []).map((pawn: any) => {
        const pItems = itemsMap[pawn.id] || [];
-       let totalWeight = 0;
-       if (pItems.length > 0) {
+       let totalWeight = (parseFloat(pawn.weight_grams) || 0) + ((parseFloat(pawn.weight_mg) || 0) / 1000);
+       if (totalWeight === 0 && pItems.length > 0) {
            pItems.forEach((item: any) => {
                totalWeight += (parseFloat(item.weight_grams) || 0) + ((parseFloat(item.weight_mg) || 0) / 1000);
            });
