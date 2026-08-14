@@ -870,23 +870,23 @@ export default function PawnesPage() {
                 />
               </div>
 
-              {/* Dedicated Grams & Milligrams (mg) Weight Field */}
-              <div className="grid gap-2 p-4 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-50/80 border border-amber-200 rounded-2xl shadow-sm">
+              {/* Dedicated Grams & Milligrams (mg) Weight & Tenor Period Fields */}
+              <div className="grid gap-3 p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-500/40 rounded-2xl shadow-md">
                 <div className="flex items-center justify-between">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-amber-900 flex items-center gap-1.5">
+                  <Label className="font-black text-[11px] uppercase tracking-widest text-amber-700 flex items-center gap-1.5">
                     <Scale className="w-4 h-4 text-amber-600" />
-                    Item Gold Weight (Grams & Milligrams)
+                    Item Gold Weight & Pawn Tenor
                   </Label>
                   {goldWeight && (
-                    <span className="px-2.5 py-0.5 bg-amber-600 text-white font-black text-[10px] rounded-lg tracking-wider shadow-sm">
-                      Weight: {goldWeight} g {weightMg ? `(${weightGrams || 0}g ${weightMg}mg)` : ''}
+                    <span className="px-3 py-1 bg-amber-600 text-white font-black text-[10px] rounded-xl tracking-wider shadow-sm">
+                      Total: {goldWeight} g {weightMg ? `(${weightGrams || 0}g ${weightMg}mg)` : ''}
                     </span>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-1">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="grid gap-1">
-                    <Label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Grams (g)</Label>
+                    <Label className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Weight (Grams - g)</Label>
                     <div className="relative flex items-center">
                       <Input
                         type="number"
@@ -894,14 +894,14 @@ export default function PawnesPage() {
                         placeholder="E.g., 12"
                         value={weightGrams}
                         onChange={e => handleWeightChange(e.target.value, weightMg)}
-                        className="h-11 bg-white border-amber-200 rounded-xl font-bold text-slate-900 pr-8"
+                        className="h-11 bg-white border-2 border-amber-400/60 focus:border-amber-600 rounded-xl font-mono font-bold text-slate-900 pr-7 text-xs"
                       />
-                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">g</span>
+                      <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">g</span>
                     </div>
                   </div>
 
                   <div className="grid gap-1">
-                    <Label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Milligrams (mg)</Label>
+                    <Label className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Weight (Milligrams - mg)</Label>
                     <div className="relative flex items-center">
                       <Input
                         type="number"
@@ -909,10 +909,25 @@ export default function PawnesPage() {
                         placeholder="E.g., 500"
                         value={weightMg}
                         onChange={e => handleWeightChange(weightGrams, e.target.value)}
-                        className="h-11 bg-white border-amber-200 rounded-xl font-bold text-slate-900 pr-10"
+                        className="h-11 bg-white border-2 border-amber-400/60 focus:border-amber-600 rounded-xl font-mono font-bold text-slate-900 pr-9 text-xs"
                       />
-                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">mg</span>
+                      <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">mg</span>
                     </div>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <Label className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Tenor Period</Label>
+                    <Select value={periodMonths} onValueChange={(v) => setPeriodMonths(v || '3')}>
+                      <SelectTrigger className="h-11 bg-white border-2 border-amber-400/60 focus:border-amber-600 text-xs font-bold font-mono">
+                        <SelectValue placeholder="3 Months" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200">
+                        <SelectItem value="1" className="text-xs font-mono font-bold">1 Month (1R)</SelectItem>
+                        <SelectItem value="3" className="text-xs font-mono font-bold">3 Months (3M / 3R)</SelectItem>
+                        <SelectItem value="6" className="text-xs font-mono font-bold">6 Months (6M / 6R)</SelectItem>
+                        <SelectItem value="12" className="text-xs font-mono font-bold">12 Months (12R)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
