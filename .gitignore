@@ -28,7 +28,7 @@ mvnw.cmd
 *.swp
 *.swo
 
-# Sensitive Financial Data (Mifos Requirement)
+# Sensitive Financial Data & Media
 **/firebase-adminsdk.json
 **/firebase-key.json
 **/*.p12
@@ -37,9 +37,18 @@ mvnw.cmd
 **/*.token
 *.xlsx
 *.zip
+*.sqlite
+*.pdf
+WhatsApp Image*.jpeg
+ledger/Ledger/
+*.log
+*log.txt
+err.txt
 
 # Scratch Scripts & Local Tools
-*.js
+check_*.js
+seed_*.js
+update_*.js
 *.ps1
 env*.txt
 __pycache__/

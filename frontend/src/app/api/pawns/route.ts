@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedBranch = searchParams.get('branchId') || searchParams.get('filterBranch');
 
-    let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
+    let query = adminSupabase.from('pawns').select('*, clients(*), pawn_items(*)').order('created_at', { ascending: false });
 
     if (session) {
       if (session.role === 'TELLER') {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, itemType, items } = body;
+    const { clientId, clientName, customerName, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, interestRate, periodMonths, itemType, items } = body;
 
     if (!clientId || !disbursedAmount) {
       return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       const { data: existingClients } = await adminSupabase
         .from('clients')
         .select('*')
-        .or(`nationalId.eq.${clientId},id.eq.${clientId}`);
+        .or(`national_id.eq.${clientId},id.eq.${clientId}`);
 
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;
@@ -79,11 +79,11 @@ export async function POST(request: Request) {
         const resolvedName = clientName || customerName || '';
         const { data: newClient, error: clientErr } = await adminSupabase.from('clients').insert([{
           id: newClientId,
-          nationalId: clientId,
-          firstName: resolvedName,
-          lastName: '',
-          branchId: targetBranchId,
-          createdByUserId: targetUserId,
+          national_id: clientId,
+          first_name: resolvedName,
+          last_name: '',
+          branch_id: targetBranchId,
+          created_by_user_id: targetUserId,
           status: 'ACTIVE'
         }]).select().single();
 
@@ -96,13 +96,20 @@ export async function POST(request: Request) {
     }
 
     const pawnId = crypto.randomUUID();
+    const computedWeightGrams = parseFloat(weightGrams || weight || '0') || 0;
+    const computedWeightMg = parseFloat(weightMg || '0') || 0;
 
     const { data: pawnData, error: pawnError } = await adminSupabase.from('pawns').insert([{
       id: pawnId,
       client_id: targetClientId,
+      bill_no: billNo ? String(billNo).trim() : null,
       description: description || 'Gold Collateral',
       appraised_value: parseFloat(appraisedValue) || 0,
       disbursed_amount: parseFloat(disbursedAmount) || 0,
+      weight_grams: computedWeightGrams,
+      weight_mg: computedWeightMg,
+      interest_rate: parseFloat(interestRate) || 3.50,
+      period_months: parseInt(periodMonths, 10) || 3,
       branch_id: targetBranchId,
       created_by_user_id: targetUserId,
       status: 'ACTIVE',

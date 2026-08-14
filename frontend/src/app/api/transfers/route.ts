@@ -95,6 +95,43 @@ export async function PATCH(request: Request) {
       .select().single();
 
     if (error) throw error;
+
+    // Automated Double-Entry GL Posting if transfer is completed
+    if (data && status === 'Completed') {
+      try {
+        const jeId = `JE-VAULT-${Date.now()}`;
+        const dateStr = new Date().toISOString().split('T')[0];
+        const transferAmount = Number(data.amount || 0);
+
+        await adminSupabase.from('journal_entry').insert([{
+          id: jeId,
+          date: dateStr,
+          description: `Vault Transfer (${data.from_vault} -> ${data.to_vault})`,
+          reference: `TRANSFER-${data.id}`,
+          total_debit: transferAmount,
+          total_credit: transferAmount,
+          created_by: effectiveApprovedBy
+        }]);
+
+        await adminSupabase.from('journal_entry_line').insert([
+          {
+            journal_entry_id: jeId,
+            account_name: 'Vault Cash (Asset)',
+            debit: transferAmount,
+            credit: 0
+          },
+          {
+            journal_entry_id: jeId,
+            account_name: 'Vault Cash (Asset)',
+            debit: 0,
+            credit: transferAmount
+          }
+        ]);
+      } catch (glErr) {
+        console.warn("Vault GL posting warning:", glErr);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

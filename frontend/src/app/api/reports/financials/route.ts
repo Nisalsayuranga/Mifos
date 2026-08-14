@@ -14,17 +14,8 @@ export async function GET(request: Request) {
       effectiveBranch = session.branchId;
     }
 
-    // 1. Compute Trial Balance from journal_entry_line & journal_entry
-    let jeQuery = adminSupabase.from('journal_entry').select('id, date');
-    const { data: journalEntries } = await jeQuery;
-    const validJeIds = (journalEntries || []).map(j => j.id);
-
-    let linesQuery = adminSupabase.from('journal_entry_line').select('*');
-    if (validJeIds.length > 0) {
-      linesQuery = linesQuery.in('journal_entry_id', validJeIds);
-    }
-
-    const { data: lines } = await linesQuery;
+    // 1. Compute Trial Balance from journal_entry_line
+    const { data: lines } = await adminSupabase.from('journal_entry_line').select('*').limit(5000);
 
     const trialBalanceMap: Record<string, { debit: number, credit: number }> = {
       'Vault Cash (Asset)': { debit: 0, credit: 0 },

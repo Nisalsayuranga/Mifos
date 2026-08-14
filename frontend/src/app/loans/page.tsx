@@ -1591,15 +1591,17 @@ function PawnDetailsModal({
       const createdDate = pawn.created_at ? new Date(pawn.created_at) : new Date();
       const formattedDate = createdDate.toLocaleDateString('en-GB');
 
+      const pawnTenorMonths = parseInt(pawn.period_months, 10) || 3;
       const lastD = new Date(createdDate);
-      lastD.setMonth(lastD.getMonth() + 3);
+      lastD.setMonth(lastD.getMonth() + pawnTenorMonths);
       const formattedLastDate = lastD.toLocaleDateString('en-GB');
 
       const cDetails = resolveClientDetails(pawn);
       const bAddress = getBranchAddress(pawn, branchesList);
+      const computedWeight = pawn.weight_grams || pawn.weight || (Array.isArray(pawn.pawn_items) && pawn.pawn_items.length > 0 ? pawn.pawn_items.reduce((s: number, i: any) => s + (Number(i.weight_grams) || 0), 0) : '0.0');
 
       setBillNo(bNo);
-      setBillMonths('3');
+      setBillMonths(String(pawnTenorMonths));
       setBillDate(formattedDate);
       setBillBranchAddress(bAddress);
       setBillName(cDetails.name);
@@ -1609,7 +1611,7 @@ function PawnDetailsModal({
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
-      setBillWeight(String(pawn.weight || '12.5'));
+      setBillWeight(String(computedWeight));
       setBillLastDate(formattedLastDate);
       setHasAutoPrinted(false); // reset for new pawn
     }
@@ -1690,7 +1692,7 @@ function PawnDetailsModal({
           <!-- Top Row: Months & Date -->
           <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 10px;">
             <div>
-              <span>මාස / Months } </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span>
+              <span>මාස / Months: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billMonths}</span>
             </div>
             <div>
               <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${billDate}</span>
@@ -1713,7 +1715,7 @@ function PawnDetailsModal({
               being the lawful owner of the articles mentioned below has sold out right for
             </div>
             <div style="margin-top: 4px;">
-              Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 14px; padding: 0 8px;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+              Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 14px; padding: 0 8px;">${parseFloat(billAmount || '0').toLocaleString()}</span>
             </div>
           </div>
 
@@ -1739,10 +1741,10 @@ function PawnDetailsModal({
             <div style="width: 58%;">
               <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 6px; text-align: center; background: #f8fafc; margin-bottom: 8px;">
                 <span style="font-size: 11px; font-weight: bold; color: #475569; display: block;">Rs.</span>
-                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${parseFloat(billAmount || '0').toLocaleString()}</span>
+                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">${parseFloat(billAmount || '0').toLocaleString()}</span>
               </div>
               <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px;">
-                <span>අවසාන දිනය / Last Date } </span>
+                <span>අවසාන දිනය / Last Date: </span>
                 <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${billLastDate}</span>
               </div>
               <div style="font-size: 11px; margin-bottom: 4px;">

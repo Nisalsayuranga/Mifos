@@ -109,6 +109,9 @@ const WebcamCapture = ({
       // Auto-initiate stream on mount/tab change
       startCamera();
     }
+    return () => {
+      stopCamera();
+    };
   }, [autoStart]);
 
   const stopCamera = () => {

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function PATCH(request: Request, context: any) {
   try {
     const session = await getAuthenticatedUser(request);
-    if (session && session.role !== 'ADMIN') {
+    if (!session || session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden. Admin privileges required.' }, { status: 403 });
     }
 
@@ -47,7 +47,7 @@ export async function PATCH(request: Request, context: any) {
 export async function DELETE(request: Request, context: any) {
   try {
     const session = await getAuthenticatedUser(request);
-    if (session && session.role !== 'ADMIN') {
+    if (!session || session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden. Admin privileges required.' }, { status: 403 });
     }
 

@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDE1NTksImV4cCI6MjA5OTY3NzU1OX0.YKLOHhXhUCgG1eMZiksR4H7UwySjhWzc0e_pomh_0oI';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function GET(request: Request) {
   try {
-    const { data: entries, error } = await supabase.from('journal_entry').select('*, journal_entry_line(*)').order('date', { ascending: false });
+    const session = await getAuthenticatedUser(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: entries, error } = await adminSupabase
+      .from('journal_entry')
+      .select('*, journal_entry_line(*)')
+      .order('date', { ascending: false });
+
     if (error) throw error;
-    return NextResponse.json(entries);
+    return NextResponse.json(entries || []);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -19,11 +24,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getAuthenticatedUser(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     
     // Server-side double-entry validation
-    const totalDebit = body.entries.reduce((sum: number, line: any) => sum + (parseFloat(line.debit) || 0), 0);
-    const totalCredit = body.entries.reduce((sum: number, line: any) => sum + (parseFloat(line.credit) || 0), 0);
+    const totalDebit = (body.entries || []).reduce((sum: number, line: any) => sum + (parseFloat(line.debit) || 0), 0);
+    const totalCredit = (body.entries || []).reduce((sum: number, line: any) => sum + (parseFloat(line.credit) || 0), 0);
 
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       return NextResponse.json({ error: "Debits and Credits must balance identically." }, { status: 400 });
@@ -32,27 +42,27 @@ export async function POST(request: Request) {
     const entryId = `JE-${Date.now()}`;
 
     // Insert Header
-    const { error: headerError } = await supabase.from('journal_entry').insert([{
+    const { error: headerError } = await adminSupabase.from('journal_entry').insert([{
       id: entryId,
       date: body.date,
       description: body.description,
       reference: body.reference,
       total_debit: totalDebit,
       total_credit: totalCredit,
-      created_by: body.createdBy || 'System Admin'
+      created_by: session.user.email || body.createdBy || 'System User'
     }]);
 
     if (headerError) throw headerError;
 
     // Insert Lines
-    const lines = body.entries.map((line: any) => ({
+    const lines = (body.entries || []).map((line: any) => ({
       journal_entry_id: entryId,
       account_name: line.account,
       debit: parseFloat(line.debit) || 0,
       credit: parseFloat(line.credit) || 0
     }));
 
-    const { error: linesError } = await supabase.from('journal_entry_line').insert(lines);
+    const { error: linesError } = await adminSupabase.from('journal_entry_line').insert(lines);
     if (linesError) throw linesError;
     
     return NextResponse.json({ success: true, id: entryId }, { status: 201 });

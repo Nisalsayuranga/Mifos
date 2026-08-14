@@ -4,12 +4,16 @@ import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 export async function POST(req: Request) {
   try {
     const session = await getAuthenticatedUser(req);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await req.json();
     if (!id) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
     }
 
-    if (session && session.role === 'TELLER') {
+    if (session.role === 'TELLER') {
       const { data: item } = await adminSupabase.from('stock_items').select('branch_id').eq('id', id).single();
       if (item && item.branch_id !== session.branchId) {
         return NextResponse.json({ error: 'Forbidden. Tellers cannot delete stock items belonging to another branch.' }, { status: 403 });

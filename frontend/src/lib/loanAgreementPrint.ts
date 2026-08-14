@@ -156,7 +156,7 @@ export function printLoanAgreement(details: AgreementDetails) {
       </style>
     </head>
     <body>
-      <div class="watermark">FINO.LK</div>
+      <div class="watermark">RUPASINGHE PAWNING</div>
 
       <!-- PAGE 1: TITLE & RECITALS -->
       <div class="header-section">
@@ -173,14 +173,14 @@ export function printLoanAgreement(details: AgreementDetails) {
       </p>
       <p class="bold" style="margin-top: 10px;">AND</p>
       <p class="justify">
-        (2) <span class="bold">S F Group (PRIVATE) LIMITED</span>, a company duly incorporated under the laws of Sri Lanka bearing Company registration No. PV PV00221752 having its registered office at No 47, Alexandra Place, Colombo 7 (Post Code 00700) in the Democratic Socialist Republic of Sri Lanka (hereinafter referred to as the <span class="bold">"Lender"</span>) which term or expression shall where the context so requires include its successors and permitted assigns.
+        (2) <span class="bold">RUPASINGHE TRUST INVESTMENTS LTD. (RUPASINGHE PAWNING JEWELLERS)</span>, a company duly incorporated under the laws of Sri Lanka, having its registered head office in Sri Lanka (hereinafter referred to as the <span class="bold">"Lender"</span>) which term or expression shall where the context so requires include its successors and permitted assigns.
       </p>
       <p class="justify" style="margin-top: 10px;">The Borrower and the Lender are hereinafter individually referred to as a "Party" and collectively as the "Parties".</p>
 
       <div class="section-title">Recitals</div>
       <ol type="A">
-        <li>WHEREAS the Borrower connects with the Lender either through the online platform provided by the Lender on the website <span class="bold">www.fino.lk</span> where the Borrower has a personal verified profile (the "Platform") or via a voice call (the "Voice Call") between the Lender and the Borrower subject to the terms and conditions of this Agreement.</li>
-        <li>The Borrower for purpose of personal consumption may apply for a loan (hereinafter referred to as the "Loan") by indicating the requested loan amount from the Lender either via the Platform or a Voice Call repayable subject to the terms and conditions of this Agreement. The total Loan amount to be provided (i.e., approved and disbursed) to the Borrower is subject to the creditworthiness review and approval process of the Lender in its absolute discretion.</li>
+        <li>WHEREAS the Borrower connects with the Lender either through the branch offices or platform provided by the Lender where the Borrower has a personal verified profile subject to the terms and conditions of this Agreement.</li>
+        <li>The Borrower for purpose of personal consumption or gold collateral credit may apply for a loan (hereinafter referred to as the "Loan") by indicating the requested loan amount from the Lender repayable subject to the terms and conditions of this Agreement. The total Loan amount to be provided is subject to the creditworthiness review and valuation process of the Lender.</li>
         <li>The Borrower agrees hereby to pay the Lender Loan Service Fee and Interest, as the case may be. The Borrower agrees hereby that the said fees are fair, justified, reasonable and equal in the circumstances, and that the Borrower shall make no claims otherwise.</li>
         <li>Lender shall promote, market, and sell Loan online on a private-label basis, under the commercial/Brand name of "Fino.lk" and its trade name, trademark, and logo.</li>
         <li>The Borrower shall hereby agree to the Special terms of the Agreement and the General Terms and Conditions of the Agreement he consented to either via the Platform owned and operated by the Lender or a Voice Call and that forms an integral part of this Agreement.</li>
@@ -307,14 +307,14 @@ export function printLoanAgreement(details: AgreementDetails) {
 
         <div class="signature-box">
           <div class="signature-title">Signed by the Lender</div>
-          <div class="signature-field">Company: <span>S F Group (PRIVATE) LIMITED</span></div>
-          <div class="signature-field">Reg No: <span>PV00221752</span></div>
+          <div class="signature-field">Company: <span>RUPASINGHE TRUST INVESTMENTS LTD.</span></div>
+          <div class="signature-field">Brand: <span>RUPASINGHE PAWNING</span></div>
           <div class="signature-field" style="margin-top: 20px;">Lender Signature (Verification Code):</div>
           <div class="bold" style="font-size: 16pt; color: #555; margin-top: 5px; letter-spacing: 2px;">
-            PV00221752
+            RUPASINGHE-AUTH
           </div>
           <div class="signature-field" style="font-size: 8pt; color: #888; margin-top: 15px;">
-            Authorized Representative Signature
+            Authorized Branch Representative Signature
           </div>
         </div>
       </div>

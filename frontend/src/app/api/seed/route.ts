@@ -29,8 +29,15 @@ const branchData = [
   { name: "Homagama",     id: "HMG", email: "branch.hmg@rupasinghe.com", password: "Homagama123" },
 ];
 
-export async function GET() {
+import { getAuthenticatedUser } from '@/lib/auth-server';
+
+export async function GET(request: Request) {
   try {
+    const session = await getAuthenticatedUser(request);
+    if (!session || session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin authentication required to run seed scripts.' }, { status: 403 });
+    }
+
     if (!supabase) {
       return NextResponse.json({ error: "Supabase not initialized (Key missing)" }, { status: 500 });
     }

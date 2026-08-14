@@ -1,0 +1,34 @@
+================================================================================
+         MIFOS SYSTEM - NEWLY CAPTURED SECONDARY ERRORS (DURING FIXING & SCAN)
+================================================================================
+Generated Date: 2026-08-14
+Status: Active tracking file for secondary edge cases encountered during fix execution and system re-scan.
+
+--------------------------------------------------------------------------------
+SECTION A: SECONDARY BUILD & TYPE ERRORS ENCOUNTERED & FIXED
+--------------------------------------------------------------------------------
+
+[NEW ERROR A.1] Missing `NextResponse` Import in `/api/ledger/matrix/route.ts`
+- Location: frontend/src/app/api/ledger/matrix/route.ts (Line 9)
+- Type Error: `Cannot find name 'NextResponse'`
+- Cause: Replacing `supabase` import removed `import { NextResponse } from 'next/server';`.
+- RESOLUTION: Re-added `import { NextResponse } from 'next/server';` at top of file. (FIXED)
+
+--------------------------------------------------------------------------------
+SECTION B: SYSTEM RE-SCAN SECURITY & COLUMN COMPATIBILITY FIXES
+--------------------------------------------------------------------------------
+
+[NEW ERROR B.1] Hardcoded Supabase Anon Keys & Unprotected Endpoints
+- Locations:
+  * `/api/branch-status/route.ts`
+  * `/api/ledger/route.ts`
+  * `/api/stock/delete/route.ts`
+  * `/api/accounts/route.ts`
+- Cause: Hardcoded JWT anon keys used instead of `adminSupabase`, with missing auth checks.
+- RESOLUTION: Replaced with `adminSupabase` and strict session auth guards. (FIXED)
+
+[NEW ERROR B.2] Client API Database Column Case Mismatch
+- Location: `/api/clients/route.ts`
+- Cause: Queried camelCase columns (`branchId`, `nationalId`) instead of migration 003 `snake_case` standards.
+- RESOLUTION: Updated to insert `snake_case` columns (`national_id`, `first_name`, `last_name`, `branch_id`) with fallback support. (FIXED)
+================================================================================

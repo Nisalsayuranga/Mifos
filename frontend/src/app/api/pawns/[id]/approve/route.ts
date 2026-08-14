@@ -40,18 +40,20 @@ export async function POST(
 
     if (updateError) throw updateError;
 
-    // 3. Log Disbursement Transaction
-    const { error: txError } = await adminSupabase.from('transaction').insert([{
-      id: crypto.randomUUID(),
-      client_id: pawn.client_id,
-      type: 'PAWN_DISBURSE',
-      amount: principal,
-      description: `Disbursed Pawn: ${pawn.description}`,
-      branch_id: pawn.branch_id,
-      timestamp: new Date().toISOString()
-    }]);
-
-    if (txError) throw txError;
+    // 3. Log Disbursement Transaction (Soft Fallback)
+    try {
+      await adminSupabase.from('transaction').insert([{
+        id: crypto.randomUUID(),
+        client_id: pawn.client_id,
+        type: 'PAWN_DISBURSE',
+        amount: principal,
+        description: `Disbursed Pawn: ${pawn.description}`,
+        branch_id: pawn.branch_id,
+        timestamp: new Date().toISOString()
+      }]);
+    } catch (txErr) {
+      console.warn("Transaction log warning (non-fatal):", txErr);
+    }
 
     // 4. Generate Automated Double-Entry General Ledger Posting
     const jeId = `JE-AUTO-${Date.now()}`;

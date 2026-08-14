@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const session = await getAuthenticatedUser(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year') || new Date().getFullYear().toString();
     const month = searchParams.get('month'); // optional YYYY-MM
 
     // 1. Fetch active branches
-    const { data: branches, error: bErr } = await supabase
+    const { data: branches, error: bErr } = await adminSupabase
       .from('branches')
       .select('id, name')
       .order('id', { ascending: true });
@@ -18,7 +23,7 @@ export async function GET(request: Request) {
     if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
 
     // 2. Fetch all daily ledgers for the given year/month
-    let query = supabase.from('daily_ledgers').select('id, branch_id, ledger_date, closing_balance, variance, status, is_flag_ignored');
+    let query = adminSupabase.from('daily_ledgers').select('id, branch_id, ledger_date, closing_balance, variance, status, is_flag_ignored');
 
     if (month) {
       const startDate = `${month}-01`;

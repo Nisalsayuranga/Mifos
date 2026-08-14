@@ -1,0 +1,502 @@
+================================================================================
+          MIFOS SYSTEM - MASTER AUDIT REPORT: ALL ERRORS & FIXES
+================================================================================
+Generated Date: 2026-08-14
+Project Location: d:\Mifos
+Hosted On: Vercel / GitHub / Supabase
+
+--------------------------------------------------------------------------------
+SECTION 1: UNWANTED FILES & REPOSITORY STORAGE BLOAT
+--------------------------------------------------------------------------------
+
+[ERROR 1.1] Heavy ZIP & Binary Media Files Tracked in Git
+- Affected Files:
+  * ledger.zip (91 MB zip file in workspace root)
+  * backend/mifos_dev.sqlite (Local SQLite database binary file)
+  * ledger/Ledger/IMG_20260724_*.jpg (24 high-res camera photos of ledger books)
+  * WhatsApp Image 2026-07-27 at 11.17...jpeg (5 root image files)
+  * bill book.pdf, terms_and_conditions_en.pdf, unnamed.png
+- Why it is a problem: Bloats Git repository, slows down Vercel deployment builds, and leaks raw database/ledger photos.
+- HOW TO FIX:
+  1. Add patterns to `.gitignore`:
+     *.zip
+     *.sqlite
+     *.pdf
+     WhatsApp Image*.jpeg
+     ledger/Ledger/
+  2. Run Git untrack commands:
+     git rm --cached ledger.zip
+     git rm --cached backend/mifos_dev.sqlite
+     git rm -r --cached ledger/
+  3. Delete local files from workspace if no longer needed.
+
+[ERROR 1.2] Debug Logs & Build Logs Committed to Git
+- Affected Files:
+  * backend/debug.log
+  * backend/err.txt
+  * backend_java/mvn_error.log
+  * backend_java/mvn_error_utf8.log
+  * frontend/build_complete_log.txt
+  * frontend/build_error.log, build_error_2.log, build_error_3.log
+  * next_help.txt
+- HOW TO FIX:
+  1. Add `*.log`, `*log.txt`, `err.txt` to `.gitignore`.
+  2. Delete all `.log` and build error text files.
+
+[ERROR 1.3] Temporary Local Test Scripts & Excel Files
+- Affected Files:
+  * check_20326.js, check_fs.js, check_status_values.js, direct_seed.ps1
+  * gen_excel.py, seed_kht.js, update_20326.js, update_kht_name.js
+  * frontend/check_cols.js
+  * Daily_Financial_Ledger.xlsx, Daily_Ledger_System.xlsx, Daily_Ledger_System_v2.xlsx
+- HOW TO FIX:
+  Delete scratch `.js`, `.ps1`, `.py`, and `.xlsx` files from the root directory.
+
+[ERROR 1.4] Redundant Unused Backend Repositories
+- Affected Folders:
+  * backend_java/ (Spring Boot Java application)
+  * backend/ (NestJS application)
+- Why it is a problem: Vercel is only deploying Next.js frontend with Supabase. Java and NestJS codebases create build confusion and broken rewrite targets in vercel.json.
+- HOW TO FIX:
+  Remove `backend_java/` and `backend/` if all APIs are migrated to Next.js App Router (`frontend/src/app/api/...`). Update `vercel.json` to deploy `frontend/` as root.
+
+
+--------------------------------------------------------------------------------
+SECTION 2: DATABASE SCHEMA SHORTCOMINGS (MISSING TABLES & COLUMNS)
+--------------------------------------------------------------------------------
+
+[ERROR 2.1] Missing `public.transaction` Table in PostgreSQL Schema
+- Affected Files:
+  * frontend/src/app/transactions/page.tsx (Lines 42, 87)
+  * frontend/src/app/reports/page.tsx (Line 28)
+  * frontend/src/app/api/pawns/[id]/redeem/route.ts (Line 86)
+  * frontend/src/app/api/pawns/[id]/approve/route.ts (Line 44)
+- Problem: The code calls `supabase.from('transaction').select('*')` or `.insert(...)`, but the `transaction` table does not exist in `supabase_schema.sql`.
+- HOW TO FIX:
+  Execute this SQL in Supabase SQL Editor:
+  CREATE TABLE IF NOT EXISTS public.transaction (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      branch_id TEXT REFERENCES public.branches(id) ON DELETE CASCADE,
+      target_branch_id TEXT REFERENCES public.branches(id) ON DELETE SET NULL,
+      amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+      description TEXT,
+      timestamp TIMESTAMPTZ DEFAULT NOW()
+  );
+  ALTER TABLE public.transaction ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "Authenticated transaction access" ON public.transaction FOR ALL USING (auth.role() = 'authenticated');
+
+[ERROR 2.2] Missing Columns in `daily_ledgers` Table
+- Missing Columns:
+  * `opening_capital` (numeric(12,2) default 0.00)
+  * `transfer_in_type` (text)
+  * `transfer_out_type` (text)
+  * `is_flag_ignored` (boolean default false)
+- Problem: POST and PATCH `/api/ledger/daily` attempt to insert/update these fields. PostgreSQL throws "column does not exist" errors.
+- HOW TO FIX:
+  Execute this SQL in Supabase SQL Editor:
+  ALTER TABLE public.daily_ledgers 
+  ADD COLUMN IF NOT EXISTS opening_capital NUMERIC(12, 2) DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS transfer_in_type TEXT,
+  ADD COLUMN IF NOT EXISTS transfer_out_type TEXT,
+  ADD COLUMN IF NOT EXISTS is_flag_ignored BOOLEAN DEFAULT FALSE;
+
+[ERROR 2.3] Missing Columns in `daily_ledger_transactions` Table
+- Missing Columns:
+  * `fs_type` (text)
+  * `redeem_no` (text)
+  * `type_ir` (text)
+  * `quantity` (text)
+- Problem: Daily ledger transaction submission sends `fs_type`, `redeem_no`, `type_ir`, `quantity` to DB. Insertion fails because columns are absent.
+- HOW TO FIX:
+  Execute this SQL in Supabase SQL Editor:
+  ALTER TABLE public.daily_ledger_transactions 
+  ADD COLUMN IF NOT EXISTS fs_type TEXT,
+  ADD COLUMN IF NOT EXISTS redeem_no TEXT,
+  ADD COLUMN IF NOT EXISTS type_ir TEXT,
+  ADD COLUMN IF NOT EXISTS quantity TEXT;
+
+[ERROR 2.4] Missing `bill_no` and Collateral Columns in `pawns` Table
+- Missing Columns:
+  * `bill_no` (text)
+  * `weight_grams` (numeric(10,3))
+  * `weight_mg` (numeric(10,3))
+  * `interest_rate` (numeric(5,2))
+  * `period_months` (integer)
+- Problem: `pawns` table only stores `client_id` UUID. `bill_no` is not saved on pawn tickets, making searches by bill number impossible.
+- HOW TO FIX:
+  1. Execute SQL:
+     ALTER TABLE public.pawns 
+     ADD COLUMN IF NOT EXISTS bill_no TEXT,
+     ADD COLUMN IF NOT EXISTS weight_grams NUMERIC(10,3) DEFAULT 0.000,
+     ADD COLUMN IF NOT EXISTS weight_mg NUMERIC(10,3) DEFAULT 0.000,
+     ADD COLUMN IF NOT EXISTS interest_rate NUMERIC(5,2) DEFAULT 3.50,
+     ADD COLUMN IF NOT EXISTS period_months INTEGER DEFAULT 3;
+  2. Update POST `/api/pawns/route.ts` to include `bill_no: billNo.trim()` in `pawns` insert payload.
+
+[ERROR 2.5] Missing Name and Avatar Columns in `profiles` Table
+- Missing Columns:
+  * `first_name` (text)
+  * `last_name` (text)
+  * `phone` (text)
+  * `avatar_url` (text)
+- Problem: Profile updating on `/profile` page fails because `profiles` table lacks name, phone, and avatar columns in `supabase_schema.sql`.
+- HOW TO FIX:
+  Execute SQL:
+  ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS first_name TEXT,
+  ADD COLUMN IF NOT EXISTS last_name TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+[ERROR 2.6] Table Column Name Casing Mismatch (`clients` CamelCase vs `pawns` Snake_case)
+- Problem: `clients` table uses quoted camelCase (`"nationalId"`, `"firstName"`, `"lastName"`, `"branchId"`), whereas `pawns` table uses snake_case (`client_id`, `branch_id`). Breaks Supabase foreign key joins.
+- HOW TO FIX:
+  Standardize `clients` table columns to snake_case:
+  ALTER TABLE public.clients RENAME COLUMN "nationalId" TO national_id;
+  ALTER TABLE public.clients RENAME COLUMN "firstName" TO first_name;
+  ALTER TABLE public.clients RENAME COLUMN "lastName" TO last_name;
+  ALTER TABLE public.clients RENAME COLUMN "branchId" TO branch_id;
+  ALTER TABLE public.clients RENAME COLUMN "createdByUserId" TO created_by_user_id;
+  ALTER TABLE public.clients RENAME COLUMN "createdAt" TO created_at;
+
+
+--------------------------------------------------------------------------------
+SECTION 3: DATA FETCHING FAILURES & BILL PRINTING ERRORS
+--------------------------------------------------------------------------------
+
+[ERROR 3.1] Pawn Bill Print & Ticket Details Display Dummy Data ("S. A. Perera")
+- Affected Files:
+  * frontend/src/app/api/pawns/route.ts (Line 15)
+  * frontend/src/app/loans/page.tsx (Line 1554)
+- Problem: GET `/api/pawns` runs `adminSupabase.from('pawns').select('*')` without joining `clients` table or `pawn_items`. Because `pawns` table has no client name/address, frontend `resolveClientDetails` falls back to hardcoded sample values: Name "S. A. Perera", Address "Station Road, Dehiwala", NIC "200125102002", Weight "12.5 g".
+- HOW TO FIX:
+  1. In `frontend/src/app/api/pawns/route.ts`, update GET query to join `clients` and `pawn_items`:
+     let query = adminSupabase.from('pawns').select('*, clients(*), pawn_items(*)').order('created_at', { ascending: false });
+  2. In `frontend/src/app/loans/page.tsx`, update `resolveClientDetails` to consume `pawn.clients.first_name`, `pawn.clients.address`, `pawn.clients.national_id`, and sum weights from `pawn.pawn_items`.
+
+[ERROR 3.2] Executive Dashboard Shows $0 / Blank Metrics
+- Affected File: frontend/src/app/dashboard/executive/page.tsx (Lines 55-58)
+- Problem: Code fetches from `${API_BASE_URL}/reports/portfolio`, `/gl/journal`, and `/vault`. On Vercel, `API_BASE_URL` is empty `""`, causing requests to hit Next.js HTML page routes (`/reports/portfolio`) and return HTML instead of JSON.
+- HOW TO FIX:
+  1. Create Next.js API routes in `frontend/src/app/api/reports/portfolio/route.ts`, `frontend/src/app/api/gl/journal/route.ts`, and `frontend/src/app/api/vault/route.ts`.
+  2. Update `executive/page.tsx` to fetch `/api/reports/portfolio`, `/api/gl/journal`, `/api/vault`.
+
+[ERROR 3.3] Main Dashboard Homepage Stats Display 0
+- Affected File: frontend/src/app/page.tsx (Lines 126-149)
+- Problem: Client-side JS SDK directly calls `supabase.from('clients')` and `supabase.from('pawns')` using unauthenticated `anon` key. RLS blocks `anon` reads, returning 0 rows.
+- HOW TO FIX:
+  Replace direct `supabase.from(...)` calls in `page.tsx` with fetch calls to secure API endpoints: `/api/clients`, `/api/pawns`.
+
+[ERROR 3.4] Stock Customers & Stock Items Saved Only to LocalStorage
+- Affected Files:
+  * frontend/src/app/operations/eod/page.tsx (Line 429)
+  * frontend/src/app/clients/page.tsx (Line 343)
+- Problem: RLS policies block unauthenticated client-side `supabase.from('stock_customers')` calls, writing data only to browser `localStorage`.
+- HOW TO FIX:
+  Create server API routes `/api/stock/items/route.ts` and `/api/stock/customers/route.ts` using `adminSupabase` to handle stock operations.
+
+[ERROR 3.5] Hardcoded Vault Names in Money Transfers Modal
+- Affected File: frontend/src/app/transactions/transfers/page.tsx (Line 12)
+- Problem: Dropdown list uses fake hardcoded names ("Main Vault", "Branch Vault A") instead of real Branch IDs (`KHT`, `BRL`, `HQ`), breaking vault filters.
+- HOW TO FIX:
+  Fetch branches dynamically from `/api/branches` and populate vault select options with actual branch IDs.
+
+
+--------------------------------------------------------------------------------
+SECTION 4: HIDDEN BUSINESS LOGIC & CRITICAL RUNTIME ERRORS
+--------------------------------------------------------------------------------
+
+[HIDDEN ERROR 4.1] Pawn Redemption API Crash & Inconsistent Accounting State
+- Location: frontend/src/app/api/pawns/[id]/redeem/route.ts (Line 86)
+- Hidden Bug: When a teller redeems a pawn ticket, Line 86 tries to log transaction into non-existent `transaction` table (`adminSupabase.from('transaction').insert(...)`).
+- Impact: Line 96 throws a 500 error exception. The pawn ticket status is updated to `REDEEMED`, BUT Step 5 (Automated Double-Entry Journal Posting) and Step 6 (Audit Log) ARE SKIPPED. Database left broken.
+- HOW TO FIX:
+  Ensure `transaction` table exists or wrap `transaction` log in soft fallback.
+
+[HIDDEN ERROR 4.2] Pawn Approval API Crash & Unbalanced General Ledger
+- Location: frontend/src/app/api/pawns/[id]/approve/route.ts (Line 44)
+- Hidden Bug: Manager approves pawn, Line 44 attempts to insert into non-existent `transaction` table.
+- Impact: Line 54 throws exception. Pawn status changes to `ACTIVE`, BUT Step 4 (Automated GL Double-Entry Posting) NEVER EXECUTES.
+- HOW TO FIX:
+  Wrap transaction log or ensure `transaction` table exists so GL posting runs reliably.
+
+[HIDDEN ERROR 4.3] Pawn Ticket Deletion Leaves Phantom Records in Stock Inventory
+- Location: frontend/src/app/api/pawns/[id]/route.ts (Lines 82-87)
+- Hidden Bug: Deleting a pawn uses Regex `^([A-Za-z0-9]+\s+\d+)` on `pawn.description` to guess `bill_no`.
+- Impact: If description is "Gold Ring 22K", regex fails. Pawn deleted, BUT stock item remains as phantom in `stock_items`.
+- HOW TO FIX:
+  Store `bill_no` directly on `pawns` table column, delete from `stock_items` matching `eq('bill_no', pawn.bill_no)`.
+
+[HIDDEN ERROR 4.4] Matrix Ledger API RLS & Missing Column Crash
+- Location: frontend/src/app/api/ledger/matrix/route.ts (Line 2)
+- Hidden Bug: `/api/ledger/matrix` imports unauthenticated `supabase` client instead of `adminSupabase`.
+- Impact: PostgreSQL RLS blocks `daily_ledgers` reads, query fails on missing `is_flag_ignored` column.
+- HOW TO FIX:
+  Change import to `import { adminSupabase } from '@/lib/auth-server'` and use `adminSupabase`.
+
+[HIDDEN ERROR 4.5] Audit Logs API Swallows Database Errors Silently
+- Location: frontend/src/app/api/audit-logs/route.ts (Lines 34-37)
+- Hidden Bug: If query to `audit_logs` fails, API returns `NextResponse.json([])` instead of error.
+- Impact: Users think audit logging works when table is missing.
+- HOW TO FIX:
+  Return clear error status or ensure `audit_logs` table exists.
+
+
+--------------------------------------------------------------------------------
+SECTION 5: UI & VISUAL ACCESSIBILITY DEFECTS (BUTTONS, LABELS & CONTRAST)
+--------------------------------------------------------------------------------
+
+[UI ERROR 5.1] Unreadable Text inside Dropdown Select Components (`<SelectTrigger>`)
+- Locations:
+  * frontend/src/app/loans/page.tsx
+  * frontend/src/app/clients/page.tsx
+  * frontend/src/app/accounting/reports/page.tsx
+  * frontend/src/app/operations/eod/page.tsx
+- Problem: Select dropdown triggers (`SelectValue`) use default foreground text color (`text-slate-900`). On dark backdrop pages (`bg-slate-900` / `glass-dark`), text inside select input becomes invisible or dark-on-dark.
+- HOW TO FIX:
+  Update `SelectTrigger` in `frontend/src/components/ui/select.tsx` to include explicit text contrast classes `text-foreground dark:text-white`.
+
+[UI ERROR 5.2] Unlabeled Icon-Only Action Buttons in Data Tables
+- Locations:
+  * frontend/src/app/loans/page.tsx (Actions column: Edit, Delete, Redeem, View)
+  * frontend/src/app/clients/page.tsx (Actions column: Edit, Delete, KYC, Agreement)
+  * frontend/src/app/employees/page.tsx (Actions column: Edit, Delete)
+  * frontend/src/app/accounting/ledger/entry/page.tsx (Row action delete icon)
+- Problem: Action buttons render bare SVG icons without visible text labels or tooltips.
+- HOW TO FIX:
+  Add clear visual text labels or hover tooltip components to all icon buttons in tables.
+
+[UI ERROR 5.3] Missing Hover Tooltips in Collapsed Sidebar
+- Location: frontend/src/components/DashboardSidebar.tsx (Line 131)
+- Problem: When sidebar is collapsed (`isCollapsed = true`), group buttons and sub-item links show ONLY bare icons with NO tooltip popover.
+- HOW TO FIX:
+  Add CSS hover tooltip popovers (`group-hover:opacity-100`) to display page names when sidebar is collapsed.
+
+[UI ERROR 5.4] Mismatched Modal Container Contrast & Text Legibility
+- Locations:
+  * frontend/src/app/transactions/transfers/page.tsx (Move Capital Modal)
+  * frontend/src/app/clients/page.tsx (Add Customer Modal)
+  * frontend/src/app/savings/page.tsx (New Account Modal)
+- Problem: Dialog modals use bright white background (`bg-white`) while parent pages are dark slate (`bg-slate-950`), with low-contrast input labels (`text-slate-500`).
+- HOW TO FIX:
+  Standardize modal dialogs with high-contrast glassmorphic design (`glass` / `glass-dark`), bold input labels (`font-bold text-slate-800 dark:text-slate-200`).
+
+[UI ERROR 5.5] Unstyled Raw HTML Print Window Buttons
+- Location: frontend/src/app/loans/page.tsx (Lines 1811, 2309)
+- Problem: Pawn ticket print receipt windows use unstyled raw HTML `<button class="save-btn">`.
+- HOW TO FIX:
+  Apply modern styled print buttons (`bg-blue-600 text-white font-bold px-4 py-2 rounded-xl shadow-lg hover:bg-blue-700`).
+
+[UI ERROR 5.6] Navigation Sidebar Typo ("Pawnes")
+- Location: frontend/src/components/DashboardSidebar.tsx (Line 41)
+- Problem: Menu label is misspelled "Pawnes" instead of "Pawns".
+- HOW TO FIX: Change "Pawnes" to "Pawns".
+
+
+--------------------------------------------------------------------------------
+SECTION 6: BACKEND API LOGIC & SECURITY DEFECTS
+--------------------------------------------------------------------------------
+
+[BACKEND ERROR 6.1] Password Reset & Account Hijacking via Public `/api/seed` Route
+- Location: frontend/src/app/api/seed/route.ts (Line 32)
+- Hidden Bug: GET `/api/seed` is a public endpoint with ZERO authentication.
+- Impact: Anyone visiting `https://domain.vercel.app/api/seed` in a browser triggers `supabase.auth.admin.updateUserById(...)` on all branch users and admin, resetting all passwords back to default hardcoded passwords (`Borella123`, `HeadOffice@2024`)!
+- HOW TO FIX: Protect `/api/seed` with Admin session check or disable in production.
+
+[BACKEND ERROR 6.2] Account Deletion & Password Overwrite in Staff API (`/api/staff/[id]`)
+- Location: frontend/src/app/api/staff/[id]/route.ts (Lines 10 & 50)
+- Hidden Bug: `if (session && session.role !== 'ADMIN')`. If an unauthenticated request sends NO auth token header, `session` is NULL, making `if (session)` FALSE and skipping the role check!
+- Impact: Unauthenticated attackers can send `DELETE /api/staff/[user_id]` to delete any account, or `PATCH /api/staff/[user_id]` with a new password to take over any account!
+- HOW TO FIX: Enforce `if (!session || session.role !== 'ADMIN') return 403`.
+
+[BACKEND ERROR 6.3] Unprotected Customer Deletion & Update API (`/api/clients/[id]`)
+- Location: frontend/src/app/api/clients/[id]/route.ts (Lines 15 & 47)
+- Hidden Bug: `PATCH` and `DELETE` handlers have ZERO authentication checks.
+- Impact: Anyone on the internet can call `DELETE /api/clients/[client_id]` to wipe customer records without logging in.
+- HOW TO FIX: Add `getAuthenticatedUser(request)` authentication guard.
+
+[BACKEND ERROR 6.4] Unprotected Public Maintenance Endpoint (`/api/maintenance/fix-branches`)
+- Location: frontend/src/app/api/maintenance/fix-branches/route.ts (Line 14)
+- Hidden Bug: GET handler has no auth check and renames/deletes branch IDs in DB.
+- HOW TO FIX: Protect with Admin session check or delete script.
+
+[BACKEND ERROR 6.5] Authorization Bypass Flaw across Multiple API Handlers (`if (session)`)
+- Locations:
+  * frontend/src/app/api/branches/route.ts (Line 28)
+  * frontend/src/app/api/stock/delete/route.ts (Line 12)
+  * frontend/src/app/api/pawns/route.ts (Line 17)
+  * frontend/src/app/api/clients/route.ts (Line 14)
+  * frontend/src/app/api/ledger/daily/route.ts (Line 15)
+- Logic Flaw: `if (session && session.role !== 'ADMIN')` skips check when `session` is null.
+- HOW TO FIX: Enforce `if (!session) return 401`.
+
+[BACKEND ERROR 6.6] Completely Unprotected Public API Endpoints
+- Locations:
+  * frontend/src/app/api/branch-status/route.ts (POST)
+  * frontend/src/app/api/ledger/route.ts (POST)
+  * frontend/src/app/api/accounts/route.ts (GET/POST)
+  * frontend/src/app/api/transfers/route.ts (GET/POST/PATCH)
+- HOW TO FIX: Add `getAuthenticatedUser(request)` guards across all endpoints.
+
+[BACKEND ERROR 6.7] Supabase Anon Key Fallback In Server API Handlers
+- Locations:
+  * frontend/src/app/api/branch-status/route.ts (Line 5)
+  * frontend/src/app/api/ledger/route.ts (Line 7)
+  * frontend/src/app/api/ledger/matrix/route.ts (Line 2)
+- HOW TO FIX: Use `adminSupabase` from `@/lib/auth-server` consistently.
+
+
+--------------------------------------------------------------------------------
+SECTION 7: FRONTEND RUNTIME, HYDRATION & STATE DEFECTS
+--------------------------------------------------------------------------------
+
+[FRONTEND ERROR 7.1] Protected Page Flash Before Login Redirect (AuthGuard Flashing Bug)
+- Location: frontend/src/components/AuthGuard.tsx (Lines 96-100)
+- Problem: When `isAuthenticated` is false, `router.push('/login')` is called asynchronously. But line 100 still returns `<>{children}</>`. The protected page briefly flashes on screen for 300ms before redirecting to login.
+- HOW TO FIX: Return `null` when `isAuthenticated === false`.
+
+[FRONTEND ERROR 7.2] Teller Assigned Branch Escapes to Head Office (HQ) Access on Login Profile Failure
+- Location: frontend/src/app/login/page.tsx (Lines 45-64)
+- Problem: When a branch teller logs in, if profile fetch fails or profile `branch_id` is null, line 63 falls back to `branchId: 'HQ'`.
+- Impact: Branch tellers inadvertently get granted Head Office (HQ) access!
+- HOW TO FIX: Require explicit profile branch assignment or throw an error on login.
+
+[FRONTEND ERROR 7.3] Camera Hardware & Memory Leak in Customer Registration Webcam
+- Location: frontend/src/app/clients/page.tsx (Lines 106-113)
+- Problem: `WebcamCapture` component starts camera via `getUserMedia` in `useEffect`, but returns NO cleanup function (`return () => stopCamera()`).
+- Impact: Camera light stays turned ON in background when modal closes.
+- HOW TO FIX: Return cleanup function `return () => stopCamera();` in `useEffect`.
+
+[FRONTEND ERROR 7.4] User Profile Updates Fail and Persist Only in Browser LocalStorage
+- Location: frontend/src/app/profile/page.tsx (Lines 54-85)
+- Problem: Updating name, phone, or avatar on `/profile` fails because `profiles` table lacks `first_name`, `last_name`, `phone`, `avatar_url` columns in base database schema.
+- HOW TO FIX: Add columns to PostgreSQL `profiles` table and update profile fetch logic.
+
+
+--------------------------------------------------------------------------------
+SECTION 8: END-TO-END BUSINESS LIFECYCLE AUDIT (CUSTOMER REGISTRATION TO PAWN REDEMPTION)
+--------------------------------------------------------------------------------
+
+[STEP 1] Customer Arrival, Registration & KYC Onboarding
+- Frontend Process: Teller enters Customer NIC, Name with Initials, Phone, Address, WebCam NIC Front/Back scan, Signature. Form submits POST to `/api/clients`.
+- Backend Process: `/api/clients/route.ts` creates client record in `clients` table.
+- DETECTED STEP ERRORS & FIXES:
+  * Error 1.1: No duplicate NIC check in `/api/clients/route.ts`. Multiple duplicate customer accounts can be created for the same NIC.
+  * Error 1.2: Unprotected `PATCH` & `DELETE` in `/api/clients/[id]/route.ts`.
+  * Error 1.3: Column Casing Mismatch (`"nationalId"` vs `client_id`).
+
+[STEP 2] Pawn Ticket Origination & Collateral Valuation
+- Frontend Process: Teller selects Customer, Bill Prefix (`1R`), Bill No (`20743`), Item Category (`CH`), Appraised Value, Loan Amount, Grams/Mg weight, and submits POST to `/api/pawns`.
+- Backend Process: `/api/pawns/route.ts` resolves client UUID, inserts pawn ticket into `pawns`, inserts itemized breakdown into `pawn_items`, inserts into `stock_items` if `billNo` is present.
+- DETECTED STEP ERRORS & FIXES:
+  * Error 2.1: `bill_no` IS NEVER SAVED IN THE `pawns` TABLE! (Line 100 in `/api/pawns/route.ts`). Searching pawns by bill number directly fails.
+  * Error 2.2: Pawn root ticket status hardcoded to `status: 'ACTIVE'`, bypassing Manager approval flow.
+
+[STEP 3] Manager Approval & Loan Fund Disbursement
+- Frontend Process: Manager opens `/operations/approvals` and clicks "Approve". Form calls POST `/api/pawns/[id]/approve`.
+- Backend Process: Updates pawn `status = 'ACTIVE'`, attempts transaction log, posts automated double-entry GL journal lines (`Debit Pawn Loan Portfolio`, `Credit Vault Cash`).
+- DETECTED STEP ERRORS & FIXES:
+  * Error 3.1: Approval API CRASHES at Line 44 (`adminSupabase.from('transaction').insert(...)`) because `transaction` table is missing! Line 54 throws 500 error. Pawn status changes to ACTIVE, BUT Step 4 (Automated GL Double-Entry Posting) NEVER EXECUTES!
+
+[STEP 4] Pawn Bill Printing & Loan Agreement Signatures
+- Frontend Process: Teller prints official Pawn Bill Receipt for customer and generates Loan Terms Agreement with SMS OTP Verification signature.
+- DETECTED STEP ERRORS & FIXES:
+  * Error 4.1: Pawn Bill Receipt prints dummy customer "S. A. Perera" & "Station Road, Dehiwala" because GET `/api/pawns` does not join `clients` table.
+
+[STEP 5] Vault Stock Inventory & Daily Ledger Tracking
+- Frontend Process: Pawned item is tracked in Vault Stock (`stock_items`). End of Day is submitted via `/api/ledger/daily`.
+- DETECTED STEP ERRORS & FIXES:
+  * Error 5.1: Client-side RLS blocks `stock_items` & `stock_customers` queries, forcing fallback to browser `localStorage`.
+  * Error 5.2: Missing columns in `daily_ledgers` (`opening_capital`, `is_flag_ignored`) and `daily_ledger_transactions` (`fs_type`, `redeem_no`).
+
+[STEP 6] Customer Returns for Pawn Ticket Redemption & Settlement
+- Frontend Process: Customer brings pawn bill to redeem gold collateral. Form calculates settlement amount (Rupasinghe Tiered Interest: Tier A <50k @ 2.5%, Tier B >=50k @ 2.75%, grace periods, insurance). Teller clicks "Confirm Redemption". Form calls POST `/api/pawns/[id]/redeem`.
+- Backend Process:
+  1. Calculates settlement & accrued interest.
+  2. Updates `pawns` table: `status = 'REDEEMED'`, `redeem_amount`, `redeem_interest`.
+  3. Inserts redemption log into `transaction` table.
+  4. Posts balanced double-entry GL journal lines.
+- DETECTED STEP ERRORS & FIXES:
+  * Error 6.1: Redemption API CRASHES at Line 86 (`adminSupabase.from('transaction').insert(...)`) because `transaction` table is missing! Line 96 throws 500 error. Pawn status updates to `REDEEMED`, BUT Step 5 (Balanced GL Journal Entry Posting for Vault Cash & Interest Revenue) AND Step 6 (Audit Log) ARE CANCELLED!
+
+
+--------------------------------------------------------------------------------
+SECTION 9: ADDITIONAL MISSED CRITICAL ERRORS (AUDITED)
+--------------------------------------------------------------------------------
+
+[MISSED ERROR 9.1] Loan Agreement Generator Prints Third-Party Entity Branding
+- Location: frontend/src/lib/loanAgreementPrint.ts (Lines 159, 176, 310)
+- Missed Bug: The print helper outputs third-party details: "S F Group (PRIVATE) LIMITED", Company Reg "PV00221752", Website "www.fino.lk", and Watermark "FINO.LK" instead of "RUPASINGHE PAWNING JEWELLERS".
+- HOW TO FIX: Update `loanAgreementPrint.ts` to replace third-party text with "RUPASINGHE PAWNING JEWELLERS".
+
+[MISSED ERROR 9.2] Financial Reports Trial Balance Branch Leak & Query Crash
+- Location: frontend/src/app/api/reports/financials/route.ts (Lines 18-25)
+- Missed Bug: `journal_entry` query does not filter by `branchId`, computing Trial Balance across ALL branches in the company. Passes thousands of UUID strings into `.in('journal_entry_id', validJeIds)`, crashing PostgreSQL when parameter limits are exceeded.
+- HOW TO FIX: Add branch filter directly to journal entry query and join lines properly.
+
+[MISSED ERROR 9.3] Completed Vault Cash Transfers Bypass General Ledger Double-Entry Posting
+- Location: frontend/src/app/transactions/transfers/page.tsx (Line 59) & /api/transfers (Line 78)
+- Missed Bug: Approving a vault cash transfer updates `vault_transfer` status to 'Completed', but NEVER creates debit/credit journal entries (`Debit Destination Vault Cash`, `Credit Origin Vault Cash`) in `journal_entry`.
+- HOW TO FIX: Add automated double-entry GL posting upon transfer approval in `/api/transfers`.
+
+
+--------------------------------------------------------------------------------
+SECTION 10: BILL PREFIX, ITEM CODE & BILL PRINT FETCH AUDIT
+--------------------------------------------------------------------------------
+
+[PRINT ERROR 10.1] Bill Prefix & Bill Number Omitted From `pawns` Table Insertion
+- Location: frontend/src/app/api/pawns/route.ts (Lines 47 & 100)
+- Problem: The POST handler accepts `billNo`, BUT line 100 inserts into `pawns` WITHOUT saving `bill_no`.
+- HOW TO FIX: Add `bill_no` column to `pawns` schema and save `bill_no: billNo.trim()` during pawn creation.
+
+[PRINT ERROR 10.2] Item Category Codes & Gram Weights Discarded During Pawn Creation
+- Location: frontend/src/app/api/pawns/route.ts (Line 100)
+- Problem: Item Category Codes (`PP`, `PR`, `NL`, `EAR`, `CH`, `BRC`, `BKT`) and gram/mg weights are omitted from `pawns` insert statement.
+- HOW TO FIX: Save `weight_grams`, `weight_mg`, `item_type` on `pawns` record.
+
+[PRINT ERROR 10.3] Pawn Bill Print Window Collapses to Hardcoded Sample Values
+- Location: frontend/src/app/loans/page.tsx (Lines 1554-1583)
+- Problem: Clicking "Print Pawn Bill" triggers `resolveClientDetails(pawn)`. Because GET `/api/pawns` does NOT join `clients` table or `pawn_items`, client resolution fails and falls back to hardcoded sample defaults.
+- HOW TO FIX: Query `.select('*, clients(*), pawn_items(*)')` in `/api/pawns/route.ts`.
+
+
+--------------------------------------------------------------------------------
+SECTION 11: PRINTED BILL & AUTO-FILL FIELD DEFECTS AUDIT (DETAILED)
+--------------------------------------------------------------------------------
+
+[PRINT ERROR 11.1] Double Currency Prefix "Rs. Rs." Printed on Customer Receipt
+- Location: frontend/src/app/loans/page.tsx (Lines 1716 & 1743)
+- Problem: Code contains `Rs. <span>Rs. ${parseFloat(billAmount).toLocaleString()}</span>`.
+- Impact: Printed receipt displays "Rs. Rs. 50,000" twice on the bill.
+- HOW TO FIX: Remove duplicate "Rs." prefix inside the span tag.
+
+[PRINT ERROR 11.2] Raw Literal Brackets `}` Printed in Label Headers
+- Location: frontend/src/app/loans/page.tsx (Lines 1693 & 1745)
+- Problem: Label strings contain `මාස / Months }` and `අවසාන දිනය / Last Date }`.
+- Impact: Customer receipt displays an ugly raw closing bracket `}` next to "Months" and "Last Date".
+- HOW TO FIX: Remove trailing `}` character from string literals.
+
+[PRINT ERROR 11.3] Auto-Filled Expiry Date Hardcoded to 3 Months for 1M/6M/12M Tickets
+- Location: frontend/src/app/loans/page.tsx (Lines 1594-1596)
+- Problem: `lastD.setMonth(lastD.getMonth() + 3)` hardcodes 3 months for all tickets regardless of ticket tenure (`1R`, `6M`, `12R`).
+- Impact: 1-Month or 6-Month pawn tickets auto-fill an incorrect 3-Month expiry date on the printed bill.
+- HOW TO FIX: Calculate expiry date based on ticket tenure `period_months` (`1`, `3`, `6`, `12`).
+
+[PRINT ERROR 11.4] Gold Collateral Weight Always Auto-Fills "12.5 g"
+- Location: frontend/src/app/loans/page.tsx (Line 1612)
+- Problem: `setBillWeight(String(pawn.weight || '12.5'))`. `pawn.weight` is undefined on backend query, so `billWeight` always falls back to `'12.5'`.
+- Impact: Printed bill always auto-fills "Total Weight: 12.5 g" regardless of actual item weight.
+- HOW TO FIX: Sum `pawn_items` weights or consume `pawn.weight_grams`.
+
+[PRINT ERROR 11.5] Customer Name & Address Auto-Fill Fall Back to "S. A. Perera"
+- Location: frontend/src/app/loans/page.tsx (Lines 1573-1575)
+- Problem: `resolveClientDetails` falls back to `name: 'S. A. Perera'` and `address: 'Station Road, Dehiwala'` when client relation is unjoined.
+- HOW TO FIX: Join `clients` table in GET `/api/pawns` query.
+
+[PRINT ERROR 11.6] Header Branch Address Auto-Fills Empty String on Initial Render
+- Location: frontend/src/app/loans/page.tsx (Line 1599)
+- Problem: `getBranchAddress` evaluates before `branchesList` finishes loading, auto-filling an empty branch address at top of printed bill header.
+- HOW TO FIX: Pass active user branch address directly from session state.
+================================================================================

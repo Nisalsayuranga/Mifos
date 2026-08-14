@@ -78,13 +78,10 @@ export async function DELETE(request: Request, context: any) {
     const { error } = await adminSupabase.from('pawns').delete().eq('id', id);
     if (error) throw error;
 
-    // Also delete from stock_items if bill_no can be extracted
-    if (pawn && pawn.description) {
-      const match = pawn.description.match(/^([A-Za-z0-9]+\s+\d+)/);
-      if (match) {
-        const billNo = match[1].trim();
-        await adminSupabase.from('stock_items').delete().eq('bill_no', billNo);
-      }
+    // Also delete from stock_items using stored bill_no or regex fallback
+    const targetBillNo = pawn.bill_no || (pawn.description ? pawn.description.match(/^([A-Za-z0-9]+\s+\d+)/)?.[1]?.trim() : null);
+    if (targetBillNo) {
+      await adminSupabase.from('stock_items').delete().eq('bill_no', targetBillNo);
     }
 
     return NextResponse.json({ success: true });

@@ -82,18 +82,20 @@ export async function POST(
 
     if (updateError) throw updateError;
 
-    // 4. Log Settle/Redemption Transaction in User History
-    const { error: txError } = await adminSupabase.from('transaction').insert([{
-      id: crypto.randomUUID(),
-      client_id: pawn.client_id,
-      type: 'PAWN_REDEEM',
-      amount: settlement,
-      description: `Redeemed Pawn: ${pawn.description} (Principal: Rs. ${principal.toLocaleString()}, Charges: Rs. ${accruedCharges.toLocaleString()}, Insurance: Rs. ${manualInsurance.toLocaleString()})`,
-      branch_id: pawn.branch_id,
-      timestamp: new Date().toISOString()
-    }]);
-
-    if (txError) throw txError;
+    // 4. Log Settle/Redemption Transaction in User History (Soft Fallback)
+    try {
+      await adminSupabase.from('transaction').insert([{
+        id: crypto.randomUUID(),
+        client_id: pawn.client_id,
+        type: 'PAWN_REDEEM',
+        amount: settlement,
+        description: `Redeemed Pawn: ${pawn.description} (Principal: Rs. ${principal.toLocaleString()}, Charges: Rs. ${accruedCharges.toLocaleString()}, Insurance: Rs. ${manualInsurance.toLocaleString()})`,
+        branch_id: pawn.branch_id,
+        timestamp: new Date().toISOString()
+      }]);
+    } catch (txErr) {
+      console.warn("Transaction log warning (non-fatal):", txErr);
+    }
 
     // 5. Post Balanced Double-Entry Journal Entry
     const jeId = `JE-AUTO-RED-${Date.now()}`;

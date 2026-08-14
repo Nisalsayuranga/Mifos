@@ -1,35 +1,28 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// Safe initialization to prevent build-time crashes
-let supabase: any;
-if (supabaseUrl && supabaseKey) {
-  supabase = createClient(supabaseUrl, supabaseKey);
-}
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: Request, context: any) {
   try {
-    if (!supabase) {
-        return NextResponse.json({ error: "Supabase not initialized (Key missing during build)" }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
     const { id } = await context.params;
     const body = await request.json();
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('clients')
       .update({
-        nationalId: body.nic,
-        firstName: body.firstName,
-        lastName: body.lastName || '.',
+        national_id: body.nic || body.national_id || body.nationalId,
+        first_name: body.firstName || body.first_name,
+        last_name: body.lastName || body.last_name || '.',
         phone: body.phone,
         address: body.address,
-        nic_image: body.nicImage,
-        signature_image: body.signatureImage,
+        nic_image: body.nicImage || body.nic_image,
+        signature_image: body.signatureImage || body.signature_image,
         status: body.status || 'ACTIVE'
       })
       .eq('id', id)
@@ -46,11 +39,13 @@ export async function PATCH(request: Request, context: any) {
 
 export async function DELETE(request: Request, context: any) {
   try {
-    if (!supabase) {
-        return NextResponse.json({ error: "Supabase not initialized (Key missing during build)" }, { status: 500 });
+    const session = await getAuthenticatedUser(request);
+    if (!session || session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin privileges required to delete clients.' }, { status: 403 });
     }
+
     const { id } = await context.params;
-    const { error } = await supabase
+    const { error } = await adminSupabase
       .from('clients')
       .delete()
       .eq('id', id);
