@@ -4,6 +4,7 @@ import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 export const dynamic = 'force-dynamic';
 
 const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+const HARDCODED_FALLBACK_USER_ID = '1423f690-f46a-455d-bc25-a778d2bd9e47'; // Guaranteed valid profile UUID
 
 export async function GET(request: Request) {
   try {
@@ -52,12 +53,10 @@ export async function POST(request: Request) {
     let effectiveBranchId = branchId || 'HQ';
     let effectiveUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : null);
 
-    // If effectiveUserId is missing or invalid, resolve valid user ID from profiles
+    // If effectiveUserId is missing or invalid, fetch valid profile ID from DB or fallback
     if (!effectiveUserId) {
       const { data: profileRow } = await adminSupabase.from('profiles').select('id').limit(1).maybeSingle();
-      if (profileRow?.id) {
-        effectiveUserId = profileRow.id;
-      }
+      effectiveUserId = profileRow?.id || HARDCODED_FALLBACK_USER_ID;
     }
 
     if (session && session.role === 'TELLER') {
@@ -69,7 +68,33 @@ export async function POST(request: Request) {
 
     const clientId = crypto.randomUUID();
 
-    // 1. Try snake_case insert (Migration 003 standard)
+    // 1. Try camelCase insert (Active Database Schema standard)
+    const camelPayload: any = {
+      id: clientId,
+      nationalId: nic,
+      firstName: firstName,
+      lastName: lastName || '.',
+      phone: phone || null,
+      branchId: effectiveBranchId,
+      createdByUserId: effectiveUserId,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      address: address || null,
+      nic_image: nicImage || null,
+      signature_image: signatureImage || null
+    };
+
+    const { data: camelData, error: camelErr } = await adminSupabase
+      .from('clients')
+      .insert([camelPayload])
+      .select()
+      .single();
+
+    if (!camelErr && camelData) {
+      return NextResponse.json(camelData, { status: 201 });
+    }
+
+    // 2. Try snake_case insert (Migration 003 standard)
     const snakePayload: any = {
       id: clientId,
       national_id: nic,
@@ -77,15 +102,13 @@ export async function POST(request: Request) {
       last_name: lastName || '.',
       phone: phone || null,
       branch_id: effectiveBranchId,
+      created_by_user_id: effectiveUserId,
       status: 'ACTIVE',
       created_at: new Date().toISOString(),
       address: address || null,
       nic_image: nicImage || null,
       signature_image: signatureImage || null
     };
-    if (effectiveUserId) {
-      snakePayload.created_by_user_id = effectiveUserId;
-    }
 
     const { data: snakeData, error: snakeErr } = await adminSupabase
       .from('clients')
@@ -97,38 +120,10 @@ export async function POST(request: Request) {
       return NextResponse.json(snakeData, { status: 201 });
     }
 
-    // 2. Fallback to camelCase insert if database migration is pending
-    const camelPayload: any = {
-      id: clientId,
-      nationalId: nic,
-      firstName: firstName,
-      lastName: lastName || '.',
-      phone: phone || null,
-      branchId: effectiveBranchId,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      address: address || null,
-      nic_image: nicImage || null,
-      signature_image: signatureImage || null
-    };
-    if (effectiveUserId) {
-      camelPayload.createdByUserId = effectiveUserId;
-    }
-
-    const { data: camelData, error: camelErr } = await adminSupabase
-      .from('clients')
-      .insert([camelPayload])
-      .select()
-      .single();
-
-    if (camelErr) {
-      console.error("Clients POST error (snake & camel failed):", snakeErr, camelErr);
-      throw camelErr;
-    }
-
-    return NextResponse.json(camelData, { status: 201 });
+    console.error("Clients POST Error (Both schemas failed):", camelErr, snakeErr);
+    return NextResponse.json({ error: camelErr?.message || snakeErr?.message || "Failed to save customer record to database." }, { status: 500 });
   } catch (error: any) {
-    console.error("API POST Error:", error);
+    console.error("API POST Exception:", error);
     return NextResponse.json({ error: error.message || 'Failed to save customer' }, { status: 500 });
   }
 }

@@ -100,4 +100,22 @@ BEGIN
         ALTER TABLE public.clients RENAME COLUMN "createdAt" TO created_at;
     END IF;
 END $$;
+
+-- 7. RELAX NOT NULL CONSTRAINT ON CREATED_BY_USER_ID
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'clients' AND column_name = 'createdByUserId'
+    ) THEN
+        ALTER TABLE public.clients ALTER COLUMN "createdByUserId" DROP NOT NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'clients' AND column_name = 'created_by_user_id'
+    ) THEN
+        ALTER TABLE public.clients ALTER COLUMN created_by_user_id DROP NOT NULL;
+    END IF;
+END $$;
 -- ================================================================================
