@@ -3,6 +3,8 @@ import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
+const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+
 export async function GET(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
@@ -48,61 +50,85 @@ export async function POST(request: Request) {
     }
 
     let effectiveBranchId = branchId || 'HQ';
-    let effectiveUserId = createdByUserId || '00000000-0000-0000-0000-000000000000';
+    let effectiveUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : null);
 
-    if (session) {
-      if (session.role === 'TELLER') {
-        if (branchId && branchId !== session.branchId) {
-          return NextResponse.json({ error: 'Forbidden. You cannot create clients for another branch.' }, { status: 403 });
-        }
-        effectiveBranchId = session.branchId;
+    // If effectiveUserId is missing or invalid, resolve valid user ID from profiles
+    if (!effectiveUserId) {
+      const { data: profileRow } = await adminSupabase.from('profiles').select('id').limit(1).maybeSingle();
+      if (profileRow?.id) {
+        effectiveUserId = profileRow.id;
       }
-      effectiveUserId = session.user.id;
+    }
+
+    if (session && session.role === 'TELLER') {
+      if (branchId && branchId !== session.branchId) {
+        return NextResponse.json({ error: 'Forbidden. You cannot create clients for another branch.' }, { status: 403 });
+      }
+      effectiveBranchId = session.branchId;
     }
 
     const clientId = crypto.randomUUID();
 
     // 1. Try snake_case insert (Migration 003 standard)
-    const { data: snakeData, error: snakeErr } = await adminSupabase.from('clients').insert([{
+    const snakePayload: any = {
       id: clientId,
       national_id: nic,
       first_name: firstName,
       last_name: lastName || '.',
-      phone: phone,
+      phone: phone || null,
       branch_id: effectiveBranchId,
-      created_by_user_id: effectiveUserId,
       status: 'ACTIVE',
       created_at: new Date().toISOString(),
       address: address || null,
       nic_image: nicImage || null,
       signature_image: signatureImage || null
-    }]).select().single();
+    };
+    if (effectiveUserId) {
+      snakePayload.created_by_user_id = effectiveUserId;
+    }
+
+    const { data: snakeData, error: snakeErr } = await adminSupabase
+      .from('clients')
+      .insert([snakePayload])
+      .select()
+      .single();
 
     if (!snakeErr && snakeData) {
       return NextResponse.json(snakeData, { status: 201 });
     }
 
     // 2. Fallback to camelCase insert if database migration is pending
-    const { data: camelData, error: camelErr } = await adminSupabase.from('clients').insert([{
+    const camelPayload: any = {
       id: clientId,
       nationalId: nic,
       firstName: firstName,
       lastName: lastName || '.',
-      phone: phone,
+      phone: phone || null,
       branchId: effectiveBranchId,
-      createdByUserId: effectiveUserId,
       status: 'ACTIVE',
       createdAt: new Date().toISOString(),
       address: address || null,
       nic_image: nicImage || null,
       signature_image: signatureImage || null
-    }]).select().single();
+    };
+    if (effectiveUserId) {
+      camelPayload.createdByUserId = effectiveUserId;
+    }
 
-    if (camelErr) throw camelErr;
+    const { data: camelData, error: camelErr } = await adminSupabase
+      .from('clients')
+      .insert([camelPayload])
+      .select()
+      .single();
+
+    if (camelErr) {
+      console.error("Clients POST error (snake & camel failed):", snakeErr, camelErr);
+      throw camelErr;
+    }
+
     return NextResponse.json(camelData, { status: 201 });
   } catch (error: any) {
     console.error("API POST Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to save customer' }, { status: 500 });
   }
 }
-

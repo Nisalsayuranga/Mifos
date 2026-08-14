@@ -445,9 +445,13 @@ export default function ClientsPage() {
       // Serialize Front and Back NIC scan base64 frames into a single robust JSON payload string
       const serializedNicImage = JSON.stringify({ front: nicFrontImage, back: nicBackImage });
 
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ 
           nic, 
           firstName, // Name with Initials
@@ -515,7 +519,11 @@ export default function ClientsPage() {
 
     const toastId = toast.loading("Deleting customer...");
     try {
-      const res = await fetch(`/api/clients/${client.id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/clients/${client.id}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error("Delete failed");
       toast.success("Customer removed successfully", { id: toastId });
       loadClients();
