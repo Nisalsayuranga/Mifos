@@ -10,7 +10,7 @@ export async function PATCH(request: Request, context: any) {
     const session = await getAuthenticatedUser(request);
     const { id } = await context.params;
     const body = await request.json();
-    const { clientId, description, appraisedValue, disbursedAmount, billNo, weight, weightGrams, weightMg, itemType } = body;
+    const { clientId, description, appraisedValue, disbursedAmount, billNo, weight, weightGrams, weightMg, itemType, items, clientPhone, clientAddress } = body;
 
     // Fetch existing pawn to check branch authorization
     const { data: existingPawn, error: fetchErr } = await adminSupabase.from('pawns').select('*').eq('id', id).single();
@@ -32,6 +32,17 @@ export async function PATCH(request: Request, context: any) {
 
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;
+        
+        // Update client info if provided
+        if (clientPhone || clientAddress) {
+          const updateClient: any = {};
+          if (clientPhone && clientPhone !== existingClients[0].phone) updateClient.phone = clientPhone;
+          if (clientAddress && clientAddress !== existingClients[0].address) updateClient.address = clientAddress;
+          
+          if (Object.keys(updateClient).length > 0) {
+            await adminSupabase.from('clients').update(updateClient).eq('id', targetClientId);
+          }
+        }
       }
     }
 

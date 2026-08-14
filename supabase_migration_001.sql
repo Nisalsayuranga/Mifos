@@ -179,6 +179,15 @@ FOR INSERT WITH CHECK (
 );
 
 -- --- STOCK CUSTOMERS ---
+CREATE TABLE IF NOT EXISTS public.stock_customers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  phone TEXT,
+  address TEXT,
+  branch_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE public.stock_customers ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public stock_customers select" ON public.stock_customers;
 DROP POLICY IF EXISTS "Public stock_customers insert" ON public.stock_customers;

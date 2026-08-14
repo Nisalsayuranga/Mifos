@@ -1837,7 +1837,7 @@ function PawnDetailsModal({
               <div style="font-weight: bold; font-size: 17px; color: #0f172a; margin-bottom: 10px;">${billDesc}</div>
               <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 8px; color: #1e293b;">
                 <span>Appraised Valuation: <b>Rs. ${parseFloat(billAppraised || '0').toLocaleString()}</b></span>
-                <span>Total Weight: <b style="font-family: monospace;">${billWeight} g</b></span>
+                <span>Total Weight: <b style="font-family: monospace;">${billWeight}</b></span>
               </div>
             </div>
 

@@ -123,6 +123,25 @@ export async function POST(request: Request) {
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;
         fullClientObj = existingClients[0];
+        
+        // Update client info if provided
+        if (clientPhone || clientAddress) {
+          const updateClient: any = {};
+          if (clientPhone && clientPhone !== fullClientObj.phone) updateClient.phone = clientPhone;
+          if (clientAddress && clientAddress !== fullClientObj.address) updateClient.address = clientAddress;
+          
+          if (Object.keys(updateClient).length > 0) {
+            const { data: updatedClient, error: updateErr } = await adminSupabase
+              .from('clients')
+              .update(updateClient)
+              .eq('id', targetClientId)
+              .select()
+              .single();
+            if (updatedClient && !updateErr) {
+              fullClientObj = updatedClient;
+            }
+          }
+        }
       } else {
         const newClientId = crypto.randomUUID();
         const resolvedName = clientName || customerName || '';
