@@ -16,18 +16,18 @@ export async function GET(request: Request) {
 
     if (session) {
       if (session.role === 'TELLER') {
-        if (requestedBranch && requestedBranch !== session.branchId) {
+        if (requestedBranch && requestedBranch.toLowerCase() !== session.branchId.toLowerCase()) {
           return NextResponse.json({ error: 'Forbidden. Access to other branch records is denied.' }, { status: 403 });
         }
-        query = query.or(`branch_id.eq.${session.branchId},branchId.eq.${session.branchId}`);
+        query = query.or(`branch_id.ilike.${session.branchId},branchId.ilike.${session.branchId}`);
       } else if (session.role === 'ADMIN') {
         if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-          query = query.or(`branch_id.eq.${requestedBranch},branchId.eq.${requestedBranch}`);
+          query = query.or(`branch_id.ilike.${requestedBranch},branchId.ilike.${requestedBranch}`);
         }
       }
     } else {
       if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-        query = query.or(`branch_id.eq.${requestedBranch},branchId.eq.${requestedBranch}`);
+        query = query.or(`branch_id.ilike.${requestedBranch},branchId.ilike.${requestedBranch}`);
       }
     }
 
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     if (session && session.role === 'TELLER') {
-      if (branchId && branchId !== session.branchId) {
+      if (branchId && branchId.toLowerCase() !== session.branchId.toLowerCase()) {
         return NextResponse.json({ error: 'Forbidden. You cannot create clients for another branch.' }, { status: 403 });
       }
       effectiveBranchId = session.branchId;
