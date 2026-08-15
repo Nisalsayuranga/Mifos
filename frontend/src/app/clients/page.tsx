@@ -345,7 +345,7 @@ export default function ClientsPage() {
 
       let query = supabase.from('stock_customers').select('*');
       if (activeBranch !== 'ALL') {
-        query = query.ilike('branch_id', `%${activeBranch}%`);
+        query = query.eq('branch_id', activeBranch);
       }
       const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;

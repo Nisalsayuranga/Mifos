@@ -19,15 +19,15 @@ export async function GET(request: Request) {
         if (requestedBranch && requestedBranch.toLowerCase() !== session.branchId.toLowerCase()) {
           return NextResponse.json({ error: 'Forbidden. Access to other branch records is denied.' }, { status: 403 });
         }
-        query = query.or(`branch_id.ilike.%${session.branchId}%,branchId.ilike.%${session.branchId}%`);
+        query = query.ilike('branchId', `%${session.branchId}%`);
       } else if (session.role === 'ADMIN') {
         if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-          query = query.or(`branch_id.ilike.%${requestedBranch}%,branchId.ilike.%${requestedBranch}%`);
+          query = query.ilike('branchId', `%${requestedBranch}%`);
         }
       }
     } else {
       if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-        query = query.or(`branch_id.ilike.%${requestedBranch}%,branchId.ilike.%${requestedBranch}%`);
+        query = query.ilike('branchId', `%${requestedBranch}%`);
       }
     }
 
