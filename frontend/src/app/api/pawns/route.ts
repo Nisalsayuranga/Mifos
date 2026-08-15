@@ -146,17 +146,17 @@ export async function POST(request: Request) {
       } else {
         // Auto-create client profile if missing
         const newClientId = crypto.randomUUID();
-        const clientPayload = {
+        const clientPayload: any = {
           id: newClientId,
-          nationalId: clientId,
-          firstName: clientName || customerName || 'Valued Customer',
-          lastName: '.',
+          national_id: clientId,
+          first_name: clientName || customerName || 'Valued Customer',
+          last_name: '.',
           phone: clientPhone || null,
           address: clientAddress || null,
-          branchId: targetBranchId,
-          createdByUserId: targetUserId,
+          branch_id: targetBranchId,
+          created_by_user_id: targetUserId,
           status: 'ACTIVE',
-          createdAt: new Date().toISOString()
+          created_at: new Date().toISOString()
         };
         const { data: createdClient, error: createErr } = await adminSupabase.from('clients').insert([clientPayload]).select().single();
         if (!createErr && createdClient) {
@@ -218,16 +218,20 @@ export async function POST(request: Request) {
     }
 
     // 4. Create matching vault stock item
-    await adminSupabase.from('stock_items').insert([{
-      id: crypto.randomUUID(),
-      pawn_id: pawnId,
-      branch_id: targetBranchId,
-      item_name: description || 'Pawned Gold Collateral',
-      weight_grams: finalWeightGrams + (finalWeightMg / 1000),
-      appraised_value: finalAppraised,
-      status: 'VAULT_STORED',
-      created_at: new Date().toISOString()
-    }]);
+    try {
+      await adminSupabase.from('stock_items').insert([{
+        id: crypto.randomUUID(),
+        bill_no: billNo || pawnId.substring(0, 8),
+        branch_id: targetBranchId,
+        item_type: description || 'Pawned Gold Collateral',
+        weight: finalWeightGrams + (finalWeightMg / 1000),
+        price: finalAppraised,
+        status: 'VAULT_STORED',
+        created_at: new Date().toISOString()
+      }]);
+    } catch (stockErr) {
+      console.warn("Could not insert matching vault stock item, but proceeding:", stockErr);
+    }
 
     await recordAuditLog(session, {
       action: 'ORIGINATE_PAWN',
