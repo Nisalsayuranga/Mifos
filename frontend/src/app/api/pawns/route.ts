@@ -20,15 +20,15 @@ export async function GET(request: Request) {
     if (session) {
       if (session.role === 'TELLER') {
         // Teller is restricted to their assigned branch
-        query = query.ilike('branch_id', session.branchId);
+        query = query.ilike('branch_id', `%${session.branchId}%`);
       } else if (session.role === 'ADMIN') {
         if (requestedBranch && requestedBranch !== 'ALL') {
-          query = query.ilike('branch_id', requestedBranch);
+          query = query.ilike('branch_id', `%${requestedBranch}%`);
         }
       }
     } else {
       if (requestedBranch && requestedBranch !== 'ALL') {
-        query = query.ilike('branch_id', requestedBranch);
+        query = query.ilike('branch_id', `%${requestedBranch}%`);
       }
     }
 

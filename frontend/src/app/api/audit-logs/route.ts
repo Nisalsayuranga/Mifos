@@ -14,15 +14,15 @@ export async function GET(request: Request) {
 
     if (session) {
       if (session.role === 'TELLER') {
-        query = query.eq('branch_id', session.branchId);
+        query = query.ilike('branch_id', `%${session.branchId}%`);
       } else if (session.role === 'ADMIN') {
         if (requestedBranch && requestedBranch !== 'ALL') {
-          query = query.eq('branch_id', requestedBranch);
+          query = query.ilike('branch_id', `%${requestedBranch}%`);
         }
       }
     } else {
       if (requestedBranch && requestedBranch !== 'ALL') {
-        query = query.eq('branch_id', requestedBranch);
+        query = query.ilike('branch_id', `%${requestedBranch}%`);
       }
     }
 
