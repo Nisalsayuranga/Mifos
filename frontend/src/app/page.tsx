@@ -125,7 +125,7 @@ export default function Home() {
       // 1. Get Customers Count
       let clientQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
       if (userRole === 'TELLER' && userBranchId) {
-        clientQuery = clientQuery.eq('branchId', userBranchId);
+        clientQuery = clientQuery.eq('branch_id', userBranchId);
       }
       const { count: clientCount } = await clientQuery;
       
@@ -146,15 +146,15 @@ export default function Home() {
       const { data: txs } = await recentPawnsQuery;
 
       // 4. Get Client Names mapping to resolve client_id to actual names
-      let clientsMapQuery = supabase.from('clients').select('id, firstName, lastName');
+      let clientsMapQuery = supabase.from('clients').select('id, first_name, last_name');
       if (userRole === 'TELLER' && userBranchId) {
-        clientsMapQuery = clientsMapQuery.eq('branchId', userBranchId);
+        clientsMapQuery = clientsMapQuery.eq('branch_id', userBranchId);
       }
       const { data: clientsList } = await clientsMapQuery;
       const cmap: {[key: string]: string} = {};
       if (clientsList) {
         clientsList.forEach((c: any) => {
-          cmap[c.id] = `${c.firstName} ${c.lastName || ''}`.trim();
+          cmap[c.id] = `${c.first_name} ${c.last_name || ''}`.trim();
         });
       }
       setClientMap(cmap);
