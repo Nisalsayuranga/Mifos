@@ -1970,7 +1970,7 @@ function PawnDetailsModal({
           </div>
 
           <!-- Perforated Stub Line -->
-          <div style="margin-top: 1.5in; border-top: 2px dashed #94a3b8; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-family: monospace; font-weight: bold;">
+          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-family: monospace; font-weight: bold;">
             <div>R No. <span style="color: #1e3a8a;">${finalBillNo}</span></div>
             <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
           </div>
