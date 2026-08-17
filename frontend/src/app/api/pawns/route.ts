@@ -116,10 +116,11 @@ export async function POST(request: Request) {
     let fullClientObj: any = null;
 
     if (!isUUID(clientId)) {
+      const trimmedId = String(clientId).trim();
       const { data: existingClients } = await adminSupabase
         .from('clients')
         .select('*')
-        .or(`national_id.eq.${clientId},nationalId.eq.${clientId},id.eq.${clientId}`);
+        .or(`national_id.eq.${trimmedId},nationalId.eq.${trimmedId}`);
 
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;
