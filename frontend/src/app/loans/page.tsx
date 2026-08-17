@@ -1837,24 +1837,13 @@ function PawnDetailsModal({
         <meta charset="utf-8"/>
         <title>Pawn Bill - ${finalBillNo}</title>
         <style>
-          @media print {
-            @page { size: A4 portrait; margin: 10mm 15mm; }
-            html, body { 
-              -webkit-print-color-adjust: exact !important; 
-              print-color-adjust: exact !important; 
-              background: white !important; 
-              margin: 0 !important; padding: 0 !important; 
-            }
-            .no-print { display: none !important; }
-          }
           body { 
             font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; 
-            padding: 20px; 
             background: white; 
             color: #0f172a; 
+            margin: 0; padding: 0;
           }
           .bill-card {
-            max-width: 650px; 
             margin: 0 auto; 
             background: white; 
             color: #0f172a; 
@@ -1862,10 +1851,36 @@ function PawnDetailsModal({
             border: 1px solid #cbd5e1; 
             border-radius: 8px;
           }
+          @media print {
+            .no-print, #selection-screen { display: none !important; }
+            html, body { 
+              -webkit-print-color-adjust: exact !important; 
+              print-color-adjust: exact !important; 
+              background: white !important; 
+              margin: 0 !important; padding: 0 !important; 
+            }
+            .bill-card {
+              border: none;
+              padding: 0;
+            }
+          }
         </style>
       </head>
       <body>
-        <div class="bill-card">
+        <!-- PAPER SIZE SELECTION SCREEN -->
+        <div id="selection-screen" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:Arial,sans-serif; background-color:#f3f4f6; position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999;">
+            <h2 style="color:#111827; margin-bottom: 20px;">Select Paper Size for Pawn Bill</h2>
+            <div style="display:flex; gap:20px;">
+                <button onclick="startPrinting('A4')" style="padding:15px 30px; font-size:16px; cursor:pointer; background-color:#3b82f6; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                    <strong>A4 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Standard Format</span>
+                </button>
+                <button onclick="startPrinting('A5')" style="padding:15px 30px; font-size:16px; cursor:pointer; background-color:#10b981; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                    <strong>A5 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Optimized (Fills half page perfectly)</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="bill-content" style="display:none;" class="bill-card">
           <!-- Header -->
           <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 12px;">
             <h2 style="font-size: 20px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
@@ -1961,10 +1976,29 @@ function PawnDetailsModal({
           </div>
         </div>
         <script>
-          setTimeout(() => {
-            window.print();
-            window.close();
-          }, 500);
+          function startPrinting(paperSize) {
+              document.getElementById('selection-screen').style.display = 'none';
+              document.getElementById('bill-content').style.display = 'block';
+
+              const style = document.createElement('style');
+              if (paperSize === 'A5') {
+                  style.innerHTML = \`
+                      @page { size: A5 portrait; margin: 5mm 8mm; }
+                      .bill-card { max-width: 100%; }
+                  \`;
+              } else {
+                  style.innerHTML = \`
+                      @page { size: A4 portrait; margin: 10mm 15mm; }
+                      .bill-card { max-width: 650px; }
+                  \`;
+              }
+              document.head.appendChild(style);
+
+              setTimeout(() => {
+                  window.print();
+                  setTimeout(() => { window.close(); }, 500);
+              }, 100);
+          }
         </script>
       </body>
       </html>
