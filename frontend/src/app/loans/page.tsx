@@ -62,6 +62,10 @@ export default function PawnesPage() {
   const [appraisal, setAppraisal]       = useState('');
   const [amount, setAmount]             = useState('');
 
+  // Client Extended Details
+  const [clientPhone, setClientPhone]     = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+
   // Dedicated Grams & Milligrams Weight & Period State
   const [weightGrams, setWeightGrams]   = useState('');
   const [weightMg, setWeightMg]         = useState('');
@@ -320,6 +324,7 @@ export default function PawnesPage() {
     setClientId(''); setDescription(''); setAppraisal(''); setAmount('');
     setBillPrefix('1R'); setBillNo(''); setItemType('CH'); setGoldWeight('');
     setWeightGrams(''); setWeightMg('');
+    setClientPhone(''); setClientAddress('');
     setItemsList([{ itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }]);
     setEditingPawn(null); setResolvedName(''); setShowSuggestions(false);
   };
@@ -330,7 +335,26 @@ export default function PawnesPage() {
     setEditingPawn(pawn);
     const cid = pawn.client_id || '';
     setClientId(cid);
-    setResolvedName(pawn.clients ? `${pawn.clients.firstName || ''} ${pawn.clients.lastName || ''}`.trim() : (clientsMap[cid.toLowerCase()] || ''));
+    
+    let resolved = clientsMap[cid.toLowerCase()] || '';
+    let cPhone = '';
+    let cAddress = '';
+
+    if (pawn.clients) {
+      resolved = `${pawn.clients.firstName || ''} ${pawn.clients.lastName || ''}`.trim() || resolved;
+      cPhone = pawn.clients.phone || '';
+      cAddress = pawn.clients.address || pawn.clients.address_line1 || '';
+    } else {
+      const matchedClient = clientsList.find(c => String(c.id).toLowerCase() === cid.toLowerCase() || String(c.nationalId || c.national_id || '').toLowerCase() === cid.toLowerCase());
+      if (matchedClient) {
+        cPhone = matchedClient.phone || '';
+        cAddress = matchedClient.address || matchedClient.address_line1 || '';
+      }
+    }
+    
+    setResolvedName(resolved);
+    setClientPhone(cPhone);
+    setClientAddress(cAddress);
     
     // Parse description for bill prefix and bill no if present
     const desc = pawn.description || '';
@@ -411,6 +435,8 @@ export default function PawnesPage() {
         body: JSON.stringify({
           clientId,
           clientName: resolvedName,
+          phone: clientPhone,
+          address: clientAddress,
           description: fullDescription,
           appraisedValue: appraisal,
           disbursedAmount: amount,
@@ -820,6 +846,28 @@ export default function PawnesPage() {
                     <span className="text-emerald-700 font-black text-sm">{resolvedName}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Extended Customer Contact Info (Phone & Address) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Phone Number</Label>
+                  <Input
+                    value={clientPhone}
+                    onChange={e => setClientPhone(e.target.value)}
+                    placeholder="07X XXX XXXX"
+                    className="h-10 bg-white/50 rounded-xl text-sm"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address</Label>
+                  <Input
+                    value={clientAddress}
+                    onChange={e => setClientAddress(e.target.value)}
+                    placeholder="Customer Address"
+                    className="h-10 bg-white/50 rounded-xl text-sm"
+                  />
+                </div>
               </div>
 
               {/* Bill Prefix & Bill Number Input Block */}
@@ -1654,6 +1702,10 @@ function PawnDetailsModal({
         const g = Math.floor(wVal);
         const mg = Math.round((wVal - g) * 1000);
         formattedWeightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      } else if (pawn.weight_grams !== undefined) {
+        const g = Math.floor(pawn.weight_grams);
+        const mg = Math.round((parseFloat(pawn.weight_mg) || 0));
+        formattedWeightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
       }
 
       setBillNo(bNo);
@@ -1667,7 +1719,7 @@ function PawnDetailsModal({
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
-      setBillWeight(String(computedWeight));
+      setBillWeight(formattedWeightStr || String(computedWeight));
       setBillLastDate(formattedLastDate);
       setHasAutoPrinted(false); // reset for new pawn
     }
@@ -1692,15 +1744,31 @@ function PawnDetailsModal({
       const createdDate = pawn.created_at ? new Date(pawn.created_at) : new Date();
       const formattedDate = createdDate.toLocaleDateString('en-GB');
 
+      const pTenor = parseInt(pawn.period_months, 10) || 3;
       const lastD = new Date(createdDate);
-      lastD.setMonth(lastD.getMonth() + 3);
+      lastD.setMonth(lastD.getMonth() + pTenor);
       const formattedLastDate = lastD.toLocaleDateString('en-GB');
 
       const cDetails = resolveClientDetails(pawn);
       const bAddress = getBranchAddress(pawn, branchesList);
 
+      let wVal = parseFloat(pawn.weight || 0);
+      if (wVal <= 0 && Array.isArray(pawn.items) && pawn.items.length > 0) {
+        wVal = pawn.items.reduce((s: number, it: any) => s + (parseFloat(it.weight_grams) || 0) + ((parseFloat(it.weight_mg) || 0) / 1000), 0);
+      }
+      let formattedWeightStr = '';
+      if (wVal > 0) {
+        const g = Math.floor(wVal);
+        const mg = Math.round((wVal - g) * 1000);
+        formattedWeightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      } else if (pawn.weight_grams !== undefined) {
+        const g = Math.floor(pawn.weight_grams);
+        const mg = Math.round((parseFloat(pawn.weight_mg) || 0));
+        formattedWeightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      }
+
       setBillNo(bNo);
-      setBillMonths('3');
+      setBillMonths(String(pTenor));
       setBillDate(formattedDate);
       setBillBranchAddress(bAddress);
       setBillName(cDetails.name);
@@ -1710,7 +1778,7 @@ function PawnDetailsModal({
       setBillAmount(String(pawn.disbursed_amount || 0));
       setBillDesc(getCleanDescription(pawn));
       setBillAppraised(String(pawn.appraised_value || 0));
-      setBillWeight(String(pawn.weight || ''));
+      setBillWeight(formattedWeightStr || String(pawn.weight || ''));
       setBillLastDate(formattedLastDate);
     }
   };
