@@ -492,8 +492,8 @@ export default function ClientsPage() {
 
   const openEditDialog = (client: any) => {
     setEditingClient(client);
-    setNic(client.nationalId || '');
-    setFirstName(client.firstName || '');
+    setNic(client.national_id || client.nationalId || '');
+    setFirstName(client.first_name || client.firstName || '');
     setPhone(client.phone || '');
     setAddress(client.address || '');
     
@@ -516,7 +516,7 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (client: any) => {
-    if (!confirm(`Are you sure you want to remove ${client.firstName}?`)) return;
+    if (!confirm(`Are you sure you want to remove ${client.first_name || client.firstName}?`)) return;
 
     const toastId = toast.loading("Deleting customer...");
     try {
@@ -677,8 +677,8 @@ export default function ClientsPage() {
   };
 
   const filteredClients = clients.filter(client => 
-    client.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.nationalId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (client.first_name || client.firstName)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (client.national_id || client.nationalId)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.phone?.includes(searchQuery)
   );
@@ -881,10 +881,10 @@ export default function ClientsPage() {
             ) : (
               filteredClients.map((client) => (
                 <TableRow key={client.id} className="group hover:bg-primary/5 transition-all duration-300">
-                  <TableCell className="px-8 py-6 font-black text-slate-900 group-hover:text-primary transition-colors underline decoration-primary/10 underline-offset-4">{client.nationalId || 'N/A'}</TableCell>
+                  <TableCell className="px-8 py-6 font-black text-slate-900 group-hover:text-primary transition-colors underline decoration-primary/10 underline-offset-4">{client.national_id || client.nationalId || 'N/A'}</TableCell>
                   <TableCell className="px-8 py-6">
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-800 leading-none mb-1">{client.firstName}</span>
+                      <span className="font-bold text-slate-800 leading-none mb-1">{client.first_name || client.firstName}</span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{client.phone || 'No Phone'}</span>
                     </div>
                   </TableCell>
@@ -981,7 +981,7 @@ export default function ClientsPage() {
                     })()}
                   </TableCell>
                   <TableCell className="px-8 py-6 text-slate-500 font-bold text-xs uppercase tracking-widest">
-                    {client.createdAt ? new Date(client.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                    {(client.created_at || client.createdAt) ? new Date(client.created_at || client.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </TableCell>
                   <TableCell className="px-8 py-6 text-right">
                     <DropdownMenu>
