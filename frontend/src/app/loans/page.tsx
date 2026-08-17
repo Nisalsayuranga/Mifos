@@ -879,7 +879,14 @@ export default function PawnesPage() {
                       <button
                         key={pref}
                         type="button"
-                        onClick={() => setBillPrefix(pref)}
+                        onClick={() => {
+                          setBillPrefix(pref);
+                          // Automatically map the bill prefix to the corresponding tenor period
+                          if (pref === '1R') setPeriodMonths('1');
+                          else if (pref === '3M' || pref === '3R') setPeriodMonths('3');
+                          else if (pref === '6M' || pref === '6R') setPeriodMonths('6');
+                          else if (pref === '12R') setPeriodMonths('12');
+                        }}
                         className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all border ${
                           billPrefix === pref
                             ? 'bg-primary text-white border-primary shadow-md scale-105'
