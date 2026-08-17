@@ -1870,12 +1870,15 @@ function PawnDetailsModal({
         <!-- PAPER SIZE SELECTION SCREEN -->
         <div id="selection-screen" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:Arial,sans-serif; background-color:#f3f4f6; position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999;">
             <h2 style="color:#111827; margin-bottom: 20px;">Select Paper Size for Pawn Bill</h2>
-            <div style="display:flex; gap:20px;">
-                <button onclick="startPrinting('A4')" style="padding:15px 30px; font-size:16px; cursor:pointer; background-color:#3b82f6; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+            <div style="display:flex; gap:15px; flex-wrap: wrap; justify-content: center; max-width: 600px;">
+                <button onclick="startPrinting('A4')" style="padding:15px 25px; font-size:15px; cursor:pointer; background-color:#3b82f6; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                     <strong>A4 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Standard Format</span>
                 </button>
-                <button onclick="startPrinting('A5')" style="padding:15px 30px; font-size:16px; cursor:pointer; background-color:#10b981; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                    <strong>A5 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Optimized (Fills half page perfectly)</span>
+                <button onclick="startPrinting('A5')" style="padding:15px 25px; font-size:15px; cursor:pointer; background-color:#10b981; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    <strong>A5 Size (PC)</strong><br/><span style="font-size:12px; opacity:0.8;">For Laptops/Desktops</span>
+                </button>
+                <button onclick="startPrinting('A5_TABLET')" style="padding:15px 25px; font-size:15px; cursor:pointer; background-color:#f59e0b; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    <strong>A5 Size (Tablet Fix)</strong><br/><span style="font-size:12px; opacity:0.8;">Use if App forces A4</span>
                 </button>
             </div>
         </div>
@@ -1985,6 +1988,18 @@ function PawnDetailsModal({
                   style.innerHTML = \`
                       @page { size: A5 portrait; margin: 5mm 8mm; }
                       .bill-card { max-width: 100%; }
+                  \`;
+              } else if (paperSize === 'A5_TABLET') {
+                  style.innerHTML = \`
+                      @page { size: A4 portrait; margin: 0; }
+                      body { margin: 0; padding: 0; display: flex; justify-content: flex-start; align-items: flex-start; }
+                      .bill-card { 
+                          width: 135mm; 
+                          max-width: 135mm; 
+                          margin-top: 5mm;
+                          margin-left: 8mm;
+                          padding: 0;
+                      }
                   \`;
               } else {
                   style.innerHTML = \`
