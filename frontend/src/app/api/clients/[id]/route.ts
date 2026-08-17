@@ -40,8 +40,8 @@ export async function PATCH(request: Request, context: any) {
 export async function DELETE(request: Request, context: any) {
   try {
     const session = await getAuthenticatedUser(request);
-    if (!session || session.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden. Admin privileges required to delete clients.' }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await context.params;

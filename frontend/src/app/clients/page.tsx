@@ -659,8 +659,11 @@ export default function ClientsPage() {
     if (!confirm("Are you sure you want to delete this customer profile?")) return;
     try {
       if (isUsingSupabase) {
-        const { error } = await supabase.from('stock_customers').delete().eq('id', id);
-        if (error) throw error;
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`/api/stock-customers/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) throw new Error("Delete failed");
         toast.success("Customer profile deleted from Supabase!");
       } else {
         const local = localStorage.getItem('local_stock_customers');
