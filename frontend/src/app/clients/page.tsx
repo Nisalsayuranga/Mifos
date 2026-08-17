@@ -997,9 +997,11 @@ export default function ClientsPage() {
                         <DropdownMenuItem onClick={() => openAgreementDialog(client)} className="gap-3 px-4 py-3 rounded-xl font-bold text-slate-700 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer outline-none">
                           <FileText className="w-4 h-4 text-blue-600" /> Loan Agreement
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(client)} className="gap-3 px-4 py-3 rounded-xl font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
-                          <Trash2 className="w-4 h-4" /> Delete Record
-                        </DropdownMenuItem>
+                        {userRole === 'ADMIN' && (
+                          <DropdownMenuItem onClick={() => handleDelete(client)} className="gap-3 px-4 py-3 rounded-xl font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
+                            <Trash2 className="w-4 h-4" /> Delete Record
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -1109,14 +1111,16 @@ export default function ClientsPage() {
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </Button>
-                              <Button 
-                                onClick={() => handleDeleteCustomer(c.id)}
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-rose-600"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
+                              {userRole === 'ADMIN' && (
+                                <Button 
+                                  onClick={() => handleDeleteCustomer(c.id)}
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-rose-600"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
