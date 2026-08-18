@@ -33,6 +33,8 @@ export function printLoanAgreement(details: AgreementDetails) {
           font-family: "Times New Roman", Times, serif;
           line-height: 1.5;
           color: #333;
+          font-size: 11pt;
+          margin: 0.8in 0.6in;
         }
         h1, h2, h3, h4 {
           color: #111;
@@ -144,32 +146,18 @@ export function printLoanAgreement(details: AgreementDetails) {
           pointer-events: none;
           z-index: -1000;
         }
+        @page { size: A4; margin: 0.8in 0.6in; }
         @media print {
+          body { margin: 0; }
           .no-print {
-            display: none !important;
-          }
-          #selection-screen {
             display: none !important;
           }
         }
       </style>
     </head>
     <body>
-      <!-- PAPER SIZE SELECTION SCREEN -->
-      <div id="selection-screen" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:Arial,sans-serif; background-color:#f3f4f6; position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999;">
-          <h2 style="color:#111827; margin-bottom: 20px;">Select Paper Size for Printing</h2>
-          <div style="display:flex; gap:20px;">
-              <button onclick="startPrinting('A4')" style="padding:15px 30px; font-size:16px; cursor:pointer; background-color:#3b82f6; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                  <strong>A4 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Standard Format</span>
-              </button>
-              <button onclick="startPrinting('A5')" style="padding:15px 30px; font-size:16px; cursor:pointer; background-color:#10b981; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                  <strong>A5 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Optimized (Smaller)</span>
-              </button>
-          </div>
-      </div>
-
       <!-- THE AGREEMENT CONTENT -->
-      <div id="agreement-content" style="display:none;">
+      <div id="agreement-content">
         <div class="watermark">RUPASINGHE PAWNING</div>
 
         <!-- PAGE 1: TITLE & RECITALS -->
@@ -341,43 +329,13 @@ export function printLoanAgreement(details: AgreementDetails) {
       </div>
 
       <script>
-        function startPrinting(paperSize) {
-            // Hide selection screen and show agreement
-            document.getElementById('selection-screen').style.display = 'none';
-            document.getElementById('agreement-content').style.display = 'block';
-
-            // Inject dynamic CSS based on selection
-            const style = document.createElement('style');
-            if (paperSize === 'A5') {
-                style.innerHTML = \`
-                    @page { size: A5; margin: 0.4in; }
-                    body { font-size: 9pt; margin: 0.4in; }
-                    h1 { font-size: 13pt; }
-                    h2 { font-size: 11pt; }
-                    .section-title { font-size: 10pt; }
-                    .signature-field { font-size: 8pt; }
-                    .signature-title { font-size: 9pt; }
-                    @media print { body { margin: 0; } }
-                \`;
-            } else {
-                style.innerHTML = \`
-                    @page { size: A4; margin: 0.8in 0.6in; }
-                    body { font-size: 11pt; margin: 0.8in 0.6in; }
-                    @media print { body { margin: 0; } }
-                \`;
-            }
-            document.head.appendChild(style);
-
-            // Wait a split second for styles to apply, then trigger print
-            setTimeout(() => {
-                window.print();
-            }, 100);
-        }
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 100);
+        };
       </script>
     </body>
-    </html>
-  `;
-
   printWindow.document.write(htmlContent);
   printWindow.document.close();
 }
