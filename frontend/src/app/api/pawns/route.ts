@@ -117,10 +117,25 @@ export async function POST(request: Request) {
 
     if (!isUUID(clientId)) {
       const trimmedId = String(clientId).trim();
-      const { data: existingClients } = await adminSupabase
+      let existingClients = null;
+      const { data: snakeExisting } = await adminSupabase
         .from('clients')
         .select('*')
-        .or(`national_id.eq.${trimmedId},nationalId.eq.${trimmedId}`);
+        .eq('national_id', trimmedId)
+        .limit(1);
+
+      if (snakeExisting && snakeExisting.length > 0) {
+        existingClients = snakeExisting;
+      } else {
+        const { data: camelExisting } = await adminSupabase
+          .from('clients')
+          .select('*')
+          .eq('nationalId', trimmedId)
+          .limit(1);
+        if (camelExisting && camelExisting.length > 0) {
+          existingClients = camelExisting;
+        }
+      }
 
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;

@@ -67,13 +67,28 @@ export async function POST(request: Request) {
       effectiveBranchId = session.branchId;
     }
 
-    // 0. DUPLICATE NIC PREVENTION: If customer with this NIC already exists, update instead of creating duplicate
-    const { data: existingClient } = await adminSupabase
+    // 0. DUPLICATE NIC PREVENTION: Safely check for existing client
+    let existingClient = null;
+    const { data: snakeExisting } = await adminSupabase
       .from('clients')
       .select('*')
-      .or(`nationalId.eq.${trimmedNic},national_id.eq.${trimmedNic}`)
+      .eq('national_id', trimmedNic)
       .limit(1)
       .maybeSingle();
+      
+    if (snakeExisting) {
+      existingClient = snakeExisting;
+    } else {
+      const { data: camelExisting } = await adminSupabase
+        .from('clients')
+        .select('*')
+        .eq('nationalId', trimmedNic)
+        .limit(1)
+        .maybeSingle();
+      if (camelExisting) {
+        existingClient = camelExisting;
+      }
+    }
 
     if (existingClient) {
       const updateData: any = {

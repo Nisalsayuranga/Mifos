@@ -25,10 +25,39 @@ export async function PATCH(request: Request, context: any) {
     // Resolve valid Client UUID
     let targetClientId = clientId;
     if (clientId && !isUUID(clientId)) {
-      const { data: existingClients } = await adminSupabase
+      let existingClients = null;
+      const { data: idExisting } = await adminSupabase
         .from('clients')
         .select('id, phone, address')
-        .or(`nationalId.eq.${clientId},id.eq.${clientId}`);
+        .eq('id', clientId)
+        .limit(1)
+        .maybeSingle();
+        
+      if (idExisting) {
+        existingClients = [idExisting];
+      } else {
+        const { data: snakeExisting } = await adminSupabase
+          .from('clients')
+          .select('id, phone, address')
+          .eq('national_id', clientId)
+          .limit(1)
+          .maybeSingle();
+          
+        if (snakeExisting) {
+          existingClients = [snakeExisting];
+        } else {
+          const { data: camelExisting } = await adminSupabase
+            .from('clients')
+            .select('id, phone, address')
+            .eq('nationalId', clientId)
+            .limit(1)
+            .maybeSingle();
+            
+          if (camelExisting) {
+            existingClients = [camelExisting];
+          }
+        }
+      }
 
       if (existingClients && existingClients.length > 0) {
         targetClientId = existingClients[0].id;
