@@ -336,7 +336,7 @@ export function printLoanAgreement(details: AgreementDetails) {
         };
       </script>
     </body>
-  </html>\`;
+  </html>`;
 
   printWindow.document.write(htmlContent);
   printWindow.document.close();
