@@ -336,6 +336,8 @@ export function printLoanAgreement(details: AgreementDetails) {
         };
       </script>
     </body>
+  </html>\`;
+
   printWindow.document.write(htmlContent);
   printWindow.document.close();
 }
