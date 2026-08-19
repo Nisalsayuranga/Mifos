@@ -18,12 +18,14 @@ export async function GET(request: Request) {
     let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
 
     if (session) {
-      if (session.role === 'ADMIN') {
+      if (session.role === 'TELLER') {
+        // Teller is restricted to their assigned branch
+        query = query.ilike('branch_id', `%${session.branchId}%`);
+      } else if (session.role === 'ADMIN') {
         if (requestedBranch && requestedBranch !== 'ALL') {
           query = query.ilike('branch_id', `%${requestedBranch}%`);
         }
       }
-      // Teller can now see all pawns, no branch restriction applied.
     } else {
       if (requestedBranch && requestedBranch !== 'ALL') {
         query = query.ilike('branch_id', `%${requestedBranch}%`);
