@@ -427,9 +427,7 @@ export default function EndOfDayPage() {
       }
 
       let query = supabase.from('stock_customers').select('*');
-      if (activeBranch && activeBranch !== 'ALL') {
-        query = query.eq('branch_id', activeBranch);
-      }
+      // Removed branch_id filter because stock_customers table lacks this column
       const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
       setStockCustomers(data || []);

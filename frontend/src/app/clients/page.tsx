@@ -344,9 +344,7 @@ export default function ClientsPage() {
       const activeBranch = user ? (user.role === 'ADMIN' ? 'ALL' : (user.branchId || 'HQ')) : 'HQ';
 
       let query = supabase.from('stock_customers').select('*');
-      if (activeBranch !== 'ALL') {
-        query = query.eq('branch_id', activeBranch);
-      }
+      // Removed branch_id filter because stock_customers table lacks this column
       const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
       setStockCustomers(data || []);
