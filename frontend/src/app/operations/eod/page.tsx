@@ -804,10 +804,7 @@ export default function EndOfDayPage() {
       address_2: custAddress2.trim() || null,
       tp: custTp.trim(),
       nic: custNic.trim() || null,
-      bill_numbers: custBills.trim(),
-      branch_id: selectedBranch && selectedBranch !== 'ALL' 
-        ? selectedBranch 
-        : (currentUser?.branchId || 'HQ')
+      bill_numbers: custBills.trim()
     };
 
     try {

@@ -606,8 +606,7 @@ export default function ClientsPage() {
       address_2: custAddress2.trim() || null,
       tp: custTp.trim(),
       nic: custNic.trim() || null,
-      bill_numbers: custBills.trim(),
-      branch_id: branchId || 'HQ'
+      bill_numbers: custBills.trim()
     };
 
     try {
