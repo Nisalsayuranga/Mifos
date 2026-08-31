@@ -106,12 +106,21 @@ export async function PATCH(request: Request, context: any) {
 
     if (error) throw error;
 
-    if (billNo) {
-      await adminSupabase.from('stock_items').update({
-        price: parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0,
-        weight: totWeight,
-        item_type: itemType || 'PAWN'
-      }).eq('bill_no', billNo.trim());
+    const oldBillNo = existingPawn.bill_no || (existingPawn.description ? existingPawn.description.match(/^([A-Za-z0-9]+\s+\d+)/)?.[1]?.trim() : null) || id.substring(0, 8);
+    if (oldBillNo) {
+      const stockUpdate: any = {};
+      if (appraisedValue !== undefined || disbursedAmount !== undefined) {
+        stockUpdate.price = parseFloat(appraisedValue) || parseFloat(disbursedAmount) || 0;
+      }
+      if (totWeight > 0) stockUpdate.weight = totWeight;
+      if (itemType) stockUpdate.item_type = itemType;
+      if (billNo && billNo.trim() !== oldBillNo) {
+        stockUpdate.bill_no = billNo.trim();
+      }
+      
+      if (Object.keys(stockUpdate).length > 0) {
+        await adminSupabase.from('stock_items').update(stockUpdate).eq('bill_no', oldBillNo);
+      }
     }
 
     // Update or Insert pawn_items if weight or items are provided

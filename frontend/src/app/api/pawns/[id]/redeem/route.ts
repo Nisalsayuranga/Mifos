@@ -82,6 +82,17 @@ export async function POST(
 
     if (updateError) throw updateError;
 
+    // 3.5 Mark matching stock item as Withdrawn
+    try {
+      await adminSupabase.from('stock_items').update({
+        status: 'Withdrawn',
+        withdrawal_date: new Date().toISOString().split('T')[0],
+        withdrawal_reason: 'Pawn Redeemed (Closed)'
+      }).eq('bill_no', pawn.bill_no || id.substring(0, 8));
+    } catch (stockErr) {
+      console.warn("Could not mark matching vault stock item as Withdrawn:", stockErr);
+    }
+
     // 4. Log Settle/Redemption Transaction in User History (Soft Fallback)
     try {
       await adminSupabase.from('transaction').insert([{

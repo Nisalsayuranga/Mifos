@@ -242,7 +242,8 @@ export async function POST(request: Request) {
         item_type: description || 'Pawned Gold Collateral',
         weight: finalWeightGrams + (finalWeightMg / 1000),
         price: finalAppraised,
-        status: 'VAULT_STORED',
+        status: 'Active',
+        date: new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       }]);
     } catch (stockErr) {
