@@ -1,25 +1,8 @@
 {
-    "services": {
-        "frontend": {
-            "root": "frontend/"
-        },
-        "backend": {
-            "root": "backend/",
-            "entrypoint": "src/main.ts"
-        }
-    },
-    "rewrites": [
-        {
-            "source": "/_/backend/(.*)",
-            "destination": {
-                "service": "backend"
-            }
-        },
-        {
-            "source": "/(.*)",
-            "destination": {
-                "service": "frontend"
-            }
-        }
-    ]
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
+    }
+  ]
 }
