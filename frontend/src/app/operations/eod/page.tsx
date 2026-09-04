@@ -179,6 +179,14 @@ export default function EndOfDayPage() {
   const [selectedItemForWithdrawal, setSelectedItemForWithdrawal] = useState<any | null>(null);
   const [selectedActiveItem, setSelectedActiveItem] = useState<any | null>(null);
 
+  // Restore Modal State
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [selectedItemForRestore, setSelectedItemForRestore] = useState<any | null>(null);
+  const [restoreDate, setRestoreDate] = useState("");
+  const [restoreInterest, setRestoreInterest] = useState("");
+  const [restoreNotes, setRestoreNotes] = useState("");
+  const [isSubmittingRestore, setIsSubmittingRestore] = useState(false);
+
   // Stock Customers State
   const [stockCustomers, setStockCustomers] = useState<any[]>([]);
   const [showBillCustomerModal, setShowBillCustomerModal] = useState(false);
@@ -948,6 +956,81 @@ export default function EndOfDayPage() {
       loadStockData();
     } catch (err: any) {
       toast.error("Error saving withdrawal: " + err.message);
+    }
+  };
+
+  // Open restore modal
+  const openRestoreModal = (item: any) => {
+    setSelectedItemForRestore(item);
+    setRestoreDate(new Date().toISOString().split('T')[0]);
+    setRestoreInterest("");
+    setRestoreNotes("");
+    setShowRestoreModal(true);
+  };
+
+  // Handle Restore Stock Submission
+  const handleRestoreStock = async () => {
+    if (!selectedItemForRestore) return;
+    if (!restoreDate) {
+      toast.error("Please select a restoration date.");
+      return;
+    }
+
+    setIsSubmittingRestore(true);
+    try {
+      if (isUsingSupabase) {
+        const res = await fetch('/api/stock/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: selectedItemForRestore.id,
+            restoreDate,
+            interestPaid: restoreInterest,
+            notes: restoreNotes
+          })
+        });
+
+        const result = await res.json();
+        if (!res.ok || result.error) {
+          throw new Error(result.error || "Failed to restore item");
+        }
+
+        toast.success(`Bill Number "${selectedItemForRestore.bill_no}" successfully restored to Active Safe Stock!`);
+      } else {
+        const todayStr = restoreDate || new Date().toISOString().split('T')[0];
+        const interestVal = parseFloat(restoreInterest) || 0;
+        const interestStr = interestVal > 0 ? `Interest Paid: Rs. ${interestVal.toLocaleString('en-US')}` : 'Interest Paid: N/A';
+        const cleanNotes = (restoreNotes || '').trim();
+        const restoreHistoryLine = `[RESTORED TO SAFE on ${todayStr}] ${interestStr}${cleanNotes ? ' | Notes: ' + cleanNotes : ''}`;
+        const previousNotes = selectedItemForRestore.withdrawal_notes || '';
+        const updatedNotes = previousNotes ? `${previousNotes}\n${restoreHistoryLine}` : restoreHistoryLine;
+
+        const updated = stockItems.map(item => {
+          if (item.id === selectedItemForRestore.id) {
+            return {
+              ...item,
+              status: 'Active',
+              withdrawal_date: null,
+              withdrawal_reason: null,
+              withdrawal_notes: updatedNotes
+            };
+          }
+          return item;
+        });
+        setStockItems(updated);
+        localStorage.setItem('local_stock_items', JSON.stringify(updated));
+        toast.success(`Bill Number "${selectedItemForRestore.bill_no}" restored to Active Safe (Local Storage)!`);
+      }
+
+      setShowRestoreModal(false);
+      setSelectedItemForRestore(null);
+      setRestoreInterest("");
+      setRestoreNotes("");
+      loadStockData();
+    } catch (err: any) {
+      toast.error("Error restoring stock item: " + err.message);
+    } finally {
+      setIsSubmittingRestore(false);
     }
   };
 
@@ -1931,6 +2014,15 @@ export default function EndOfDayPage() {
                             </TableCell>
                             <TableCell className="px-6 py-4 text-right flex items-center justify-end gap-1.5">
                               <Button 
+                                onClick={() => openRestoreModal(item)}
+                                size="sm"
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 font-black text-[9px] uppercase tracking-widest h-8 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Restore item back to Active Safe Stock"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Restore
+                              </Button>
+                              <Button 
                                 onClick={() => openEditWithdrawalModal(item)}
                                 size="sm"
                                 variant="outline"
@@ -2430,6 +2522,98 @@ export default function EndOfDayPage() {
               className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-rose-600/10 cursor-pointer"
             >
               {isEditingWithdrawal ? "Save Changes" : "Release Gold Asset"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: RESTORE ITEM TO ACTIVE SAFE */}
+      <Dialog open={showRestoreModal} onOpenChange={setShowRestoreModal}>
+        <DialogContent className="sm:max-w-[480px] glass p-0 rounded-[2rem] border-white/40 max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="h-2 bg-emerald-600 shrink-0" />
+          <div className="p-6 pb-2 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-10 w-10 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100 text-emerald-600">
+                  <RotateCcw className="h-5 w-5" />
+                </div>
+                Restore to Active Safe
+              </DialogTitle>
+              <DialogDescription className="font-medium text-slate-500 text-sm">
+                Return a previously withdrawn or forfeited (F/S) item back into the active branch safe inventory after interest payment.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
+            {selectedItemForRestore && (
+              <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200/80 grid grid-cols-2 gap-x-4 gap-y-2 text-xs font-bold text-slate-700">
+                <div>Bill No: <span className="text-emerald-900 font-black">{selectedItemForRestore.bill_no}</span></div>
+                <div>Branch: <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-black">{selectedItemForRestore.branch_id || 'HQ'}</span></div>
+                <div>Item: <span className="text-slate-900 font-black">{compressItemTypeString(selectedItemForRestore.item_type || "")}</span></div>
+                <div>Appraised Value: <span className="text-slate-900 font-black">Rs. {(parseFloat(selectedItemForRestore.price) || 0).toLocaleString()}</span></div>
+                {selectedItemForRestore.withdrawal_reason && (
+                  <div className="col-span-2 pt-1 border-t border-emerald-200/60 text-[11px]">
+                    Current Status: <span className="text-rose-700 font-black uppercase">{selectedItemForRestore.withdrawal_reason}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid gap-4 pb-4">
+              {/* Interest Amount Paid (LKR) */}
+              <div className="grid gap-2">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-emerald-600" /> Interest Paid by Customer (Rs.)
+                </Label>
+                <Input 
+                  type="number"
+                  step="0.01"
+                  placeholder="E.g. 2500" 
+                  value={restoreInterest} 
+                  onChange={e => setRestoreInterest(e.target.value)} 
+                  className="h-11 border-slate-200 rounded-xl font-bold text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500" 
+                />
+                <p className="text-[10px] font-semibold text-slate-400">
+                  Enter the interest amount collected from the customer to clear the overdue status.
+                </p>
+              </div>
+
+              {/* Restore Date */}
+              <div className="grid gap-2">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" /> Date Returned to Branch Safe
+                </Label>
+                <Input 
+                  type="date"
+                  value={restoreDate} 
+                  onChange={e => setRestoreDate(e.target.value)} 
+                  className="h-11 border-slate-200 rounded-xl font-bold text-sm" 
+                />
+              </div>
+
+              {/* Notes / Reason */}
+              <div className="grid gap-2">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Restoration Audit Notes</Label>
+                <Input 
+                  value={restoreNotes} 
+                  onChange={e => setRestoreNotes(e.target.value)} 
+                  placeholder="E.g. Customer paid overdue interest. Item moved back from central vault." 
+                  className="h-11 border-slate-200 rounded-xl font-bold text-sm" 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={() => setShowRestoreModal(false)} className="rounded-xl font-bold">Cancel</Button>
+            <Button 
+              onClick={handleRestoreStock} 
+              disabled={isSubmittingRestore}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl shadow-lg shadow-emerald-600/10 cursor-pointer flex items-center gap-2"
+            >
+              {isSubmittingRestore ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+              Confirm Restore to Safe
             </Button>
           </div>
         </DialogContent>
