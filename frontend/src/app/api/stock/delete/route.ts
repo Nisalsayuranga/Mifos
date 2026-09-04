@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { oldSupabase } from '@/lib/supabase';
+import { recordAuditLog } from '@/lib/audit-logger';
 
 export async function POST(req: Request) {
   try {
@@ -8,30 +10,76 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await req.json();
-    if (!id) {
-      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+    const { id, bill_no, isOld } = await req.json();
+    if (!id && !bill_no) {
+      return NextResponse.json({ error: 'Item ID or Bill Number is required' }, { status: 400 });
     }
 
-    if (session.role === 'TELLER') {
-      const { data: item } = await adminSupabase.from('stock_items').select('branch_id').eq('id', id).single();
-      if (item && item.branch_id !== session.branchId) {
-        return NextResponse.json({ error: 'Forbidden. Tellers cannot delete stock items belonging to another branch.' }, { status: 403 });
+    const client = isOld ? oldSupabase : adminSupabase;
+
+    // 1. Fetch item details to verify branch permission & log
+    let query = client.from('stock_items').select('*');
+    if (id) {
+      query = query.eq('id', id);
+    } else if (bill_no) {
+      query = query.ilike('bill_no', bill_no.trim());
+    }
+    const { data: existingItems } = await query;
+    const existingItem = existingItems && existingItems.length > 0 ? existingItems[0] : null;
+
+    if (session.role === 'TELLER' && existingItem && existingItem.branch_id) {
+      const itemBranch = String(existingItem.branch_id).trim().toUpperCase();
+      const userBranch = String(session.branchId).trim().toUpperCase();
+      if (itemBranch !== 'ALL' && itemBranch !== userBranch) {
+        return NextResponse.json({ 
+          error: `Forbidden. Tellers at branch (${userBranch}) cannot delete stock items belonging to branch (${itemBranch}).` 
+        }, { status: 403 });
       }
     }
 
-    const { data, error } = await adminSupabase
-      .from('stock_items')
-      .delete()
-      .eq('id', id)
-      .select();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // 2. Perform deletion from stock_items by ID first, then by bill_no fallback
+    let deleteResult;
+    if (id) {
+      deleteResult = await client
+        .from('stock_items')
+        .delete()
+        .eq('id', id)
+        .select();
     }
 
-    return NextResponse.json({ success: true, deleted: data });
+    if ((!deleteResult || !deleteResult.data || deleteResult.data.length === 0) && bill_no) {
+      deleteResult = await client
+        .from('stock_items')
+        .delete()
+        .ilike('bill_no', bill_no.trim())
+        .select();
+    }
+
+    if (deleteResult?.error) {
+      console.error("[Stock Delete Error]:", deleteResult.error);
+      return NextResponse.json({ error: deleteResult.error.message }, { status: 500 });
+    }
+
+    // 3. Record Audit Log
+    await recordAuditLog(session, {
+      action: 'STOCK_DELETE_ITEM',
+      resource: `stock_items:${bill_no || id}`,
+      details: {
+        id,
+        bill_no: bill_no || existingItem?.bill_no,
+        branch_id: existingItem?.branch_id || session.branchId,
+        is_old_data: !!isOld
+      }
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Stock item "${bill_no || id}" permanently deleted.`,
+      deleted: deleteResult?.data 
+    });
+
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Server Error in /api/stock/delete:", err);
+    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
   }
 }

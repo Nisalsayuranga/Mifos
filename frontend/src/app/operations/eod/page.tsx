@@ -1040,12 +1040,18 @@ export default function EndOfDayPage() {
       return;
     }
 
+    const isOld = stockFilter === 'OldData' || item.branch_id === 'OLD';
+
     try {
       if (isUsingSupabase) {
         const res = await fetch('/api/stock/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id })
+          body: JSON.stringify({ 
+            id: item.id, 
+            bill_no: item.bill_no, 
+            isOld 
+          })
         });
         const result = await res.json();
 
@@ -1053,7 +1059,7 @@ export default function EndOfDayPage() {
           throw new Error(result.error || "Failed to delete item from database");
         }
 
-        toast.success(`Bill Number "${item.bill_no}" deleted successfully from Supabase!`);
+        toast.success(`Bill Number "${item.bill_no}" deleted successfully!`);
       } else {
         const updated = stockItems.filter(i => i.id !== item.id);
         setStockItems(updated);
@@ -1062,9 +1068,14 @@ export default function EndOfDayPage() {
       }
 
       // Optimistically update state immediately
-      setStockItems(prev => prev.filter(i => i.id !== item.id));
-      setOldStockItems(prev => prev.filter(i => i.id !== item.id));
-      loadStockData();
+      setStockItems(prev => prev.filter(i => i.id !== item.id && i.bill_no !== item.bill_no));
+      setOldStockItems(prev => prev.filter(i => i.id !== item.id && i.bill_no !== item.bill_no));
+      
+      if (isOld) {
+        loadOldStockData();
+      } else {
+        loadStockData();
+      }
     } catch (err: any) {
       toast.error("Error deleting stock item: " + err.message);
     }
