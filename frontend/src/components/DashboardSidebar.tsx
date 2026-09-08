@@ -64,6 +64,7 @@ const navGroups = [
       { name: 'Transaction Evidence', href: '/cctv/recordings', icon: PlaySquare },
       { name: 'Live View & PTZ', href: '/cctv/live', icon: Eye },
       { name: 'CCTV Audit Logs', href: '/cctv/audit-logs', icon: FileText },
+      { name: 'CCTV Settings', href: '/cctv/settings', icon: Settings, adminOnly: true },
     ]
   },
   {
