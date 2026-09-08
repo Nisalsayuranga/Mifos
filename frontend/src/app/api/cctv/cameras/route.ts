@@ -16,34 +16,6 @@ const DEMO_CAMERAS = [
     counter_name: 'Counter 01',
     is_active: true,
     created_at: new Date().toISOString()
-  },
-  {
-    id: 'CAM-KTW-01',
-    branch_id: 'KTW',
-    camera_name: 'Kottawa Counter 01',
-    camera_ip: '192.168.10.50',
-    camera_model: 'EZVIZ CS-H6c',
-    camera_protocol: 'ONVIF/RTSP',
-    agent_id: 'CCTV-AGENT-KTW',
-    status: 'ONLINE',
-    last_heartbeat: new Date().toISOString(),
-    counter_name: 'Main Counter',
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'CAM-TEST-01',
-    branch_id: 'TEST',
-    camera_name: 'Test Branch Cashier Counter 01',
-    camera_ip: '192.168.20.15',
-    camera_model: 'EZVIZ CS-H6c-R105-1L3WF',
-    camera_protocol: 'ONVIF/RTSP',
-    agent_id: 'CCTV-AGENT-TEST',
-    status: 'ONLINE',
-    last_heartbeat: new Date().toISOString(),
-    counter_name: 'Counter 01',
-    is_active: true,
-    created_at: new Date().toISOString()
   }
 ];
 

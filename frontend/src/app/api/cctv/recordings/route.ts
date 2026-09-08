@@ -17,36 +17,6 @@ const DEMO_RECORDINGS = [
     mime_type: 'video/mp4',
     status: 'COMPLETED',
     created_at: '2026-09-08T10:35:41.000Z'
-  },
-  {
-    id: 'REC-PN202609080002',
-    branch_id: 'KTW',
-    camera_id: 'CAM-KTW-01',
-    pawn_id: 'PN202609080002',
-    cashier_id: 'CASHIER02',
-    start_time: '2026-09-08T11:15:10.000Z',
-    end_time: '2026-09-08T11:15:30.000Z',
-    duration: 20,
-    file_path: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    file_size: 4100000,
-    mime_type: 'video/mp4',
-    status: 'COMPLETED',
-    created_at: '2026-09-08T11:15:31.000Z'
-  },
-  {
-    id: 'REC-PN202609080003',
-    branch_id: 'TEST',
-    camera_id: 'CAM-TEST-01',
-    pawn_id: 'PN202609080003',
-    cashier_id: 'testbranch',
-    start_time: '2026-09-08T12:00:00.000Z',
-    end_time: '2026-09-08T12:00:20.000Z',
-    duration: 20,
-    file_path: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    file_size: 3800000,
-    mime_type: 'video/mp4',
-    status: 'COMPLETED',
-    created_at: '2026-09-08T12:00:21.000Z'
   }
 ];
 
