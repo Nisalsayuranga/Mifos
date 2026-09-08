@@ -1,0 +1,23 @@
+{
+  "branch_id": "BR001",
+  "agent_id": "CCTV-AGENT-BR001",
+  "server_url": "https://mifos-finance.vercel.app",
+  "heartbeat_interval_seconds": 30,
+  "camera": {
+    "id": "CAM001",
+    "name": "Cashier Counter 01",
+    "ip": "192.168.10.50",
+    "model": "EZVIZ CS-H6c-R105-1L3WF",
+    "protocol": "ONVIF/RTSP",
+    "rtsp_url": "rtsp://admin:admin123@192.168.10.50:554/h264/ch1/main/av_stream",
+    "onvif_port": 80
+  },
+  "recording": {
+    "before_seconds": 10,
+    "after_seconds": 10,
+    "buffer_size_seconds": 60,
+    "format": "mp4",
+    "temp_directory": "./temp",
+    "recordings_directory": "./recordings"
+  }
+}
