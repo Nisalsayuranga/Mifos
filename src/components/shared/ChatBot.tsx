@@ -15,21 +15,21 @@ interface Message {
 }
 
 // ─── Knowledge Base ──────────────────────────────────────────────────────────
-const PROPIX_KB = {
-  name: "PROPIX",
+const RUPASINGHE_REALTY_KB = {
+  name: "RUPASINGHE REALTY",
   tagline: "Find the Right Property. Make the Right Move.",
-  description: "Sri Lanka's most trusted digital real estate platform.",
+  description: "Sri Lanka's premier digital real estate platform.",
   contact: {
     phone: "+94 11 234 5678",
-    email: "info@propix.lk",
-    address: "PROPIX Head Office, Colombo, Sri Lanka",
+    email: "info@rupasingherealty.lk",
+    address: "RUPASINGHE REALTY Head Office, Colombo, Sri Lanka",
   },
   services: [
     { name: "Buy Property", path: "/properties", desc: "Browse verified properties for sale across Sri Lanka." },
     { name: "Rent Property", path: "/properties?type=rent", desc: "Find apartments, houses & commercial spaces for rent." },
     { name: "Sell Property", path: "/listings/new", desc: "List your property and reach thousands of buyers." },
     { name: "Property Valuation", path: "/valuation", desc: "Get a certified valuation from our professionals." },
-    { name: "Book Consultation", path: "/consultation", desc: "Talk to a certified PROPIX agent for guidance." },
+    { name: "Book Consultation", path: "/consultation", desc: "Talk to a certified RUPASINGHE REALTY agent for guidance." },
     { name: "Financing / Mortgage", path: "/financing", desc: "Explore home loan options and check eligibility." },
     { name: "Find an Agent", path: "/agents", desc: "Connect with verified real estate agents." },
     { name: "Map Search", path: "/map", desc: "Search properties by location on an interactive map." },
@@ -96,7 +96,7 @@ function matchIntent(input: string, liveProperties: Property[] = PROPERTIES): { 
   if (/featured|top|popular|best/.test(q)) return { intent: "featured_properties" };
 
   if (/how.*work|process|step|guide/.test(q)) return { intent: "how_it_works" };
-  if (/about|who are you|what is propix/.test(q)) return { intent: "about" };
+  if (/about|who are you|what is (rupasinghe|propix|prime)/i.test(q)) return { intent: "about" };
   if (/register|sign up|create account|login|sign in/.test(q)) return { intent: "auth" };
   if (/thank|thanks|great|awesome|perfect|bye|goodbye/.test(q)) return { intent: "thanks" };
   if (/help|what can you|options|menu/.test(q)) return { intent: "help" };
@@ -108,9 +108,9 @@ function matchIntent(input: string, liveProperties: Property[] = PROPERTIES): { 
 function generateResponse(input: string, liveProperties: Property[] = PROPERTIES): { text: string; quickReplies?: string[] } {
   const { intent, data } = matchIntent(input, liveProperties);
   const kb = {
-    ...PROPIX_KB,
+    ...RUPASINGHE_REALTY_KB,
     stats: {
-      ...PROPIX_KB.stats,
+      ...RUPASINGHE_REALTY_KB.stats,
       totalProperties: liveProperties.filter(p => p.status === "approved" || p.status === "published").length,
       featuredProperties: liveProperties.filter((p) => p.featured && (p.status === "approved" || p.status === "published")).length,
     }
@@ -119,7 +119,7 @@ function generateResponse(input: string, liveProperties: Property[] = PROPERTIES
   switch (intent) {
     case "greeting":
       return {
-        text: `👋 Hello! Welcome to **PROPIX** — ${kb.tagline}\n\nI'm your AI property assistant. I can help you find properties, understand our services, get valuations, and much more across Sri Lanka!\n\nHow can I assist you today?`,
+        text: `👋 Hello! Welcome to **RUPASINGHE REALTY** — ${kb.tagline}\n\nI'm your AI property assistant. I can help you find properties, understand our services, get valuations, and much more across Sri Lanka!\n\nHow can I assist you today?`,
         quickReplies: ["Browse properties", "Sell my property", "Get a valuation", "Find an agent"],
       };
 
@@ -131,31 +131,31 @@ function generateResponse(input: string, liveProperties: Property[] = PROPERTIES
 
     case "rent":
       return {
-        text: `🔑 Looking to rent? We have rental listings across Sri Lanka:\n\n**Available rentals include:**\n• Studio apartments from **LKR 38,000/mo**\n• 2-bedroom apartments from **LKR 65,000/mo**\n• Commercial spaces from **LKR 180,000/mo**\n\nAll verified and managed by certified PROPIX agents.`,
+        text: `🔑 Looking to rent? We have rental listings across Sri Lanka:\n\n**Available rentals include:**\n• Studio apartments from **LKR 38,000/mo**\n• 2-bedroom apartments from **LKR 65,000/mo**\n• Commercial spaces from **LKR 180,000/mo**\n\nAll verified and managed by certified RUPASINGHE REALTY agents.`,
         quickReplies: ["Apartments for rent", "Commercial spaces", "Houses for rent", "Search by location"],
       };
 
     case "sell":
       return {
-        text: `💼 Ready to sell? Here's how PROPIX makes it simple:\n\n**1. Add Property** — Upload details & photos\n**2. Upload Docs** — Submit title & legal docs\n**3. Admin Review** — We verify everything\n**4. Go Live** — Your listing reaches thousands\n**5. Receive Offers** — Manage buyer interest\n**6. Close the Deal** — Secure and fast\n\nCreate a seller account to get started, or book a consultation for expert guidance!`,
+        text: `💼 Ready to sell? Here's how RUPASINGHE REALTY makes it simple:\n\n**1. Add Property** — Upload details & photos\n**2. Upload Docs** — Submit title & legal docs\n**3. Admin Review** — We verify everything\n**4. Go Live** — Your listing reaches thousands\n**5. Receive Offers** — Manage buyer interest\n**6. Close the Deal** — Secure and fast\n\nCreate a seller account to get started, or book a consultation for expert guidance!`,
         quickReplies: ["Add my property", "Book consultation", "Get valuation first", "Talk to an agent"],
       };
 
     case "valuation":
       return {
-        text: `📊 Property valuation helps you sell at the right price and builds buyer trust.\n\n**PROPIX offers 2 types:**\n\n🖥️ **Digital Valuation** — Fast estimate based on comparable sales. Available online instantly.\n\n👔 **Professional Valuation** — Certified assessment by a licensed valuer. Accepted by banks & courts.\n\nVisit our Valuation page to request yours!`,
+        text: `📊 Property valuation helps you sell at the right price and builds buyer trust.\n\n**RUPASINGHE REALTY offers 2 types:**\n\n🖥️ **Digital Valuation** — Fast estimate based on comparable sales. Available online instantly.\n\n👔 **Professional Valuation** — Certified assessment by a licensed valuer. Accepted by banks & courts.\n\nVisit our Valuation page to request yours!`,
         quickReplies: ["Get digital valuation", "Book professional valuation", "How long does it take?", "Valuation costs"],
       };
 
     case "consultation":
       return {
-        text: `🤝 Our certified PROPIX agents are here to guide you!\n\n**Consultation types:**\n• 🏠 Buying guidance\n• 💼 Selling strategy\n• 📈 Investment advice\n• 💬 General property queries\n\n**Our top agents:**\n• Dinesh Rajapaksa — +94 77 567 8901\n• Sachini Mendis — +94 75 678 9012\n\nBook a consultation and we'll match you with the right agent!`,
+        text: `🤝 Our certified RUPASINGHE REALTY agents are here to guide you!\n\n**Consultation types:**\n• 🏠 Buying guidance\n• 💼 Selling strategy\n• 📈 Investment advice\n• 💬 General property queries\n\n**Our top agents:**\n• Dinesh Rajapaksa — +94 77 567 8901\n• Sachini Mendis — +94 75 678 9012\n\nBook a consultation and we'll match you with the right agent!`,
         quickReplies: ["Book a consultation", "Find agents", "Call an agent", "Investment advice"],
       };
 
     case "financing":
       return {
-        text: `💰 PROPIX connects you with Sri Lanka's leading mortgage lenders!\n\n**Our financing support:**\n• Check your loan eligibility instantly\n• Compare rates from multiple banks\n• Get referred to the best lender for your needs\n\n**Typical loan terms:**\n• Up to 70–80% LTV financing\n• Tenures up to 30 years\n• Competitive interest rates\n\nFill out a quick form and we'll match you with the right bank!`,
+        text: `💰 RUPASINGHE REALTY connects you with Sri Lanka's leading mortgage lenders!\n\n**Our financing support:**\n• Check your loan eligibility instantly\n• Compare rates from multiple banks\n• Get referred to the best lender for your needs\n\n**Typical loan terms:**\n• Up to 70–80% LTV financing\n• Tenures up to 30 years\n• Competitive interest rates\n\nFill out a quick form and we'll match you with the right bank!`,
         quickReplies: ["Check eligibility", "Learn about mortgages", "Talk to a finance expert", "Calculate EMI"],
       };
 
@@ -236,37 +236,37 @@ function generateResponse(input: string, liveProperties: Property[] = PROPERTIES
 
     case "how_it_works":
       return {
-        text: `⚙️ **How PROPIX Works:**\n\n**For Buyers:**\n1. Search or browse properties\n2. Shortlist your favorites\n3. Request a viewing or consultation\n4. Apply for financing if needed\n5. Make an offer & close the deal\n\n**For Sellers:**\n1. Register & list your property\n2. Upload title documents\n3. PROPIX verifies & publishes\n4. Receive buyer offers\n5. Close with our agent support\n\nSimple, secure, and transparent!`,
+        text: `⚙️ **How RUPASINGHE REALTY Works:**\n\n**For Buyers:**\n1. Search or browse properties\n2. Shortlist your favorites\n3. Request a viewing or consultation\n4. Apply for financing if needed\n5. Make an offer & close the deal\n\n**For Sellers:**\n1. Register & list your property\n2. Upload title documents\n3. RUPASINGHE REALTY verifies & publishes\n4. Receive buyer offers\n5. Close with our agent support\n\nSimple, secure, and transparent!`,
         quickReplies: ["I'm a buyer", "I'm a seller", "Talk to agent", "Learn more"],
       };
 
     case "about":
       return {
-        text: `🌿 **About PROPIX**\n\n${kb.description}\n\nWe believe everyone deserves transparent, trustworthy real estate services. PROPIX brings together buyers, sellers, agents, and financial partners under one roof.\n\n**What makes us different:**\n• ✅ 100% verified listings\n• 🤝 Certified professional agents\n• 🏦 Bank-linked financing support\n• 📊 Free property valuations\n• 🗺️ Interactive map search`,
+        text: `🌿 **About RUPASINGHE REALTY**\n\n${kb.description}\n\nWe believe everyone deserves transparent, trustworthy real estate services. RUPASINGHE REALTY brings together buyers, sellers, agents, and financial partners under one roof.\n\n**What makes us different:**\n• ✅ 100% verified listings\n• 🤝 Certified professional agents\n• 🏦 Bank-linked financing support\n• 📊 Free property valuations\n• 🗺️ Interactive map search`,
         quickReplies: ["Our services", "Find properties", "Contact us", "How it works"],
       };
 
     case "auth":
       return {
-        text: `🔐 **Join PROPIX — It's Free!**\n\nCreate your account to:\n• Save favorite properties\n• Receive property alerts\n• Manage your listings (sellers)\n• Track consultation requests\n• Access financing tools\n\n**Demo Accounts available:**\n• Seller: priya@example.com\n• Buyer: amali@example.com\n• Agent: dinesh@propix.lk`,
-        quickReplies: ["Sign up now", "Login", "Learn about roles", "Demo account"],
+        text: `🔐 **Join RUPASINGHE REALTY**\n\nCreate your account to:\n• Save favorite properties\n• Receive property alerts\n• Manage your listings (sellers)\n• Track consultation requests\n• Access financing tools\n\nClick **Sign In** or **Create Account** in the navigation bar to get started!`,
+        quickReplies: ["Sign up now", "Login", "Learn about roles", "Browse properties"],
       };
 
     case "thanks":
       return {
-        text: `😊 You're very welcome! It's my pleasure to help.\n\nIf you need anything else — property searches, service info, or expert advice — I'm always here.\n\n**Happy house hunting with PROPIX!** 🏡`,
+        text: `😊 You're very welcome! It's my pleasure to help.\n\nIf you need anything else — property searches, service info, or expert advice — I'm always here.\n\n**Happy house hunting with RUPASINGHE REALTY!** 🏡`,
         quickReplies: ["Browse properties", "Contact us", "Back to start"],
       };
 
     case "help":
       return {
         text: `💬 **Here's what I can help you with:**\n\n🏠 **Properties** — Find, filter & explore listings\n💼 **Selling** — List your property step-by-step\n📊 **Valuation** — Get your property assessed\n🤝 **Consultation** — Connect with expert agents\n💰 **Financing** — Explore mortgage options\n📍 **Areas** — Search by district or city\n📞 **Contact** — Get in touch with us\n\nJust ask me anything!`,
-        quickReplies: ["Find properties", "Sell property", "Get valuation", "Contact PROPIX"],
+        quickReplies: ["Find properties", "Sell property", "Get valuation", "Contact us"],
       };
 
     default:
       return {
-        text: `🤔 I'm not quite sure about that — but I'm here to help with anything PROPIX-related!\n\nYou can ask me about:\n• **Properties** for sale or rent\n• **Selling** your property\n• **Valuations** and **financing**\n• **Districts** and property types\n• **Contacting** our team\n\nWhat would you like to know?`,
+        text: `🤔 I'm not quite sure about that — but I'm here to help with anything RUPASINGHE REALTY-related!\n\nYou can ask me about:\n• **Properties** for sale or rent\n• **Selling** your property\n• **Valuations** and **financing**\n• **Districts** and property types\n• **Contacting** our team\n\nWhat would you like to know?`,
         quickReplies: ["Browse properties", "Our services", "Contact us", "How it works"],
       };
   }
@@ -314,7 +314,7 @@ export function ChatBot() {
     {
       id: "welcome",
       role: "bot",
-      text: `👋 Hi! I'm **PROPIX Assistant** — your AI guide for Sri Lankan real estate.\n\nHow can I help you today?`,
+      text: `👋 Hi! I'm **RUPASINGHE REALTY Assistant** — your AI guide for Sri Lankan real estate.\n\nHow can I help you today?`,
       time: formatTime(),
       quickReplies: ["Browse properties", "Sell my property", "Get a valuation", "Contact us"],
     },
@@ -382,8 +382,8 @@ export function ChatBot() {
         id="chatbot-toggle"
         onClick={() => { setIsOpen(true); setIsMinimized(false); }}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 ${isOpen ? "opacity-0 pointer-events-none scale-75" : "opacity-100 scale-100"}`}
-        style={{ background: "linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)" }}
-        aria-label="Open PROPIX Chat Assistant"
+        style={{ background: "linear-gradient(135deg, #013B30 0%, #01473A 100%)" }}
+        aria-label="Open RUPASINGHE REALTY Chat Assistant"
       >
         <MessageCircle className="w-6 h-6 text-white" />
         {hasUnread && (
@@ -402,7 +402,7 @@ export function ChatBot() {
         {/* Header */}
         <div
           className="flex items-center gap-3 px-4 py-3 flex-shrink-0 cursor-pointer select-none"
-          style={{ background: "linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)" }}
+          style={{ background: "linear-gradient(135deg, #013B30 0%, #01473A 100%)" }}
           onClick={() => setIsMinimized(!isMinimized)}
         >
           <div className="relative">
@@ -412,7 +412,7 @@ export function ChatBot() {
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-white text-sm font-heading leading-tight">PROPIX Assistant</p>
+            <p className="font-bold text-white text-sm font-heading leading-tight">RUPASINGHE REALTY Assistant</p>
             <p className="text-white/70 text-[10px] leading-tight">AI-powered · Usually replies instantly</p>
           </div>
           <div className="flex items-center gap-1">
@@ -542,14 +542,14 @@ export function ChatBot() {
                   onClick={handleSend}
                   disabled={!input.trim() || isTyping}
                   className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: input.trim() ? "linear-gradient(135deg, #1B4332, #2D6A4F)" : "#E8E3DC" }}
+                  style={{ background: input.trim() ? "linear-gradient(135deg, #013B30, #01473A)" : "#DFE8E4" }}
                   aria-label="Send message"
                 >
                   <Send className={`w-4 h-4 ${input.trim() ? "text-white" : "text-muted-foreground"}`} />
                 </button>
               </div>
               <p className="text-center text-[10px] text-muted-foreground mt-2">
-                Powered by PROPIX AI · Sri Lanka Real Estate
+                Powered by RUPASINGHE REALTY AI · Sri Lanka Real Estate
               </p>
             </div>
           </>

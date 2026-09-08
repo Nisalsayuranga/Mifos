@@ -1,10 +1,10 @@
-﻿import { ShieldCheck, Eye, HeadphonesIcon, Award } from "lucide-react";
+import { ShieldCheck, Eye, HeadphonesIcon, Award } from "lucide-react";
 
 const ITEMS = [
-  { icon: ShieldCheck, title: "Verified Listings Only", desc: "Every property on PROPIX is reviewed and verified by our team before going live." },
+  { icon: ShieldCheck, title: "Verified Listings Only", desc: "Every property on RUPASINGHE REALTY is reviewed and verified by our team before going live." },
   { icon: Eye, title: "Full Transparency", desc: "See the full history of every listing — price changes, status updates, and ownership details." },
   { icon: HeadphonesIcon, title: "Expert Support", desc: "Our property specialists are available 7 days a week to assist buyers, sellers, and agents." },
-  { icon: Award, title: "Trusted by Thousands", desc: "Over 8,500 successful property transactions facilitated through PROPIX across Sri Lanka." },
+  { icon: Award, title: "Trusted by Thousands", desc: "Over 8,500 successful property transactions facilitated through RUPASINGHE REALTY across Sri Lanka." },
 ];
 
 export function WhyChooseUs() {
@@ -12,7 +12,7 @@ export function WhyChooseUs() {
     <section className="py-20 bg-background">
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-sm font-semibold text-accent uppercase tracking-widest mb-2">Why PROPIX</p>
+          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Why RUPASINGHE REALTY</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground font-heading">Built on Trust. Backed by Expertise.</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

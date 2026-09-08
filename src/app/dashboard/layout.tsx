@@ -1,12 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Home, PlusCircle, BarChart2, Users, MessageSquare,
   CreditCard, User, ShieldCheck, FileText, Building, Menu, X, LogOut, Bell, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 const SELLER_NAV = [
   { label: "DASHBOARD",       href: "/dashboard/seller",          icon: LayoutDashboard },
@@ -79,9 +81,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="p-5 border-b border-border">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold font-heading">P</span></div>
-          <span className="font-bold text-xl text-primary font-heading">PROPIX</span>
+        <Link href="/" className="block">
+          <BrandLogo variant="dark" size="sm" />
         </Link>
         {user && (
           <div className="mt-4 flex items-center gap-3">

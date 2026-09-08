@@ -52,62 +52,62 @@
 }
 
 :root {
-  /* PROPIX Brand — Deep Forest Green + Warm Sand + Terracotta */
-  --background: #FAF9F6;
-  --foreground: #1A1A1A;
+  /* RUPASINGHE REALTY Brand — Royal Emerald Green (#013B30) & Imperial Gold (#C5A059 / #D4AF37) */
+  --background: #F8FAF9;
+  --foreground: #0B1F19;
   --card: #FFFFFF;
-  --card-foreground: #1A1A1A;
+  --card-foreground: #0B1F19;
   --popover: #FFFFFF;
-  --popover-foreground: #1A1A1A;
+  --popover-foreground: #0B1F19;
 
-  /* Primary: Deep Forest Green */
-  --primary: #1B4332;
+  /* Primary: Deep Royal Emerald */
+  --primary: #013B30;
   --primary-foreground: #FFFFFF;
 
-  /* Secondary: Warm Sand */
-  --secondary: #D4A574;
+  /* Secondary: Imperial Gold */
+  --secondary: #C5A059;
   --secondary-foreground: #FFFFFF;
 
-  /* Accent: Terracotta */
-  --accent: #C1440E;
-  --accent-foreground: #FFFFFF;
+  /* Accent: Radiant Gold */
+  --accent: #D4AF37;
+  --accent-foreground: #0B1F19;
 
   /* Muted */
-  --muted: #F5F0E8;
-  --muted-foreground: #6B6B6B;
+  --muted: #EBF2EE;
+  --muted-foreground: #4D665E;
 
   /* Status */
-  --success: #2D6A4F;
+  --success: #013B30;
   --success-foreground: #FFFFFF;
-  --warning: #D4A017;
+  --warning: #D97706;
   --warning-foreground: #FFFFFF;
-  --destructive: #B91C1C;
+  --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
 
   /* Borders & Inputs */
-  --border: #E8E3DC;
-  --input: #E8E3DC;
-  --ring: #1B4332;
+  --border: #DFE8E4;
+  --input: #DFE8E4;
+  --ring: #C5A059;
 
   /* Radius */
   --radius: 0.625rem;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #1A1A1A;
-  --sidebar-primary: #1B4332;
+  --sidebar-foreground: #0B1F19;
+  --sidebar-primary: #013B30;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F5F0E8;
-  --sidebar-accent-foreground: #1A1A1A;
-  --sidebar-border: #E8E3DC;
-  --sidebar-ring: #1B4332;
+  --sidebar-accent: #EBF2EE;
+  --sidebar-accent-foreground: #013B30;
+  --sidebar-border: #DFE8E4;
+  --sidebar-ring: #C5A059;
 
   /* Charts */
-  --chart-1: #1B4332;
-  --chart-2: #D4A574;
-  --chart-3: #C1440E;
-  --chart-4: #2D6A4F;
-  --chart-5: #8B5E3C;
+  --chart-1: #013B30;
+  --chart-2: #C5A059;
+  --chart-3: #D4AF37;
+  --chart-4: #005A54;
+  --chart-5: #002B22;
 }
 
 .dark {
