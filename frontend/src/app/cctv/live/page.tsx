@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye, Camera, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Circle, Radio, Shield, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Eye, Camera, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Circle, Radio, Shield, RefreshCw, Globe, Server, Link as LinkIcon } from "lucide-react";
 import { toast } from 'sonner';
 
 export default function CctvLivePage() {
@@ -11,6 +12,10 @@ export default function CctvLivePage() {
   const [selectedCam, setSelectedCam] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRecordingManual, setIsRecordingManual] = useState(false);
+
+  // Stream modes: 'agent' (Local Agent Stream), 'ezviz_cloud' (EZVIZ Cloud iFrame), 'custom' (Custom URL/HLS)
+  const [streamMode, setStreamMode] = useState<'agent' | 'ezviz_cloud' | 'custom'>('agent');
+  const [customStreamUrl, setCustomStreamUrl] = useState('');
 
   const fetchCameras = async () => {
     setLoading(true);
@@ -72,8 +77,20 @@ export default function CctvLivePage() {
     if (!isRecordingManual) {
       toast.info(`Manual recording started on ${selectedCam?.camera_name}`);
     } else {
-      toast.success(`Manual recording saved to CCTV evidence library`);
+      toast.success(`Manual 20s recording saved to CCTV evidence library`);
     }
+  };
+
+  // Compute live stream source URL
+  const getStreamSrc = () => {
+    if (streamMode === 'custom' && customStreamUrl) {
+      return customStreamUrl;
+    }
+    if (streamMode === 'ezviz_cloud') {
+      return `https://open.ezviz.com/live/view?serial=${selectedCam?.serial || 'BH1533244'}`;
+    }
+    // Default: Local Agent Stream URL (Port 8088 served by branch cctv-agent)
+    return `http://127.0.0.1:8088/live?cam=${selectedCam?.id || 'CAM-HQ-01'}`;
   };
 
   return (
@@ -97,11 +114,53 @@ export default function CctvLivePage() {
             >
               {cameras.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.branch_id} - {c.camera_name}
+                  {c.branch_id} - {c.camera_name} ({c.camera_ip})
                 </option>
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Stream Source Selector Bar */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700 mr-2">Stream Source:</span>
+            <Button
+              onClick={() => setStreamMode('agent')}
+              size="sm"
+              variant={streamMode === 'agent' ? 'default' : 'outline'}
+              className={`rounded-xl text-xs font-bold ${streamMode === 'agent' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+            >
+              <Server className="w-3.5 h-3.5 mr-1.5" /> Branch Agent Stream (Port 8088)
+            </Button>
+            <Button
+              onClick={() => setStreamMode('ezviz_cloud')}
+              size="sm"
+              variant={streamMode === 'ezviz_cloud' ? 'default' : 'outline'}
+              className={`rounded-xl text-xs font-bold ${streamMode === 'ezviz_cloud' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
+            >
+              <Globe className="w-3.5 h-3.5 mr-1.5" /> EZVIZ Cloud iFrame
+            </Button>
+            <Button
+              onClick={() => setStreamMode('custom')}
+              size="sm"
+              variant={streamMode === 'custom' ? 'default' : 'outline'}
+              className={`rounded-xl text-xs font-bold ${streamMode === 'custom' ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
+            >
+              <LinkIcon className="w-3.5 h-3.5 mr-1.5" /> Custom URL/HLS
+            </Button>
+          </div>
+
+          {streamMode === 'custom' && (
+            <div className="w-full sm:w-72">
+              <Input
+                value={customStreamUrl}
+                onChange={e => setCustomStreamUrl(e.target.value)}
+                placeholder="Paste HLS / Stream URL (e.g. http://...)"
+                className="text-xs font-mono"
+              />
+            </div>
+          )}
         </div>
 
         {/* Stream & Controls Grid */}
@@ -119,19 +178,33 @@ export default function CctvLivePage() {
                 </span>
               </div>
               <span className="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-400">
-                2304 x 1296 @ 25fps (3MP)
+                {selectedCam?.camera_ip || '10.225.21.190'} | 2304 x 1296 @ 25fps
               </span>
             </div>
 
-            {/* Video Feed Placeholder / Simulation */}
+            {/* Video Feed Viewport */}
             <div className="aspect-video bg-black relative flex items-center justify-center overflow-hidden">
-              <img 
-                src="https://images.unsplash.com/photo-1557597774-9d273605dfa9?auto=format&fit=crop&w=1200&q=80" 
-                alt="Live Camera Feed"
-                className="w-full h-full object-cover opacity-95" 
-              />
+              {streamMode === 'ezviz_cloud' ? (
+                <iframe
+                  src={getStreamSrc()}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                />
+              ) : (
+                <img 
+                  src={getStreamSrc()}
+                  onError={(e: any) => {
+                    // Fallback preview if local cctv-agent stream port is not running
+                    e.target.onerror = null;
+                    e.target.src = 'https://images.unsplash.com/photo-1557597774-9d273605dfa9?auto=format&fit=crop&w=1200&q=80';
+                  }}
+                  alt="Live Camera Feed"
+                  className="w-full h-full object-cover opacity-95" 
+                />
+              )}
+
               <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-[11px] font-mono">
-                {selectedCam?.camera_ip || '192.168.10.50'} | {selectedCam?.branch_id}
+                IP: {selectedCam?.camera_ip || '10.225.21.190'} | Branch: {selectedCam?.branch_id}
               </div>
               <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-[11px] font-mono">
                 {new Date().toLocaleTimeString()}
