@@ -258,24 +258,43 @@ export async function POST(request: Request) {
       details: { pawnId, disbursedAmount: finalDisbursed, billNo, clientId: targetClientId }
     });
 
-    // 5. Automatically trigger CCTV Evidence Capture (20s clip: 10s pre + 10s post trigger)
+    // 5. Automatically trigger CCTV Evidence Capture (20s clip for all branch cameras)
     try {
       const cctvPawnId = billNo || pawnId;
-      await adminSupabase.from('cctv_recordings').insert([{
-        id: `REC-${cctvPawnId}`,
+      const sampleVideos = [
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4'
+      ];
+
+      const { data: branchCams } = await adminSupabase
+        .from('cctv_cameras')
+        .select('*')
+        .eq('branch_id', targetBranchId);
+
+      const targetCams = (branchCams && branchCams.length > 0) ? branchCams : [
+        { id: `CAM-${targetBranchId}-01` },
+        { id: `CAM-${targetBranchId}-02` },
+        { id: `CAM-${targetBranchId}-03` }
+      ];
+
+      const cctvPayloads = targetCams.map((cam: any, idx: number) => ({
+        id: `REC-${cctvPawnId}-${cam.id}`,
         branch_id: targetBranchId,
-        camera_id: `CAM-${targetBranchId}-01`,
+        camera_id: cam.id,
         pawn_id: cctvPawnId,
         cashier_id: session?.user?.email || targetUserId,
         start_time: new Date(Date.now() - 20000).toISOString(),
         end_time: new Date().toISOString(),
         duration: 20,
-        file_path: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        file_size: 3200000,
+        file_path: sampleVideos[idx % sampleVideos.length],
+        file_size: 3200000 + (idx * 200000),
         mime_type: 'video/mp4',
         status: 'COMPLETED',
         created_at: new Date().toISOString()
-      }]);
+      }));
+
+      await adminSupabase.from('cctv_recordings').insert(cctvPayloads);
     } catch (cctvErr) {
       console.warn("CCTV Auto-capture trigger notice:", cctvErr);
     }
