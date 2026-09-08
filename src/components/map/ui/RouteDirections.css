@@ -1,0 +1,109 @@
+.directions-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 20px;
+  animation: slideInRight 0.4s ease-out forwards;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.directions-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.directions-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.header-icon {
+  color: var(--primary);
+}
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-item {
+  display: flex;
+  position: relative;
+  min-height: 40px;
+}
+
+.step-icon-container {
+  width: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.step-bullet {
+  width: 8px;
+  height: 8px;
+  background-color: var(--primary);
+  border-radius: 50%;
+  margin-top: 6px;
+  z-index: 2;
+}
+
+.step-line {
+  width: 2px;
+  flex-grow: 1;
+  background-color: var(--border);
+  margin-top: 4px;
+  margin-bottom: -6px;
+}
+
+.destination-icon {
+  margin-top: 2px;
+}
+
+.step-content {
+  padding-left: 12px;
+  padding-bottom: 16px;
+  flex-grow: 1;
+}
+
+.step-instruction {
+  font-size: 14px;
+  color: var(--foreground);
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+  text-transform: capitalize;
+}
+
+.step-distance {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+/* Custom Scrollbar for the panel */
+.directions-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.directions-panel::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+.directions-panel::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
