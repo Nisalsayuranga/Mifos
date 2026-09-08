@@ -1,32 +1,18 @@
 {
-  "branch_id": "KTW",
-  "agent_id": "CCTV-AGENT-KTW",
+  "branch_id": "HQ",
+  "agent_id": "CCTV-AGENT-HQ",
   "server_url": "https://mifos-finance.vercel.app",
   "heartbeat_interval_seconds": 30,
   "cameras": [
     {
-      "id": "CAM-KTW-01",
-      "name": "Kottawa Cashier Counter 01",
-      "ip": "192.168.10.50",
+      "id": "CAM-HQ-01",
+      "name": "Office Test Counter 01",
+      "ip": "10.225.21.190",
       "model": "EZVIZ CS-H6c-R105-1L3WF",
+      "serial": "BH1533244",
+      "verification_code": "VPNMKF",
       "protocol": "ONVIF/RTSP",
-      "rtsp_url": "rtsp://admin:VERIFICATION_CODE1@192.168.10.50:554/h264/ch1/main/av_stream"
-    },
-    {
-      "id": "CAM-KTW-02",
-      "name": "Kottawa Safe Vault Counter 02",
-      "ip": "192.168.10.51",
-      "model": "EZVIZ CS-H6c",
-      "protocol": "ONVIF/RTSP",
-      "rtsp_url": "rtsp://admin:VERIFICATION_CODE2@192.168.10.51:554/h264/ch1/main/av_stream"
-    },
-    {
-      "id": "CAM-KTW-03",
-      "name": "Kottawa Customer Entrance Counter 03",
-      "ip": "192.168.10.52",
-      "model": "EZVIZ CS-H6c",
-      "protocol": "ONVIF/RTSP",
-      "rtsp_url": "rtsp://admin:VERIFICATION_CODE3@192.168.10.52:554/h264/ch1/main/av_stream"
+      "rtsp_url": "rtsp://admin:VPNMKF@10.225.21.190:554/h264/ch1/main/av_stream"
     }
   ],
   "recording": {

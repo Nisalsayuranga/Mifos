@@ -6,9 +6,9 @@ const DEMO_CAMERAS = [
   {
     id: 'CAM-HQ-01',
     branch_id: 'HQ',
-    camera_name: 'Head Office Cashier Counter 01',
-    camera_ip: '192.168.1.100',
-    camera_model: 'EZVIZ CS-H6c-R105-1L3WF',
+    camera_name: 'Office Test Counter 01',
+    camera_ip: '10.225.21.190',
+    camera_model: 'EZVIZ CS-H6c-R105-1L3WF (BH1533244)',
     camera_protocol: 'ONVIF/RTSP',
     agent_id: 'CCTV-AGENT-HQ',
     status: 'ONLINE',
