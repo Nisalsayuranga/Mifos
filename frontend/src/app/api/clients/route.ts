@@ -1,0 +1,175 @@
+import { NextResponse } from 'next/server';
+import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+
+export const dynamic = 'force-dynamic';
+
+const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+const HARDCODED_FALLBACK_USER_ID = '1423f690-f46a-455d-bc25-a778d2bd9e47'; // Guaranteed valid profile UUID
+
+export async function GET(request: Request) {
+  try {
+    const session = await getAuthenticatedUser(request);
+    const { searchParams } = new URL(request.url);
+    const requestedBranch = searchParams.get('branchId');
+
+    let query = adminSupabase.from('clients').select('*');
+
+    if (session) {
+      if (session.role === 'TELLER') {
+        if (requestedBranch && requestedBranch.toLowerCase() !== session.branchId.toLowerCase()) {
+          return NextResponse.json({ error: 'Forbidden. Access to other branch records is denied.' }, { status: 403 });
+        }
+        query = query.ilike('branch_id', `%${session.branchId}%`);
+      } else if (session.role === 'ADMIN') {
+        if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
+          query = query.ilike('branch_id', `%${requestedBranch}%`);
+        }
+      }
+    } else {
+      if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
+        query = query.ilike('branch_id', `%${requestedBranch}%`);
+      }
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return NextResponse.json(data || []);
+  } catch (error: any) {
+    console.error("API GET Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getAuthenticatedUser(request);
+    const body = await request.json();
+    const { nic, firstName, lastName, phone, branchId, createdByUserId, address, nicImage, signatureImage } = body;
+
+    if (!nic || !firstName) {
+      return NextResponse.json({ error: "Missing required fields (nic, firstName)" }, { status: 400 });
+    }
+
+    const trimmedNic = String(nic).trim();
+    let effectiveBranchId = branchId || 'HQ';
+    let effectiveUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : null);
+
+    // If effectiveUserId is missing or invalid, fetch valid profile ID from DB or fallback
+    if (!effectiveUserId) {
+      const { data: profileRow } = await adminSupabase.from('profiles').select('id').limit(1).maybeSingle();
+      effectiveUserId = profileRow?.id || HARDCODED_FALLBACK_USER_ID;
+    }
+
+    if (session && session.role === 'TELLER') {
+      if (branchId && branchId.toLowerCase() !== session.branchId.toLowerCase()) {
+        return NextResponse.json({ error: 'Forbidden. You cannot create clients for another branch.' }, { status: 403 });
+      }
+      effectiveBranchId = session.branchId;
+    }
+
+    // 0. DUPLICATE NIC PREVENTION: Safely check for existing client
+    let existingClient = null;
+    const { data: snakeExisting } = await adminSupabase
+      .from('clients')
+      .select('*')
+      .eq('national_id', trimmedNic)
+      .limit(1)
+      .maybeSingle();
+      
+    if (snakeExisting) {
+      existingClient = snakeExisting;
+    } else {
+      const { data: camelExisting } = await adminSupabase
+        .from('clients')
+        .select('*')
+        .eq('nationalId', trimmedNic)
+        .limit(1)
+        .maybeSingle();
+      if (camelExisting) {
+        existingClient = camelExisting;
+      }
+    }
+
+    if (existingClient) {
+      const updateData: any = {
+        firstName: firstName,
+        first_name: firstName,
+        lastName: lastName || existingClient.lastName || existingClient.last_name || '.',
+        last_name: lastName || existingClient.last_name || existingClient.lastName || '.',
+        phone: phone || existingClient.phone,
+        address: address || existingClient.address,
+        nic_image: nicImage || existingClient.nic_image,
+        signature_image: signatureImage || existingClient.signature_image
+      };
+      
+      const { data: updatedClient } = await adminSupabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', existingClient.id)
+        .select()
+        .single();
+
+      return NextResponse.json(updatedClient || existingClient, { status: 200 });
+    }
+
+    const clientId = crypto.randomUUID();
+
+    // 1. Try camelCase insert (Active Database Schema standard)
+    const camelPayload: any = {
+      id: clientId,
+      nationalId: trimmedNic,
+      firstName: firstName,
+      lastName: lastName || '.',
+      phone: phone || null,
+      branchId: effectiveBranchId,
+      createdByUserId: effectiveUserId,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      address: address || null,
+      nic_image: nicImage || null,
+      signature_image: signatureImage || null
+    };
+
+    const { data: camelData, error: camelErr } = await adminSupabase
+      .from('clients')
+      .insert([camelPayload])
+      .select()
+      .single();
+
+    if (!camelErr && camelData) {
+      return NextResponse.json(camelData, { status: 201 });
+    }
+
+    // 2. Try snake_case insert (Migration 003 standard)
+    const snakePayload: any = {
+      id: clientId,
+      national_id: trimmedNic,
+      first_name: firstName,
+      last_name: lastName || '.',
+      phone: phone || null,
+      branch_id: effectiveBranchId,
+      created_by_user_id: effectiveUserId,
+      status: 'ACTIVE',
+      created_at: new Date().toISOString(),
+      address: address || null,
+      nic_image: nicImage || null,
+      signature_image: signatureImage || null
+    };
+
+    const { data: snakeData, error: snakeErr } = await adminSupabase
+      .from('clients')
+      .insert([snakePayload])
+      .select()
+      .single();
+
+    if (!snakeErr && snakeData) {
+      return NextResponse.json(snakeData, { status: 201 });
+    }
+
+    console.error("Clients POST Error (Both schemas failed):", camelErr, snakeErr);
+    return NextResponse.json({ error: camelErr?.message || snakeErr?.message || "Failed to save customer record to database." }, { status: 500 });
+  } catch (error: any) {
+    console.error("API POST Exception:", error);
+    return NextResponse.json({ error: error.message || 'Failed to save customer' }, { status: 500 });
+  }
+}
