@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request, context: any) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const { data: camera, error } = await adminSupabase
       .from('cctv_cameras')
       .select('*')
@@ -20,14 +22,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: any) {
   try {
     const session = await getAuthenticatedUser(req);
     if (session && session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden. Admin privileges required.' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await context.params;
     const updates = await req.json();
 
     const { data, error } = await adminSupabase
@@ -46,14 +48,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: any) {
   try {
     const session = await getAuthenticatedUser(req);
     if (session && session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden. Admin privileges required.' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await context.params;
     const { error } = await adminSupabase
       .from('cctv_cameras')
       .delete()
