@@ -12,6 +12,18 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 
+// Determine ffmpeg binary path (support bundled ffmpeg-static or system PATH)
+let ffmpegExec = 'ffmpeg';
+try {
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic) {
+    ffmpegExec = ffmpegStatic;
+    console.log(`[CCTV AGENT] Using bundled ffmpeg binary at: ${ffmpegExec}`);
+  }
+} catch (e) {
+  console.log(`[CCTV AGENT] Using system ffmpeg from PATH`);
+}
+
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 let config = {};
 
@@ -71,11 +83,11 @@ function startRollingBufferStreams() {
     const camTempDir = path.join(tempDir, cam.id);
     if (!fs.existsSync(camTempDir)) fs.mkdirSync(camTempDir, { recursive: true });
 
-    const ffmpegCmd = `ffmpeg -y -rtsp_transport tcp -i "${cam.rtsp_url}" -c copy -map 0 -f segment -segment_time 5 -segment_wrap 12 -reset_timestamps 1 "${camTempDir}/segment_%02d.ts"`;
+    const ffmpegCmd = `"${ffmpegExec}" -y -rtsp_transport tcp -i "${cam.rtsp_url}" -c copy -map 0 -f segment -segment_time 5 -segment_wrap 12 -reset_timestamps 1 "${camTempDir}/segment_%02d.ts"`;
 
     exec(ffmpegCmd, (error) => {
       if (error) {
-        console.error(`[FFMPEG] Stream process error on ${cam.id}: ${error.message}`);
+        console.error(`[FFMPEG] Stream process warning on ${cam.id}: ${error.message}`);
       }
     });
   });
@@ -89,7 +101,7 @@ function extractEvidenceClipsForAllCameras(pawnId, callback) {
   let completedCount = 0;
   cameras.forEach((cam) => {
     const outputFile = path.join(recDir, `${pawnId}_${cam.id}.mp4`);
-    const concatCmd = `ffmpeg -y -i "${cam.rtsp_url}" -t 20 -c:v libx264 -c:a aac -preset ultrafast "${outputFile}"`;
+    const concatCmd = `"${ffmpegExec}" -y -i "${cam.rtsp_url}" -t 20 -c:v libx264 -c:a aac -preset ultrafast "${outputFile}"`;
 
     exec(concatCmd, (err) => {
       completedCount++;
@@ -125,7 +137,7 @@ const streamServer = http.createServer((req, res) => {
       'Access-Control-Allow-Origin': '*'
     });
 
-    const ffmpegStream = spawn('ffmpeg', [
+    const ffmpegStream = spawn(ffmpegExec, [
       '-rtsp_transport', 'tcp',
       '-i', targetCam.rtsp_url,
       '-f', 'mjpeg',
@@ -135,6 +147,14 @@ const streamServer = http.createServer((req, res) => {
       'pipe:1'
     ]);
 
+    ffmpegStream.on('error', (err) => {
+      console.error(`[LIVE STREAM] FFmpeg process error: ${err.message}`);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Access-Control-Allow-Origin': '*' });
+        res.end('FFmpeg stream error');
+      }
+    });
+
     ffmpegStream.stdout.pipe(res);
 
     ffmpegStream.stderr.on('data', (data) => {
@@ -143,7 +163,9 @@ const streamServer = http.createServer((req, res) => {
 
     req.on('close', () => {
       console.log(`[LIVE STREAM] Client disconnected from ${targetCam.name}`);
-      ffmpegStream.kill('SIGKILL');
+      try {
+        ffmpegStream.kill('SIGKILL');
+      } catch (e) {}
     });
   } else {
     res.writeHead(404, { 'Access-Control-Allow-Origin': '*' });
