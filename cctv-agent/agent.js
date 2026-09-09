@@ -107,6 +107,55 @@ function extractEvidenceClipsForAllCameras(pawnId, callback) {
   });
 }
 
+// 4. HTTP Live Stream Server on Port 8088 (MJPEG Stream for Web Browsers)
+const http = require('http');
+const streamServer = http.createServer((req, res) => {
+  if (req.url.startsWith('/live')) {
+    const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+    const camId = urlParams.get('cam');
+    const targetCam = cameras.find(c => c.id === camId) || cameras[0];
+
+    console.log(`[LIVE STREAM] Web client connected for camera: ${targetCam.name} (${targetCam.ip})`);
+
+    res.writeHead(200, {
+      'Content-Type': 'multipart/x-mixed-replace; boundary=ffserver',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Connection': 'close',
+      'Pragma': 'no-cache',
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    const ffmpegStream = spawn('ffmpeg', [
+      '-rtsp_transport', 'tcp',
+      '-i', targetCam.rtsp_url,
+      '-f', 'mjpeg',
+      '-q:v', '5',
+      '-r', '15',
+      '-s', '1280x720',
+      'pipe:1'
+    ]);
+
+    ffmpegStream.stdout.pipe(res);
+
+    ffmpegStream.stderr.on('data', (data) => {
+      // ffmpeg log output
+    });
+
+    req.on('close', () => {
+      console.log(`[LIVE STREAM] Client disconnected from ${targetCam.name}`);
+      ffmpegStream.kill('SIGKILL');
+    });
+  } else {
+    res.writeHead(404, { 'Access-Control-Allow-Origin': '*' });
+    res.end('CCTV Agent MJPEG Live Server');
+  }
+});
+
+streamServer.listen(8088, () => {
+  console.log(`[CCTV AGENT] Live MJPEG Stream Server running at http://127.0.0.1:8088/live`);
+});
+
 // Start Stream Buffer engines for all cameras
 startRollingBufferStreams();
 console.log(`[CCTV AGENT] Branch Agent active for ALL ${cameras.length} cameras. Ready for MIFOS triggers.`);
+

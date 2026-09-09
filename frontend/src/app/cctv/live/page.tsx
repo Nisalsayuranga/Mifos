@@ -16,6 +16,7 @@ export default function CctvLivePage() {
   // Stream modes: 'agent' (Local Agent Stream), 'ezviz_cloud' (EZVIZ Cloud iFrame), 'custom' (Custom URL/HLS)
   const [streamMode, setStreamMode] = useState<'agent' | 'ezviz_cloud' | 'custom'>('agent');
   const [customStreamUrl, setCustomStreamUrl] = useState('');
+  const [agentStreamError, setAgentStreamError] = useState(false);
 
   const fetchCameras = async () => {
     setLoading(true);
@@ -109,7 +110,10 @@ export default function CctvLivePage() {
           <div className="flex items-center gap-3">
             <select
               value={selectedCam?.id || ''}
-              onChange={e => setSelectedCam(cameras.find(c => c.id === e.target.value))}
+              onChange={e => {
+                setSelectedCam(cameras.find(c => c.id === e.target.value));
+                setAgentStreamError(false);
+              }}
               className="bg-slate-100 border border-slate-200 rounded-xl text-xs font-black p-2.5 text-slate-800 focus:outline-none"
             >
               {cameras.map(c => (
@@ -126,7 +130,7 @@ export default function CctvLivePage() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-700 mr-2">Stream Source:</span>
             <Button
-              onClick={() => setStreamMode('agent')}
+              onClick={() => { setStreamMode('agent'); setAgentStreamError(false); }}
               size="sm"
               variant={streamMode === 'agent' ? 'default' : 'outline'}
               className={`rounded-xl text-xs font-bold ${streamMode === 'agent' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
@@ -134,7 +138,7 @@ export default function CctvLivePage() {
               <Server className="w-3.5 h-3.5 mr-1.5" /> Branch Agent Stream (Port 8088)
             </Button>
             <Button
-              onClick={() => setStreamMode('ezviz_cloud')}
+              onClick={() => { setStreamMode('ezviz_cloud'); setAgentStreamError(false); }}
               size="sm"
               variant={streamMode === 'ezviz_cloud' ? 'default' : 'outline'}
               className={`rounded-xl text-xs font-bold ${streamMode === 'ezviz_cloud' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
@@ -142,7 +146,7 @@ export default function CctvLivePage() {
               <Globe className="w-3.5 h-3.5 mr-1.5" /> EZVIZ Cloud iFrame
             </Button>
             <Button
-              onClick={() => setStreamMode('custom')}
+              onClick={() => { setStreamMode('custom'); setAgentStreamError(false); }}
               size="sm"
               variant={streamMode === 'custom' ? 'default' : 'outline'}
               className={`rounded-xl text-xs font-bold ${streamMode === 'custom' ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
@@ -183,20 +187,54 @@ export default function CctvLivePage() {
             </div>
 
             {/* Video Feed Viewport */}
-            <div className="aspect-video bg-black relative flex items-center justify-center overflow-hidden">
+            <div className="aspect-video bg-slate-900 relative flex items-center justify-center overflow-hidden">
               {streamMode === 'ezviz_cloud' ? (
                 <iframe
                   src={getStreamSrc()}
                   className="w-full h-full border-0"
                   allowFullScreen
                 />
+              ) : agentStreamError ? (
+                <div className="p-6 text-center space-y-4 max-w-md bg-slate-900/95 border border-slate-800 rounded-3xl m-4 backdrop-blur-md">
+                  <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center mx-auto border border-amber-500/20">
+                    <Server className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">Branch CCTV Agent Offline</h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Central Cloud MIFOS cannot reach local IP <code className="text-amber-300 font-mono">{selectedCam?.camera_ip || '10.225.21.190'}</code> directly. Run the local Agent service on your branch PC to stream live RTSP video.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-left space-y-1 font-mono text-[11px]">
+                    <div className="text-slate-500">// Run on Branch PC Terminal:</div>
+                    <div className="text-emerald-400">cd cctv-agent</div>
+                    <div className="text-emerald-400">node agent.js</div>
+                  </div>
+
+                  <div className="flex gap-2 justify-center pt-1">
+                    <Button
+                      onClick={() => setAgentStreamError(false)}
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry Stream
+                    </Button>
+                    <Button
+                      onClick={() => setStreamMode('ezviz_cloud')}
+                      size="sm"
+                      variant="outline"
+                      className="border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 text-xs font-bold rounded-xl"
+                    >
+                      <Globe className="w-3.5 h-3.5 mr-1.5" /> EZVIZ Cloud Mode
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <img 
                   src={getStreamSrc()}
-                  onError={(e: any) => {
-                    // Fallback preview if local cctv-agent stream port is not running
-                    e.target.onerror = null;
-                    e.target.src = 'https://images.unsplash.com/photo-1557597774-9d273605dfa9?auto=format&fit=crop&w=1200&q=80';
+                  onError={() => {
+                    setAgentStreamError(true);
                   }}
                   alt="Live Camera Feed"
                   className="w-full h-full object-cover opacity-95" 
