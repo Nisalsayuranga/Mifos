@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, ChevronDown, Building2, ShieldCheck, User, Phone, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, ChevronDown, Building2, ShieldCheck, User, Phone, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const BRANCHES = [
@@ -16,11 +16,12 @@ const BRANCHES = [
   { id: 'WAT3', name: 'Waththala 3' },
   { id: 'KIR2', name: 'Kiribathgoda 2' },
   { id: 'KIR1', name: 'Kiribathgoda 1' },
+  { id: 'HOM',  name: 'Homagama' },
 ];
 
 export default function LoginPage() {
   /* ── shared ── */
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'update-password'>('login');
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
   const [success, setSuccess]     = useState('');
@@ -42,18 +43,101 @@ export default function LoginPage() {
   const [showRPw, setShowRPw]           = useState(false);
   const [showRCPw, setShowRCPw]         = useState(false);
 
+  /* ── reset ── */
+  const [resetEmail, setResetEmail]     = useState('');
+  const [newPassword, setNewPassword]   = useState('');
+  const [showNewPw, setShowNewPw]       = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       if (p.get('expired') === 'true') setExpiredAlert(true);
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setMode('update-password');
+          setSuccess('Verification successful! Please enter your new password.');
+        }
+      });
+      return () => subscription.unsubscribe();
     }
   }, []);
 
   /* switch mode — clear errors */
-  const switchMode = (m: 'login' | 'register') => {
+  const [tempSuccess, setTempSuccess] = useState('');
+  const switchMode = (m: 'login' | 'register' | 'reset' | 'update-password') => {
     setMode(m);
     setError('');
-    setSuccess('');
+    // Keep success if switching to login after reset/register
+    if (m === 'login' && tempSuccess) {
+      setSuccess(tempSuccess);
+      setTempSuccess('');
+    } else {
+      setSuccess('');
+    }
+  };
+
+  /* ── RESET PASSWORD (Send Link) ── */
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    setLoading(true);
+
+    try {
+      let loginEmail = resetEmail.trim();
+      if (!loginEmail.includes('@')) loginEmail = `${loginEmail.toLowerCase()}@rupasinghe.com`;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+
+      if (error) throw error;
+
+      setSuccess('Verification link sent! Please check your email inbox to proceed.');
+      setResetEmail('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ── UPDATE PASSWORD (After Link) ── */
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+
+    if (newPassword !== rConfirm) {
+      return setError('Passwords do not match.');
+    }
+
+    const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    if (!strongRegex.test(newPassword)) {
+      return setError('New password must be at least 8 characters, include a lowercase & uppercase letter, a number, and a symbol.');
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      const successMsg = 'Password updated successfully! You can now sign in.';
+      setTempSuccess(successMsg);
+      await supabase.auth.signOut();
+      
+      setNewPassword('');
+      setRConfirm('');
+      switchMode('login');
+      setSuccess(successMsg);
+    } catch (err: any) {
+      setError(err.message);
+      await supabase.auth.signOut(); // clean up session
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ── LOGIN ── */
@@ -129,7 +213,7 @@ export default function LoginPage() {
         html, body {
           height: 100%;
           font-family: 'Inter', 'Segoe UI', sans-serif;
-          background: #080f1c;
+          background: #1a1a1a;
         }
 
         /* ────────── ROOT ────────── */
@@ -146,7 +230,7 @@ export default function LoginPage() {
           flex: 0 0 50%;
           display: flex;
           flex-direction: column;
-          background: linear-gradient(160deg, #0d1f35 0%, #091628 55%, #060e1c 100%);
+          background: linear-gradient(160deg, #2a2a2a 0%, #1f1f1f 55%, #141414 100%);
           position: relative;
           overflow: hidden;
         }
@@ -154,14 +238,14 @@ export default function LoginPage() {
           content: '';
           position: absolute; top: -120px; right: -120px;
           width: 420px; height: 420px;
-          background: radial-gradient(circle, rgba(37,99,235,.15) 0%, transparent 65%);
+          background: radial-gradient(circle, rgba(251,191,36,.15) 0%, transparent 65%);
           border-radius: 50%; pointer-events: none;
         }
         .left::after {
           content: '';
           position: absolute; bottom: -100px; left: -80px;
           width: 320px; height: 320px;
-          background: radial-gradient(circle, rgba(14,116,144,.12) 0%, transparent 65%);
+          background: radial-gradient(circle, rgba(255,235,59,.12) 0%, transparent 65%);
           border-radius: 50%; pointer-events: none;
         }
 
@@ -175,14 +259,14 @@ export default function LoginPage() {
         }
         .topbar-icon {
           width: 36px; height: 36px;
-          background: linear-gradient(135deg, rgba(37,99,235,.3), rgba(96,165,250,.15));
-          border: 1px solid rgba(96,165,250,.3);
+          background: linear-gradient(135deg, rgba(251,191,36,.3), rgba(255,235,59,.15));
+          border: 1px solid rgba(255,235,59,.3);
           border-radius: 9px;
           display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 0 16px rgba(37,99,235,.2);
+          box-shadow: 0 0 16px rgba(251,191,36,.2);
         }
-        .topbar-name  { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: .2px; }
-        .topbar-tag   { display: block; font-size: 10px; font-weight: 500; color: rgba(96,165,250,.65); letter-spacing: 1px; text-transform: uppercase; }
+        .topbar-name  { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+        .topbar-tag   { display: block; font-size: 12px; font-weight: 500; color: rgba(251,191,36,.65); letter-spacing: 1px; text-transform: uppercase; }
 
         /* ── Scrollable form area ── */
         .form-area {
@@ -197,7 +281,7 @@ export default function LoginPage() {
         .form-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 
         .form-card {
-          width: 100%; max-width: 420px;
+          width: 100%; max-width: 520px;
           padding: 8px 0 32px;
           animation: slide-up .4s cubic-bezier(.16,1,.3,1) both;
         }
@@ -206,19 +290,33 @@ export default function LoginPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
 
+        /* ── Back Button ── */
+        .back-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 40px; height: 40px; border-radius: 50%;
+          background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+          color: rgba(255,255,255,.7); cursor: pointer;
+          margin-bottom: 24px;
+          transition: background .15s, color .15s, transform .15s;
+        }
+        .back-btn:hover {
+          background: rgba(251,191,36,.15); color: #fde047; border-color: rgba(251,191,36,.3);
+          transform: translateX(-2px);
+        }
+
         /* ── Heading ── */
         .heading { margin-bottom: 32px; }
         .heading-title {
-          font-size: 32px; font-weight: 800;
-          color: #fff; letter-spacing: -.7px; line-height: 1.1; margin-bottom: 10px;
+          font-size: 48px; font-weight: 800;
+          color: #fff; letter-spacing: -.7px; line-height: 1.1; margin-bottom: 12px;
         }
-        .heading-sub { font-size: 14px; color: rgba(255,255,255,.45); line-height: 1.5; }
+        .heading-sub { font-size: 18px; color: rgba(255,255,255,.45); line-height: 1.5; }
         .heading-sub a {
-          color: #60a5fa; font-weight: 600;
+          color: #fbbf24; font-weight: 600;
           text-decoration: none; cursor: pointer;
           transition: color .15s;
         }
-        .heading-sub a:hover { color: #93c5fd; }
+        .heading-sub a:hover { color: #fde047; }
 
         /* ── Alerts ── */
         .alert-warn {
@@ -249,13 +347,13 @@ export default function LoginPage() {
         .form { display: flex; flex-direction: column; gap: 16px; }
 
         /* Field */
-        .field { display: flex; flex-direction: column; gap: 7px; }
-        .field-label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.7); letter-spacing: .15px; }
+        .field { display: flex; flex-direction: column; gap: 10px; }
+        .field-label { font-size: 18px; font-weight: 600; color: rgba(255,255,255,.7); letter-spacing: .15px; }
 
         /* Input with icon wrapper */
         .inp-wrap { position: relative; }
         .inp-icon {
-          position: absolute; left: 14px; top: 50%;
+          position: absolute; left: 20px; top: 50%;
           transform: translateY(-50%);
           color: #94a3b8; pointer-events: none;
           display: flex; align-items: center;
@@ -263,47 +361,47 @@ export default function LoginPage() {
 
         /* Inputs */
         .inp {
-          width: 100%; height: 48px;
+          width: 100%; height: 64px;
           background: #fff;
           border: 2px solid transparent;
           border-radius: 10px;
-          padding: 0 16px 0 42px;
-          font-size: 15px; font-family: inherit;
+          padding: 0 20px 0 52px;
+          font-size: 20px; font-family: inherit;
           color: #0f172a; outline: none;
           transition: border-color .2s, box-shadow .2s;
         }
-        .inp-no-icon { padding-left: 16px; }
+        .inp-no-icon { padding-left: 18px; }
         .inp::placeholder { color: #b0bec5; }
-        .inp:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.14); }
-        .inp:hover:not(:focus) { border-color: rgba(37,99,235,.3); }
-        .inp-pw-pad { padding-right: 48px; }
+        .inp:focus { border-color: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.14); }
+        .inp:hover:not(:focus) { border-color: rgba(251,191,36,.3); }
+        .inp-pw-pad { padding-right: 52px; }
 
         /* Eye toggle */
         .eye-btn {
-          position: absolute; right: 14px; top: 50%;
+          position: absolute; right: 18px; top: 50%;
           transform: translateY(-50%);
           background: none; border: none;
           color: #94a3b8; cursor: pointer;
           display: flex; align-items: center; padding: 0;
           transition: color .15s;
         }
-        .eye-btn:hover { color: #2563eb; }
+        .eye-btn:hover { color: #fbbf24; }
 
         /* Branch dropdown */
         .br-wrap { position: relative; }
         .br-btn {
-          width: 100%; height: 48px;
+          width: 100%; height: 64px;
           background: #fff;
           border: 2px solid transparent;
           border-radius: 10px;
-          padding: 0 16px 0 42px;
-          font-size: 15px; font-family: inherit;
+          padding: 0 20px 0 52px;
+          font-size: 20px; font-family: inherit;
           display: flex; align-items: center; gap: 8px;
           cursor: pointer; outline: none;
           transition: border-color .2s, box-shadow .2s;
         }
-        .br-btn:hover:not(.open) { border-color: rgba(37,99,235,.3); }
-        .br-btn.open, .br-btn:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.14); }
+        .br-btn:hover:not(.open) { border-color: rgba(251,191,36,.3); }
+        .br-btn.open, .br-btn:focus { border-color: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.14); }
         .br-txt { flex: 1; text-align: left; }
         .br-txt--ph  { color: #b0bec5; }
         .br-txt--val { color: #0f172a; }
@@ -312,8 +410,8 @@ export default function LoginPage() {
 
         .br-menu {
           position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-          background: #0e2038;
-          border: 1px solid rgba(37,99,235,.28);
+          background: #1f1f1f;
+          border: 1px solid rgba(251,191,36,.28);
           border-radius: 12px; overflow: hidden; z-index: 80;
           box-shadow: 0 16px 48px rgba(0,0,0,.6);
           animation: menu-in .15s ease both;
@@ -324,7 +422,7 @@ export default function LoginPage() {
         }
         .br-item {
           width: 100%; background: none; border: none;
-          padding: 13px 18px; font-size: 14px;
+          padding: 18px 24px; font-size: 18px;
           font-family: inherit; cursor: pointer;
           text-align: left; color: rgba(255,255,255,.75);
           display: flex; align-items: center; gap: 10px;
@@ -335,44 +433,44 @@ export default function LoginPage() {
           border-radius: 50%; background: rgba(255,255,255,.2);
           flex-shrink: 0; transition: background .14s;
         }
-        .br-item:hover { background: rgba(37,99,235,.15); color: #93c5fd; }
-        .br-item:hover::before { background: #60a5fa; }
-        .br-item.sel { color: #60a5fa; font-weight: 600; }
-        .br-item.sel::before { background: #60a5fa; }
+        .br-item:hover { background: rgba(251,191,36,.15); color: #fde047; }
+        .br-item:hover::before { background: #fbbf24; }
+        .br-item.sel { color: #fbbf24; font-weight: 600; }
+        .br-item.sel::before { background: #fbbf24; }
 
         /* Forgot */
         .forgot { text-align: right; margin-top: -4px; }
-        .forgot a { font-size: 13px; color: #60a5fa; font-weight: 500; cursor: pointer; text-decoration: none; transition: color .15s; }
-        .forgot a:hover { color: #93c5fd; }
+        .forgot a { font-size: 15px; color: #fbbf24; font-weight: 500; cursor: pointer; text-decoration: none; transition: color .15s; }
+        .forgot a:hover { color: #fde047; }
 
         /* ── Primary button ── */
         .btn-primary {
-          width: 100%; height: 52px;
-          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          width: 100%; height: 64px;
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
           border: none; border-radius: 12px;
-          font-size: 15px; font-weight: 700;
-          color: #fff; cursor: pointer;
+          font-size: 20px; font-weight: 700;
+          color: #1a1a1a; cursor: pointer;
           letter-spacing: .3px;
           display: flex; align-items: center; justify-content: center;
           font-family: inherit; position: relative; overflow: hidden;
           transition: transform .15s, box-shadow .2s, opacity .2s;
-          box-shadow: 0 4px 24px rgba(37,99,235,.45);
+          box-shadow: 0 4px 24px rgba(245,158,11,.45);
           margin-top: 4px;
         }
         .btn-primary::after {
           content: ''; position: absolute; inset: 0;
-          background: linear-gradient(to bottom, rgba(255,255,255,.1), transparent);
+          background: linear-gradient(to bottom, rgba(255,255,255,.2), transparent);
           pointer-events: none;
         }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(37,99,235,.55); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(245,158,11,.55); }
         .btn-primary:active:not(:disabled) { transform: translateY(0); }
         .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 
         /* Spinner */
         .spinner {
           width: 20px; height: 20px;
-          border: 2.5px solid rgba(255,255,255,.3);
-          border-top-color: #fff;
+          border: 2.5px solid rgba(26,26,26,.3);
+          border-top-color: #1a1a1a;
           border-radius: 50%;
           animation: spin .7s linear infinite;
         }
@@ -393,7 +491,7 @@ export default function LoginPage() {
         ═════════════════════════════ */
         .right {
           flex: 1;
-          background: linear-gradient(145deg, #071020 0%, #060d1d 100%);
+          background: linear-gradient(145deg, #1c1c1c 0%, #121212 100%);
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
           padding: 52px 48px;
@@ -405,7 +503,7 @@ export default function LoginPage() {
           position: absolute; top: 50%; left: 50%;
           transform: translate(-50%, -50%);
           width: 600px; height: 600px;
-          background: radial-gradient(circle, rgba(37,99,235,.1) 0%, transparent 60%);
+          background: radial-gradient(circle, rgba(251,191,36,.1) 0%, transparent 60%);
           border-radius: 50%; pointer-events: none;
         }
 
@@ -416,12 +514,12 @@ export default function LoginPage() {
         }
         .shield-ring::before {
           content: ''; position: absolute; inset: -16px; border-radius: 50%;
-          border: 1px solid rgba(37,99,235,.2);
+          border: 1px solid rgba(251,191,36,.2);
           animation: pulse 3s ease-in-out infinite;
         }
         .shield-ring::after {
           content: ''; position: absolute; inset: -32px; border-radius: 50%;
-          border: 1px solid rgba(37,99,235,.1);
+          border: 1px solid rgba(251,191,36,.1);
           animation: pulse 3s ease-in-out infinite .6s;
         }
         @keyframes pulse {
@@ -430,21 +528,23 @@ export default function LoginPage() {
         }
         .shield-img-wrap {
           width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
-          box-shadow: 0 0 0 2px rgba(37,99,235,.25), 0 0 60px rgba(37,99,235,.35), 0 0 120px rgba(37,99,235,.18);
+          background: #fff;
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 0 0 2px rgba(251,191,36,.25), 0 0 60px rgba(251,191,36,.35), 0 0 120px rgba(251,191,36,.18);
         }
-        .shield-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .shield-img { width: 80%; height: 80%; object-fit: contain; display: block; }
 
         /* Right text */
-        .right-text { text-align: center; z-index: 1; max-width: 400px; }
-        .right-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 3px; color: #60a5fa; text-transform: uppercase; margin-bottom: 14px; }
-        .right-title { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -.5px; line-height: 1.25; margin-bottom: 14px; }
-        .right-body { font-size: 14px; color: rgba(255,255,255,.45); line-height: 1.75; margin-bottom: 28px; }
-        .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .right-text { text-align: center; z-index: 1; max-width: 500px; }
+        .right-eyebrow { font-size: 14px; font-weight: 700; letter-spacing: 3px; color: #fbbf24; text-transform: uppercase; margin-bottom: 16px; }
+        .right-title { font-size: 38px; font-weight: 800; color: #fff; letter-spacing: -.5px; line-height: 1.25; margin-bottom: 16px; }
+        .right-body { font-size: 18px; color: rgba(255,255,255,.45); line-height: 1.6; margin-bottom: 32px; }
+        .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
         .chip {
-          background: rgba(37,99,235,.12);
-          border: 1px solid rgba(96,165,250,.2);
-          color: #93c5fd; font-size: 12px; font-weight: 600;
-          padding: 6px 14px; border-radius: 999px; letter-spacing: .3px;
+          background: rgba(251,191,36,.12);
+          border: 1px solid rgba(255,235,59,.2);
+          color: #fde047; font-size: 15px; font-weight: 600;
+          padding: 8px 18px; border-radius: 999px; letter-spacing: .3px;
         }
 
         /* ── Responsive ── */
@@ -495,6 +595,7 @@ export default function LoginPage() {
                   {expiredAlert && (
                     <div className="alert-warn">⚠ Your session expired after 10 min of inactivity.</div>
                   )}
+                  {success && <div className="alert-success">✓ {success}</div>}
 
                   <form className="form" onSubmit={handleLogin} autoComplete="off">
 
@@ -522,7 +623,7 @@ export default function LoginPage() {
                           {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
-                      <div className="forgot"><a role="button" tabIndex={0}>Forgot password?</a></div>
+                      <div className="forgot"><a role="button" tabIndex={0} onClick={() => switchMode('reset')}>Forgot password?</a></div>
                     </div>
 
                     {/* Branch */}
@@ -567,6 +668,9 @@ export default function LoginPage() {
               {/* ════════ REGISTER FORM ════════ */}
               {mode === 'register' && (
                 <>
+                  <button type="button" className="back-btn" onClick={() => switchMode('login')} aria-label="Go back">
+                    <ArrowLeft size={18} />
+                  </button>
                   <div className="heading">
                     <h1 className="heading-title">Create account</h1>
                     <p className="heading-sub">
@@ -654,6 +758,92 @@ export default function LoginPage() {
                 </>
               )}
 
+              {/* ════════ RESET PASSWORD FORM (Send Link) ════════ */}
+              {mode === 'reset' && (
+                <>
+                  <button type="button" className="back-btn" onClick={() => switchMode('login')} aria-label="Go back">
+                    <ArrowLeft size={18} />
+                  </button>
+                  <div className="heading">
+                    <h1 className="heading-title">Reset password</h1>
+                    <p className="heading-sub">
+                      Remember your password?{' '}
+                      <a onClick={() => switchMode('login')}>Sign in</a>
+                    </p>
+                  </div>
+
+                  {success && <div className="alert-success">✓ {success}</div>}
+                  {error && <div className="alert-err" role="alert"><span>⚠</span>{error}</div>}
+
+                  <form className="form" onSubmit={handleResetPassword} autoComplete="off">
+                    {/* Email */}
+                    <div className="field">
+                      <label className="field-label" htmlFor="rs-email">Email address</label>
+                      <div className="inp-wrap">
+                        <span className="inp-icon"><Mail size={16} /></span>
+                        <input id="rs-email" type="email" className="inp" placeholder="you@example.com"
+                          value={resetEmail} onChange={e => setResetEmail(e.target.value)} required />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                      {loading ? <span className="spinner" /> : 'Send Verification Link'}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              {/* ════════ UPDATE PASSWORD FORM (After Link) ════════ */}
+              {mode === 'update-password' && (
+                <>
+                  <div className="heading">
+                    <h1 className="heading-title">Set new password</h1>
+                    <p className="heading-sub">
+                      Please enter a strong password to secure your account.
+                    </p>
+                  </div>
+
+                  {success && <div className="alert-success">✓ {success}</div>}
+                  {error && <div className="alert-err" role="alert"><span>⚠</span>{error}</div>}
+
+                  <form className="form" onSubmit={handleUpdatePassword} autoComplete="off">
+                    {/* New Password */}
+                    <div className="field">
+                      <label className="field-label" htmlFor="up-new-password">New Password</label>
+                      <div className="inp-wrap">
+                        <span className="inp-icon"><Lock size={16} /></span>
+                        <input id="up-new-password" type={showNewPw ? 'text' : 'password'}
+                          className="inp inp-pw-pad" placeholder="Min 8 chars, mixed case, symbol, number"
+                          value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+                        <button type="button" className="eye-btn" tabIndex={-1}
+                          onClick={() => setShowNewPw(v => !v)} aria-label="Toggle password">
+                          {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div className="field">
+                      <label className="field-label" htmlFor="up-confirm-password">Confirm Password</label>
+                      <div className="inp-wrap">
+                        <span className="inp-icon"><Lock size={16} /></span>
+                        <input id="up-confirm-password" type={showRCPw ? 'text' : 'password'}
+                          className="inp inp-pw-pad" placeholder="Re-enter your new password"
+                          value={rConfirm} onChange={e => setRConfirm(e.target.value)} required />
+                        <button type="button" className="eye-btn" tabIndex={-1}
+                          onClick={() => setShowRCPw(v => !v)} aria-label="Toggle password">
+                          {showRCPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                      {loading ? <span className="spinner" /> : 'Update Password'}
+                    </button>
+                  </form>
+                </>
+              )}
+
             </div>
           </div>
 
@@ -668,7 +858,7 @@ export default function LoginPage() {
           <div className="shield-ring">
             <div className="shield-img-wrap">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/security_shield_bg.jpg" alt="Digital security shield" className="shield-img" />
+              <img src="/rupasinghe_logo.png" alt="Rupasinghe Pawning" className="shield-img" />
             </div>
           </div>
           <div className="right-text">

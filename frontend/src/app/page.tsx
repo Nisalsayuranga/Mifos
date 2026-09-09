@@ -68,6 +68,7 @@ export default function Home() {
   const [clientMap, setClientMap] = useState<{[key: string]: string}>({});
   const [branchId, setBranchId] = useState('');
   const [branchName, setBranchName] = useState('');
+  const [userName, setUserName] = useState('');
   const [status, setStatus] = useState('CLOSED');
   const [isStatusLoading, setIsStatusLoading] = useState(false);
 
@@ -81,6 +82,7 @@ export default function Home() {
       uRole = user.role || 'TELLER';
       setBranchId(uBranchId);
       setBranchName(user.branchName || '');
+      setUserName(user.username || user.email?.split('@')[0] || '');
       fetchStatus(uBranchId);
     }
     loadDashboardData(uBranchId, uRole);
@@ -189,7 +191,7 @@ export default function Home() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-4 border-b border-slate-100">
         <div className="space-y-2">
           <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tighter leading-none">
-            {branchName || 'Branch'} <span className="text-linear-to-r from-primary to-indigo-400 bg-clip-text text-transparent italic">Overview</span>
+            {branchName || 'Branch'} {userName && <span className="text-slate-500 font-bold ml-1">- {userName}</span>} <span className="text-linear-to-r from-primary to-indigo-400 bg-clip-text text-transparent italic ml-2">Overview</span>
           </h1>
           <p className="text-slate-500 font-bold text-sm max-w-2xl">
             Manage operations for {branchName || 'your branch'} in real-time.
