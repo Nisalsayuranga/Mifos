@@ -3,21 +3,32 @@ import { PropertyCard } from "@/components/property/PropertyCard";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { adaptProperty } from "@/lib/adapters";
+import { getFeaturedProperties, Property } from "@/lib/data";
 
 export async function FeaturedProperties() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("properties")
-    .select(`
-      *,
-      property_images (storage_path)
-    `)
-    .eq("featured", true)
-    .eq("status", "published")
-    .limit(6);
-    
-  // Map back to the frontend Property type format
-  const properties = (data || []).map(d => adaptProperty(d));
+  let properties: Property[] = [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("properties")
+      .select(`
+        *,
+        property_images (storage_path)
+      `)
+      .eq("featured", true)
+      .eq("status", "published")
+      .limit(6);
+      
+    if (!error && data && data.length > 0) {
+      properties = data.map(d => adaptProperty(d));
+    }
+  } catch {
+    // Database connection not ready yet
+  }
+
+  if (properties.length === 0) {
+    properties = getFeaturedProperties().slice(0, 6);
+  }
   
   return (
     <section className="py-20 bg-background">

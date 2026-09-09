@@ -23,11 +23,20 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "PROPIX | Find the Right Property. Make the Right Move.",
-  description: "Sri Lanka's most trusted digital real estate platform. Discover verified properties, connect with expert agents, and make confident property decisions.",
-  keywords: ["real estate", "Sri Lanka", "property", "buy property", "rent property", "Colombo", "PROPIX"],
+  title: "RUPASINGHE REALTY | Find the Right Property. Make the Right Move.",
+  description: "Sri Lanka's premier digital real estate platform. Discover verified luxury properties, connect with expert agents, and make confident property decisions with Rupasinghe Realty.",
+  keywords: ["real estate", "Sri Lanka", "property", "buy property", "rent property", "Colombo", "Rupasinghe Realty", "RUPASINGHE REALTY"],
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", sizes: "192x192", type: "image/png" }
+    ],
+    apple: [
+      { url: "/icon.png" }
+    ],
+  },
   openGraph: {
-    title: "PROPIX — Sri Lanka Real Estate",
+    title: "RUPASINGHE REALTY — Sri Lanka Real Estate",
     description: "Find the Right Property. Make the Right Move.",
     type: "website",
   },

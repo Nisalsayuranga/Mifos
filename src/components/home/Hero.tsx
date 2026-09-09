@@ -36,19 +36,19 @@ export function Hero() {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=85')" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/85 via-primary/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#013B30]/90 via-[#01473A]/75 to-black/40" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 md:px-6 pt-24 pb-20 flex flex-col items-center">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="text-center max-w-3xl mb-10">
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/25 rounded-full px-4 py-1.5 text-white/90 text-sm font-medium mb-6">
-            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-            Sri Lanka&apos;s Most Trusted Real Estate Platform
+            <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-pulse" />
+            RUPASINGHE REALTY — Sri Lanka&apos;s Premier Real Estate Platform
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-5 font-heading">
             Find the Right Property.<br />
-            <span className="text-secondary">Make the Right Move.</span>
+            <span className="text-[#E8D196]">Make the Right Move.</span>
           </h1>
           <p className="text-lg text-white/80 max-w-xl mx-auto leading-relaxed">
             Discover verified properties, connect with trusted experts, and make confident property decisions in one place.
@@ -94,7 +94,7 @@ export function Hero() {
                 <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 pointer-events-none" />
               </div>
               {/* Search Button */}
-              <Button onClick={handleSearch} className="h-12 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl shadow-md text-base">
+              <Button onClick={handleSearch} className="h-12 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-md text-base">
                 <Search className="w-5 h-5 mr-2" /> Search
               </Button>
             </div>

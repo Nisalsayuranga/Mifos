@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, Home, Search, Tag, BarChart2, DollarSign, Users, LogIn, UserPlus, LayoutDashboard, LogOut, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 const NAV_LINKS = [
   { label: "Buy",         href: "/search?type=sale",   icon: Home },
@@ -61,13 +63,8 @@ export function Navbar() {
     )}>
       <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-sm font-heading">P</span>
-          </div>
-          <span className={cn("font-bold text-xl tracking-tight font-heading hidden sm:block", isTransparent ? "text-white" : "text-primary")}>
-            PROPIX
-          </span>
+        <Link href="/" className="shrink-0">
+          <BrandLogo variant={isTransparent ? "light" : "dark"} size="md" />
         </Link>
 
         {/* Desktop Nav */}
