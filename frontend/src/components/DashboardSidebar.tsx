@@ -21,7 +21,11 @@ import {
   PiggyBank,
   CheckSquare,
   FileSpreadsheet,
-  Layers
+  Layers,
+  Camera,
+  Video,
+  PlaySquare,
+  Eye
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -51,6 +55,16 @@ const navGroups = [
     items: [
       { name: 'Transaction History', href: '/transactions', icon: ArrowRightLeft },
       { name: 'Money Transfers', href: '/transactions/transfers', icon: History },
+    ]
+  },
+  {
+    label: "CCTV Surveillance",
+    items: [
+      { name: 'Camera Registry', href: '/cctv/cameras', icon: Camera },
+      { name: 'Transaction Evidence', href: '/cctv/recordings', icon: PlaySquare },
+      { name: 'Live View & PTZ', href: '/cctv/live', icon: Eye },
+      { name: 'CCTV Audit Logs', href: '/cctv/audit-logs', icon: FileText },
+      { name: 'CCTV Settings', href: '/cctv/settings', icon: Settings, adminOnly: true },
     ]
   },
   {
@@ -85,6 +99,7 @@ export default function DashboardSidebar({
     "Overview": LayoutDashboard,
     "Finance": Wallet,
     "Transactions": ArrowRightLeft,
+    "CCTV Surveillance": Camera,
     "Operations": ShieldCheck
   };
 

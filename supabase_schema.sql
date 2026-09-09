@@ -308,3 +308,63 @@ create policy "Public daily_ledger_expenses insert" on public.daily_ledger_expen
 create policy "Public daily_ledger_expenses update" on public.daily_ledger_expenses for update using (true);
 create policy "Public daily_ledger_expenses delete" on public.daily_ledger_expenses for delete using (true);
 
+-- 12. Create cctv_cameras table
+create table if not exists public.cctv_cameras (
+    id text primary key,
+    branch_id text not null,
+    camera_name text not null,
+    camera_ip text not null,
+    camera_model text default 'EZVIZ CS-H6c',
+    camera_protocol text default 'ONVIF/RTSP',
+    agent_id text,
+    status text default 'ONLINE',
+    last_heartbeat timestamptz default now(),
+    counter_name text default 'Cashier Counter 01',
+    is_active boolean default true,
+    created_at timestamptz default now()
+);
+
+alter table public.cctv_cameras enable row level security;
+drop policy if exists "Public cctv_cameras policy" on public.cctv_cameras;
+create policy "Public cctv_cameras policy" on public.cctv_cameras for all using (true) with check (true);
+
+-- 13. Create cctv_recordings table
+create table if not exists public.cctv_recordings (
+    id text primary key,
+    branch_id text not null,
+    camera_id text references public.cctv_cameras(id) on delete set null,
+    pawn_id text not null,
+    cashier_id text,
+    start_time timestamptz not null,
+    end_time timestamptz not null,
+    duration integer default 20,
+    file_path text not null,
+    file_size bigint default 0,
+    mime_type text default 'video/mp4',
+    status text default 'COMPLETED',
+    error_message text,
+    created_at timestamptz default now()
+);
+
+alter table public.cctv_recordings enable row level security;
+drop policy if exists "Public cctv_recordings policy" on public.cctv_recordings;
+create policy "Public cctv_recordings policy" on public.cctv_recordings for all using (true) with check (true);
+
+-- 14. Create cctv_audit_logs table
+create table if not exists public.cctv_audit_logs (
+    id uuid primary key default gen_random_uuid(),
+    user_id text,
+    user_email text,
+    branch_id text,
+    camera_id text,
+    recording_id text,
+    action text not null,
+    ip_address text,
+    metadata jsonb default '{}'::jsonb,
+    created_at timestamptz default now()
+);
+
+alter table public.cctv_audit_logs enable row level security;
+drop policy if exists "Public cctv_audit_logs policy" on public.cctv_audit_logs;
+create policy "Public cctv_audit_logs policy" on public.cctv_audit_logs for all using (true) with check (true);
+
