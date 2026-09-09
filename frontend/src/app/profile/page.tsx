@@ -48,9 +48,16 @@ export default function ProfilePage() {
     setLoading(true);
     try {
       const storedUser = localStorage.getItem('user');
-      if (!storedUser) return;
-      
+      if (!storedUser) { setLoading(false); return; }
+
       const parsedUser = JSON.parse(storedUser);
+
+      // Helper: build a display name from the stored email when DB has no name columns
+      const nameFromEmail = (email: string = '') => {
+        const local = email.split('@')[0].replace(/[._\-]/g, ' ');
+        return local.charAt(0).toUpperCase() + local.slice(1);
+      };
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -58,51 +65,86 @@ export default function ProfilePage() {
         .single();
 
       if (error) {
-        // If the table doesn't have the columns yet, it will error here
-        if (error.message.includes('column')) {
-          console.warn('Database schema mismatch: missing profile columns');
+        // PGRST116 = no rows returned — profile row not yet created, use localStorage
+        if (error.code === 'PGRST116') {
+          const fallbackName = parsedUser.firstName || parsedUser.first_name
+            || nameFromEmail(parsedUser.email) || '';
+          const merged = {
+            ...parsedUser,
+            first_name: fallbackName,
+            last_name:  parsedUser.lastName || parsedUser.last_name || '',
+          };
+          setUser(merged);
+          setFormData({
+            first_name: merged.first_name,
+            last_name:  merged.last_name,
+            phone:      parsedUser.phone || '',
+            email:      parsedUser.email || '',
+          });
+          return;
         }
-        throw error;
-      };
+
+        // Schema/column mismatch — log and fall through to localStorage
+        if (error.message?.includes('column') || error.message?.includes('schema')) {
+          console.warn('Profile schema mismatch — using localStorage fallback:', error.message);
+          const fallbackName = parsedUser.firstName || parsedUser.first_name
+            || nameFromEmail(parsedUser.email) || '';
+          setUser({ ...parsedUser, first_name: fallbackName });
+          setFormData({
+            first_name: fallbackName,
+            last_name:  parsedUser.lastName || parsedUser.last_name || '',
+            phone:      parsedUser.phone || '',
+            email:      parsedUser.email || '',
+          });
+          return;
+        }
+
+        // Any other error — log but still show localStorage data
+        console.warn('Profile fetch error (non-fatal):', error.message || error);
+        setUser(parsedUser);
+        setFormData({
+          first_name: parsedUser.firstName || parsedUser.first_name || nameFromEmail(parsedUser.email),
+          last_name:  parsedUser.lastName  || parsedUser.last_name  || '',
+          phone:      parsedUser.phone || '',
+          email:      parsedUser.email || '',
+        });
+        return;
+      }
 
       if (data) {
-        setUser(data);
+        // Merge DB data — derive name from email if DB columns are missing
+        const first = data.first_name || parsedUser.firstName || parsedUser.first_name
+          || nameFromEmail(data.email || parsedUser.email) || '';
+        const last  = data.last_name  || parsedUser.lastName  || parsedUser.last_name  || '';
+        const merged = { ...parsedUser, ...data, first_name: first, last_name: last };
+        setUser(merged);
         setFormData({
-          first_name: data.first_name || '',
-          last_name: data.last_name || '',
-          phone: data.phone || '',
-          email: data.email || ''
+          first_name: first,
+          last_name:  last,
+          phone:      data.phone || parsedUser.phone || '',
+          email:      data.email || parsedUser.email || '',
         });
-        // Sync back to localStorage with both snake_case (new) and camelCase (legacy) keys
-        localStorage.setItem('user', JSON.stringify({ 
-          ...parsedUser, 
-          ...data,
-          firstName: data.first_name, 
-          lastName: data.last_name 
+        localStorage.setItem('user', JSON.stringify({
+          ...merged,
+          firstName: first,
+          lastName:  last,
         }));
-      } else {
-        // If row doesn't exist yet, just use legacy localStorage data for UI
-        setUser(parsedUser);
-        setFormData({
-          first_name: parsedUser.firstName || parsedUser.first_name || '',
-          last_name: parsedUser.lastName || parsedUser.last_name || '',
-          phone: parsedUser.phone || '',
-          email: parsedUser.email || ''
-        });
       }
-    } catch (error: any) {
-      console.error('Error fetching profile:', error);
-      // Fallback to localStorage if fetch fails (e.g. 406 not found)
+    } catch (err: any) {
+      // Unexpected JS error (network, JSON parse, etc.)
+      console.warn('fetchProfile unexpected error:', err?.message || err);
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setFormData({
-          first_name: parsedUser.firstName || parsedUser.first_name || '',
-          last_name: parsedUser.lastName || parsedUser.last_name || '',
-          phone: parsedUser.phone || '',
-          email: parsedUser.email || ''
-        });
+        try {
+          const p = JSON.parse(storedUser);
+          setUser(p);
+          setFormData({
+            first_name: p.firstName || p.first_name || '',
+            last_name:  p.lastName  || p.last_name  || '',
+            phone:      p.phone || '',
+            email:      p.email || '',
+          });
+        } catch (_) { /* ignore */ }
       }
     } finally {
       setLoading(false);
