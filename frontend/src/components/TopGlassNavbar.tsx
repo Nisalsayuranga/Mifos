@@ -75,11 +75,11 @@ const navGroups = [
     label: "Operations",
     icon: ShieldCheck,
     items: [
+      { name: 'User & Staff Management', href: '/employees', icon: Users, adminOnly: true },
       { name: 'Approvals', href: '/operations/approvals', icon: CheckSquare },
       { name: 'End-of-Day (EOD)', href: '/operations/eod', icon: ShieldCheck },
       { name: 'Security Audit Logs', href: '/operations/audit-logs', icon: ShieldCheck },
       { name: 'Portfolio Reports', href: '/reports', icon: BarChart3 },
-      { name: 'Staff Management', href: '/employees', icon: Users, adminOnly: true },
     ]
   }
 ];
