@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { buildPawnReminderSms } from "@/lib/sms"
 
 export default function PawnesPage() {
   const [isOpen, setIsOpen]       = useState(false);
@@ -691,7 +692,12 @@ export default function PawnesPage() {
 
     const billDisplay = getBillNo(pawn);
     const amountVal = pawn.disbursed_amount || 0;
-    const reminderMsg = `Mifos Jewelers: Gentle Reminder for Pawn Ticket ${billDisplay}. Disbursed Principal: Rs. ${amountVal.toLocaleString()}. Please visit branch for interest settlement or renewal. Thank you!`;
+    const cName = getCustomerName(pawn) || 'Valued Customer';
+    const reminderMsg = buildPawnReminderSms({
+      customerName: cName,
+      ticketNo: billDisplay,
+      amount: amountVal
+    });
 
     const toastId = toast.loading(`Dispatching SMS reminder to ${custPhone}...`);
     try {

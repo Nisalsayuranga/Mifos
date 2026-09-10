@@ -143,3 +143,73 @@ export async function sendFreeSms(params: SendSmsParams) {
     return { success: false, error: err?.message || 'Failed to dispatch SMS' };
   }
 }
+
+/**
+ * Trilingual Branded SMS Template Builders for Rupasinghe Pawning (PVT) Ltd
+ * (Strictly excludes 'Mifos' branding, includes Customer Name and clear company header)
+ */
+
+export function buildPawnReceiptSms(params: {
+  customerName: string;
+  ticketNo: string;
+  amount: number;
+  dateStr?: string;
+}): string {
+  const { customerName, ticketNo, amount, dateStr } = params;
+  const nameDisplay = (customerName && customerName !== '.' && customerName !== 'Valued Customer') 
+    ? customerName 
+    : 'Valued Customer';
+  const today = dateStr || new Date().toLocaleDateString('en-GB');
+
+  return `RUPASINGHE PAWNING (PVT) LTD
+Dear ${nameDisplay},
+Pawn Ticket No: #${ticketNo}
+Disbursed Amount: Rs. ${amount.toLocaleString()}
+Issued Date: ${today}
+
+ඔබගේ උකස් රිසිට්පත නිකුත් කරන ලදී.
+உங்களின் அடகு ரිසිට්ப்பத்து வழங்கப்பட்டது.
+Thank you for banking with us!`;
+}
+
+export function buildPawnRedeemSms(params: {
+  customerName: string;
+  ticketNo: string;
+  settlementAmount: number;
+  principalAmount?: number;
+}): string {
+  const { customerName, ticketNo, settlementAmount } = params;
+  const nameDisplay = (customerName && customerName !== '.' && customerName !== 'Valued Customer') 
+    ? customerName 
+    : 'Valued Customer';
+
+  return `RUPASINGHE PAWNING (PVT) LTD
+Dear ${nameDisplay},
+Pawn Ticket No: #${ticketNo}
+Status: REDEEMED (උකස් බේරාගන්නා ලදී)
+Settlement Amount: Rs. ${settlementAmount.toLocaleString()}
+
+ඔබගේ උකස් භාණ්ඩ සාර්ථකව බේරාගන්නා ලදී.
+அடகு பொருட்கள் மீட்கப்பட்டன.
+Thank you!`;
+}
+
+export function buildPawnReminderSms(params: {
+  customerName: string;
+  ticketNo: string;
+  amount: number;
+}): string {
+  const { customerName, ticketNo, amount } = params;
+  const nameDisplay = (customerName && customerName !== '.' && customerName !== 'Valued Customer') 
+    ? customerName 
+    : 'Valued Customer';
+
+  return `RUPASINGHE PAWNING (PVT) LTD
+Dear ${nameDisplay},
+Reminder: Pawn Ticket No: #${ticketNo} (Rs. ${amount.toLocaleString()}).
+Please visit our branch for interest payment or renewal.
+
+ඔබගේ උකස් පොලිය ගෙවීමට පැමිණෙන්න.
+அடகு வட்டி செலுத்த வரவும்.
+Thank you!`;
+}

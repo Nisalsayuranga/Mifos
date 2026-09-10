@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
-import { sendFreeSms } from '@/lib/sms';
+import { sendFreeSms, buildPawnReceiptSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -341,7 +341,12 @@ export async function POST(request: Request) {
     if (targetPhone) {
       try {
         const ticketDisplay = billNo || pawnId.substring(0, 8).toUpperCase();
-        const smsMessage = `Mifos Jewelers: Pawn Ticket #${ticketDisplay} issued for Rs. ${finalDisbursed.toLocaleString()}. Status: ${initialStatus}. Thank you!`;
+        const cName = clientName || customerName || (fullClientObj ? `${fullClientObj.first_name || ''} ${fullClientObj.last_name || ''}`.trim() : 'Valued Customer');
+        const smsMessage = buildPawnReceiptSms({
+          customerName: cName,
+          ticketNo: ticketDisplay,
+          amount: finalDisbursed
+        });
         await sendFreeSms({
           phone: targetPhone,
           message: smsMessage,

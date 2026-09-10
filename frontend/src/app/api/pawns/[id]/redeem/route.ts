@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
-import { sendFreeSms } from '@/lib/sms';
+import { sendFreeSms, buildPawnRedeemSms } from '@/lib/sms';
 
 export async function POST(
   request: Request,
@@ -170,17 +170,26 @@ export async function POST(
     // 7. Send Free Redemption SMS Receipt via Android Gateway
     try {
       let clientPhone = pawn.phone;
-      if (!clientPhone && pawn.client_id) {
+      let clientName = pawn.client_name || pawn.customer_name;
+      if (pawn.client_id) {
         const { data: clientRow } = await adminSupabase
           .from('clients')
-          .select('phone')
+          .select('phone, first_name, last_name')
           .eq('id', pawn.client_id)
           .single();
-        clientPhone = clientRow?.phone;
+        if (clientRow) {
+          if (!clientPhone) clientPhone = clientRow.phone;
+          if (!clientName) clientName = `${clientRow.first_name || ''} ${clientRow.last_name || ''}`.trim();
+        }
       }
       if (clientPhone) {
         const ticketDisplay = pawn.bill_no || id.substring(0, 8).toUpperCase();
-        const redeemMsg = `Mifos Jewelers: Pawn Ticket #${ticketDisplay} REDEEMED. Settlement: Rs. ${settlement.toLocaleString()} (Principal: Rs. ${principal.toLocaleString()}). Thank you!`;
+        const redeemMsg = buildPawnRedeemSms({
+          customerName: clientName || 'Valued Customer',
+          ticketNo: ticketDisplay,
+          settlementAmount: settlement,
+          principalAmount: principal
+        });
         await sendFreeSms({
           phone: clientPhone,
           message: redeemMsg,

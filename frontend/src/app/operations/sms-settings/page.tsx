@@ -12,6 +12,7 @@ import {
   Building2, Lock
 } from "lucide-react";
 import { toast } from "sonner";
+import { buildPawnReceiptSms } from "@/lib/sms";
 
 export default function SmsSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,7 @@ export default function SmsSettingsPage() {
 
   /* Test SMS State */
   const [testPhone, setTestPhone] = useState('0771234567');
-  const [testMessage, setTestMessage] = useState('RUPASINGHE PAWNING: Test receipt message from TextBee Gateway.');
+  const [testMessage, setTestMessage] = useState(buildPawnReceiptSms({ customerName: 'Nisal Sayuranga', ticketNo: '1R 20743', amount: 50000 }));
 
   /* SMS Logs */
   const [logs, setLogs] = useState<any[]>([]);
