@@ -9,8 +9,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedBranch = searchParams.get('branchId');
     const filterAction = searchParams.get('action');
+    const searchQuery = searchParams.get('search');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
-    let query = adminSupabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100);
+    let query = adminSupabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(250);
 
     if (session) {
       if (session.role === 'TELLER') {
@@ -30,12 +33,58 @@ export async function GET(request: Request) {
       query = query.ilike('action', `%${filterAction}%`);
     }
 
-    const { data, error } = await query;
-    if (error) {
-      // Return empty array if audit_logs table is created fresh
-      return NextResponse.json([]);
+    if (searchQuery) {
+      const q = `%${searchQuery.trim()}%`;
+      query = query.or(`user_email.ilike.${q},action.ilike.${q},resource.ilike.${q}`);
     }
-    return NextResponse.json(data || []);
+
+    if (startDate) {
+      query = query.gte('created_at', new Date(startDate).toISOString());
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query = query.lte('created_at', end.toISOString());
+    }
+
+    const { data: logsData, error } = await query;
+    const logs = logsData || [];
+
+    if (error) {
+      return NextResponse.json({ logs: [], stats: { total: 0, activeUsersToday: 0, financialActions: 0, criticalActions: 0 } });
+    }
+
+    // Calculate Summary Stats
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayLogs = logs.filter(l => l.created_at && l.created_at.startsWith(todayStr));
+    const activeUsersToday = new Set(todayLogs.map(l => l.user_email).filter(Boolean)).size;
+
+    const financialActions = logs.filter(l => 
+      l.action?.includes('PAWN') || 
+      l.action?.includes('REDEEM') || 
+      l.action?.includes('LEDGER') ||
+      l.action?.includes('INTEREST') ||
+      l.action?.includes('CAPITAL')
+    ).length;
+
+    const criticalActions = logs.filter(l => 
+      l.action?.includes('DELETE') || 
+      l.action?.includes('RESTORE') || 
+      l.action?.includes('DISCOUNT') ||
+      l.action?.includes('USER') ||
+      l.action?.includes('ROLE')
+    ).length;
+
+    return NextResponse.json({
+      logs,
+      stats: {
+        total: logs.length,
+        activeUsersToday,
+        financialActions,
+        criticalActions
+      }
+    });
   } catch (error: any) {
     console.error('Audit Logs GET Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

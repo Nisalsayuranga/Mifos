@@ -8,6 +8,8 @@ export interface AuditLogOptions {
   userEmail?: string;
   role?: string;
   branchId?: string;
+  status?: 'SUCCESS' | 'FAILED' | 'WARNING';
+  request?: Request;
 }
 
 /**
@@ -20,6 +22,23 @@ export async function recordAuditLog(sessionOrUser: any, options: AuditLogOption
     const role = options.role || sessionOrUser?.role || 'TELLER';
     const branchId = options.branchId || sessionOrUser?.branchId || sessionOrUser?.branch_id || 'HQ';
 
+    let ipAddress = '127.0.0.1';
+    let userAgent = 'Browser Client';
+
+    if (options.request) {
+      ipAddress = options.request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                  options.request.headers.get('x-real-ip') || 
+                  '127.0.0.1';
+      userAgent = options.request.headers.get('user-agent') || 'Browser Client';
+    }
+
+    const payloadDetails = {
+      ...(options.details || {}),
+      status: options.status || 'SUCCESS',
+      ip_address: ipAddress,
+      user_agent: userAgent
+    };
+
     await adminSupabase.from('audit_logs').insert([{
       user_id: userId,
       user_email: userEmail,
@@ -27,7 +46,7 @@ export async function recordAuditLog(sessionOrUser: any, options: AuditLogOption
       branch_id: branchId,
       action: options.action,
       resource: options.resource || '',
-      details: options.details || {},
+      details: payloadDetails,
       created_at: new Date().toISOString()
     }]);
   } catch (err) {
