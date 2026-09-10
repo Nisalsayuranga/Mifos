@@ -263,7 +263,25 @@ export default function TopGlassNavbar() {
 
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-x-3 top-20 z-50 bg-slate-950/95 backdrop-blur-2xl border border-amber-500/25 rounded-3xl p-5 shadow-2xl max-h-[80vh] overflow-y-auto space-y-5 animate-in slide-in-from-top-4 duration-200">
+        <div className="lg:hidden fixed inset-x-3 top-20 z-50 bg-slate-950/95 backdrop-blur-2xl border border-amber-500/25 rounded-3xl p-5 shadow-2xl max-h-[82vh] overflow-y-auto space-y-5 animate-in slide-in-from-top-4 duration-200">
+          
+          {/* User & Branch Info Banner for Mobile & Tablet */}
+          <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-white truncate max-w-[140px]">
+                {user?.email ? user.email.split('@')[0] : 'User'}
+              </span>
+              <span className="text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                {user?.role || 'TELLER'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-mono font-bold text-slate-300">
+              <Building2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>{user?.branchId || user?.branch_id || 'HQ'}</span>
+            </div>
+          </div>
+
           {navGroups.map((group) => (
             <div key={group.label} className="space-y-2">
               <div className="text-[11px] font-black text-amber-400 uppercase tracking-widest border-b border-white/10 pb-1">
@@ -281,13 +299,13 @@ export default function TopGlassNavbar() {
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all",
+                        "flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition-all min-h-[44px]",
                         isItemActive
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-extrabold"
                           : "text-slate-300 hover:bg-white/10 hover:text-white"
                       )}
                     >
-                      <ItemIcon className={cn("w-4 h-4 shrink-0", isItemActive ? "text-amber-400" : "text-slate-400")} />
+                      <ItemIcon className={cn("w-4.5 h-4.5 shrink-0", isItemActive ? "text-amber-400" : "text-slate-400")} />
                       <span>{item.name}</span>
                     </Link>
                   );
