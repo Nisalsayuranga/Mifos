@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
+import { sendFreeSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
 const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
 const HARDCODED_FALLBACK_USER_ID = '1423f690-f46a-455d-bc25-a778d2bd9e47';
+const HIGH_VALUE_APPROVAL_THRESHOLD = 100000; // Rs. 100,000 dual approval threshold
 
 export async function GET(request: Request) {
   try {
@@ -192,6 +194,9 @@ export async function POST(request: Request) {
     const finalInterestRate = parseFloat(interestRate) || 3.50;
     const finalPeriodMonths = parseInt(periodMonths, 10) || 3;
 
+    // Determine initial pawn status (High-ValuePawns > Rs. 100,000 require Manager Approval)
+    const initialStatus = finalDisbursed > HIGH_VALUE_APPROVAL_THRESHOLD ? 'PENDING_APPROVAL' : 'ACTIVE';
+
     // 2. Insert pawn ticket into DB
     const pawnPayload: any = {
       id: pawnId,
@@ -201,7 +206,7 @@ export async function POST(request: Request) {
       disbursed_amount: finalDisbursed,
       branch_id: targetBranchId,
       created_by_user_id: targetUserId,
-      status: 'ACTIVE',
+      status: initialStatus,
       created_at: new Date().toISOString(),
       bill_no: billNo || null,
       weight_grams: finalWeightGrams,
@@ -297,6 +302,25 @@ export async function POST(request: Request) {
       await adminSupabase.from('cctv_recordings').insert(cctvPayloads);
     } catch (cctvErr) {
       console.warn("CCTV Auto-capture trigger notice:", cctvErr);
+    }
+
+    // 6. Dispatch Free SMS Receipt via Android SIM Gateway
+    const targetPhone = clientPhone || fullClientObj?.phone;
+    if (targetPhone) {
+      try {
+        const ticketDisplay = billNo || pawnId.substring(0, 8).toUpperCase();
+        const smsMessage = `Mifos Jewelers: Pawn Ticket #${ticketDisplay} issued for Rs. ${finalDisbursed.toLocaleString()}. Status: ${initialStatus}. Thank you!`;
+        await sendFreeSms({
+          phone: targetPhone,
+          message: smsMessage,
+          ticketNo: ticketDisplay,
+          amount: finalDisbursed,
+          type: 'RECEIPT',
+          branchId: targetBranchId
+        });
+      } catch (smsErr) {
+        console.warn("SMS Auto-dispatch notice:", smsErr);
+      }
     }
 
     // Attach client details to response

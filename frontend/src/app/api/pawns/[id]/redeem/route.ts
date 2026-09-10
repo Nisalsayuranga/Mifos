@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
+import { sendFreeSms } from '@/lib/sms';
 
 export async function POST(
   request: Request,
@@ -165,6 +166,33 @@ export async function POST(
         days
       }
     });
+
+    // 7. Send Free Redemption SMS Receipt via Android Gateway
+    try {
+      let clientPhone = pawn.phone;
+      if (!clientPhone && pawn.client_id) {
+        const { data: clientRow } = await adminSupabase
+          .from('clients')
+          .select('phone')
+          .eq('id', pawn.client_id)
+          .single();
+        clientPhone = clientRow?.phone;
+      }
+      if (clientPhone) {
+        const ticketDisplay = pawn.bill_no || id.substring(0, 8).toUpperCase();
+        const redeemMsg = `Mifos Jewelers: Pawn Ticket #${ticketDisplay} REDEEMED. Settlement: Rs. ${settlement.toLocaleString()} (Principal: Rs. ${principal.toLocaleString()}). Thank you!`;
+        await sendFreeSms({
+          phone: clientPhone,
+          message: redeemMsg,
+          ticketNo: ticketDisplay,
+          amount: settlement,
+          type: 'REDEEM',
+          branchId: pawn.branch_id
+        });
+      }
+    } catch (smsErr) {
+      console.warn("SMS Redeem notice:", smsErr);
+    }
 
     return NextResponse.json({
       success: true,

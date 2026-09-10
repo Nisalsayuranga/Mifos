@@ -27,7 +27,8 @@ import {
   Menu,
   X,
   User,
-  Building2
+  Building2,
+  Smartphone
 } from 'lucide-react';
 
 const navGroups = [
@@ -76,6 +77,7 @@ const navGroups = [
     icon: ShieldCheck,
     items: [
       { name: 'User & Staff Management', href: '/employees', icon: Users, adminOnly: true },
+      { name: 'Free SMS Gateway', href: '/operations/sms-settings', icon: Smartphone, adminOnly: true },
       { name: 'Approvals', href: '/operations/approvals', icon: CheckSquare },
       { name: 'End-of-Day (EOD)', href: '/operations/eod', icon: ShieldCheck },
       { name: 'Security Audit Logs', href: '/operations/audit-logs', icon: ShieldCheck },
