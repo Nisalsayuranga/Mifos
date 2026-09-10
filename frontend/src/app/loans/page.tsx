@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Plus, Search, FileText, Package, TrendingUp, AlertTriangle,
-  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download
+  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download, Send, Smartphone
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -71,21 +71,28 @@ export default function PawnesPage() {
   const [weightMg, setWeightMg]         = useState('');
   const [periodMonths, setPeriodMonths] = useState('3');
 
-  // Multi-Item Pawn State
+  // Multi-Item Pawn State (Milligrams mg standard)
   const [itemsList, setItemsList] = useState<any[]>([
-    { itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }
+    { itemType: 'CH', purity: '22K', description: '', weightMg: '', appraisedValue: '' }
   ]);
 
   const handleAddItem = () => {
     setItemsList(prev => [
       ...prev,
-      { itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }
+      { itemType: 'CH', purity: '22K', description: '', weightMg: '', appraisedValue: '' }
     ]);
   };
 
   const handleRemoveItem = (idx: number) => {
     if (itemsList.length <= 1) return;
-    setItemsList(prev => prev.filter((_, i) => i !== idx));
+    setItemsList(prev => {
+      const copy = prev.filter((_, i) => i !== idx);
+      const totMg = copy.reduce((s, item) => s + (parseFloat(item.weightMg) || 0), 0);
+      setWeightMg(totMg > 0 ? String(totMg) : '');
+      const totAppraised = copy.reduce((s, item) => s + (parseFloat(item.appraisedValue) || 0), 0);
+      if (totAppraised > 0) setAppraisal(String(totAppraised));
+      return copy;
+    });
   };
 
   const handleUpdateItem = (idx: number, field: string, val: string) => {
@@ -93,7 +100,9 @@ export default function PawnesPage() {
       const copy = [...prev];
       copy[idx] = { ...copy[idx], [field]: val };
 
-      // Auto-recalculate aggregate appraisal & weight if items changed
+      const totMg = copy.reduce((s, item) => s + (parseFloat(item.weightMg) || 0), 0);
+      setWeightMg(totMg > 0 ? String(totMg) : '');
+
       const totAppraised = copy.reduce((s, item) => s + (parseFloat(item.appraisedValue) || 0), 0);
       if (totAppraised > 0) setAppraisal(String(totAppraised));
 
@@ -108,17 +117,12 @@ export default function PawnesPage() {
   const [goldRate, setGoldRate]         = useState('23500'); // Default market price per gram LKR
   const [goldLtv, setGoldLtv]           = useState('80'); // Default LTV %
 
-  const handleWeightChange = (gVal: string, mgVal: string) => {
-    setWeightGrams(gVal);
+  const handleWeightChange = (mgVal: string) => {
     setWeightMg(mgVal);
-
-    const g = parseFloat(gVal) || 0;
     const mg = parseFloat(mgVal) || 0;
-    
-    const totalGrams = g + (mg / 1000);
-    const formattedWeight = totalGrams > 0 ? (totalGrams % 1 === 0 ? String(totalGrams) : totalGrams.toFixed(3).replace(/\.?0+$/, '')) : '';
-    
-    setGoldWeight(formattedWeight);
+    const totalGrams = mg / 1000;
+    setWeightGrams(totalGrams > 0 ? String(totalGrams) : '');
+    setGoldWeight(totalGrams > 0 ? String(totalGrams) : '');
   };
 
   // Client lookup maps: { nationalId/id -> "First Last" } and { id -> NIC }
@@ -671,6 +675,52 @@ export default function PawnesPage() {
     }
   };
 
+  const handleSendReminder = async (pawn: any) => {
+    let custPhone = pawn.client_phone || pawn.phone;
+    if (!custPhone && pawn.clients) custPhone = pawn.clients.phone;
+    if (!custPhone && pawn.client_id) {
+      const matched = clientsList.find(c => String(c.id).toLowerCase() === String(pawn.client_id).toLowerCase() || String(c.nationalId).toLowerCase() === String(pawn.client_id).toLowerCase());
+      custPhone = matched?.phone;
+    }
+
+    if (!custPhone) {
+      const inputPhone = prompt("Enter customer mobile number for SMS reminder:");
+      if (!inputPhone) return;
+      custPhone = inputPhone;
+    }
+
+    const billDisplay = getBillNo(pawn);
+    const amountVal = pawn.disbursed_amount || 0;
+    const reminderMsg = `Mifos Jewelers: Gentle Reminder for Pawn Ticket ${billDisplay}. Disbursed Principal: Rs. ${amountVal.toLocaleString()}. Please visit branch for interest settlement or renewal. Thank you!`;
+
+    const toastId = toast.loading(`Dispatching SMS reminder to ${custPhone}...`);
+    try {
+      const res = await fetch('/api/notifications/sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: custPhone,
+          message: reminderMsg,
+          ticketNo: billDisplay,
+          amount: amountVal,
+          type: 'REMINDER'
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`SMS Reminder dispatched to ${custPhone}!`, {
+          description: data.notice || 'Dispatched via Android SIM Gateway',
+          id: toastId
+        });
+      } else {
+        toast.error(data.error || 'Failed to send SMS reminder', { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error('Error sending SMS reminder: ' + err.message, { id: toastId });
+    }
+  };
+
   const openDetails = (pawn: any) => {
     setDetailsPawn(pawn);
     const createdDate = pawn.created_at ? new Date(pawn.created_at) : new Date();
@@ -736,28 +786,73 @@ export default function PawnesPage() {
 
       {/* Dialog */}
       <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
-        <DialogContent className="w-[95vw] sm:max-w-[480px] max-h-[95vh] overflow-y-auto overflow-x-hidden bg-white border border-slate-200 shadow-2xl p-0 rounded-[2rem]">
-          <div className="h-2 bg-primary" />
+        <DialogContent className="w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 rounded-[2.5rem]">
+          <div className="h-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500" />
           <div className="p-8 space-y-6">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3">
-                <Package className="w-6 h-6 text-primary" />
-                {editingPawn ? 'Edit Pawn Ticket' : 'Originate New Pawn'}
-              </DialogTitle>
-              <DialogDescription className="font-medium text-slate-500">
-                {editingPawn ? 'Update the pawn ticket details below.' : 'Record a new pawned item and process the principal disbursement.'}
+            <DialogHeader className="border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                  <div className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600">
+                    <Package className="w-6 h-6" />
+                  </div>
+                  {editingPawn ? 'Edit Pawn Ticket' : 'Originate New Pawn Ticket'}
+                </DialogTitle>
+                <span className="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-xs font-mono font-bold">
+                  Weight Unit: Milligrams (mg)
+                </span>
+              </div>
+              <DialogDescription className="font-semibold text-slate-500 text-xs mt-1">
+                {editingPawn ? 'Update pawn collateral details below.' : 'Record collateral item details, calculate valuation, and process principal disbursal.'}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-5">
-              <div className="grid gap-2 relative">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Customer ID or NIC</Label>
-                <Input
-                  value={clientId}
-                  onChange={e => handleClientIdChange(e.target.value)}
-                  placeholder="Search customer database..."
-                  className="h-12 bg-white/50 rounded-xl font-mono font-bold"
-                  onKeyDown={e => {
+            {/* 2-COLUMN GRID LAYOUT */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+              {/* LEFT COLUMN: Customer & Ticket Details */}
+              <div className="space-y-5">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
+                  1. Customer & Bill Information
+                </h3>
+
+                {/* Customer Search */}
+                <div className="grid gap-2 relative">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Customer ID or NIC</Label>
+                  <Input
+                    value={clientId}
+                    onChange={e => handleClientIdChange(e.target.value)}
+                    placeholder="Search customer database..."
+                    className="h-11 bg-white/80 rounded-xl font-mono font-bold text-xs"
+                    onKeyDown={e => {
+                      const typed = clientId.toLowerCase().trim();
+                      const suggestions = clientsList.filter(c => {
+                        if (!typed) return false;
+                        const nic = (c.nationalId || c.national_id || c.id || '').toLowerCase();
+                        const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.toLowerCase();
+                        return nic.includes(typed) || name.includes(typed);
+                      });
+
+                      if (showSuggestions && suggestions.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setActiveSuggestion(p => Math.min(p + 1, suggestions.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setActiveSuggestion(p => Math.max(p - 1, 0));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (suggestions[activeSuggestion]) {
+                            selectClient(suggestions[activeSuggestion]);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setShowSuggestions(false);
+                        }
+                      }
+                    }}
+                  />
+                  
+                  {/* Autocomplete Dropdown list */}
+                  {(() => {
                     const typed = clientId.toLowerCase().trim();
                     const suggestions = clientsList.filter(c => {
                       if (!typed) return false;
@@ -766,356 +861,245 @@ export default function PawnesPage() {
                       return nic.includes(typed) || name.includes(typed);
                     });
 
-                    if (showSuggestions && suggestions.length > 0) {
-                      if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        setActiveSuggestion(p => Math.min(p + 1, suggestions.length - 1));
-                      } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        setActiveSuggestion(p => Math.max(p - 1, 0));
-                      } else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (suggestions[activeSuggestion]) {
-                          selectClient(suggestions[activeSuggestion]);
-                        }
-                      } else if (e.key === 'Escape') {
-                        setShowSuggestions(false);
-                      }
-                    }
-                  }}
-                />
-                
-                {/* Autocomplete Dropdown list */}
-                {(() => {
-                  const typed = clientId.toLowerCase().trim();
-                  const suggestions = clientsList.filter(c => {
-                    if (!typed) return false;
-                    const nic = (c.nationalId || c.national_id || c.id || '').toLowerCase();
-                    const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.toLowerCase();
-                    return nic.includes(typed) || name.includes(typed);
-                  });
+                    return (
+                      <>
+                        {showSuggestions && suggestions.length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 top-16 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                            {suggestions.map((c, i) => {
+                              const nicStr = c.nationalId || c.national_id || c.id || '';
+                              const nameStr = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
+                              const isSelected = i === activeSuggestion;
+                              return (
+                                <button
+                                  key={c.id || i}
+                                  type="button"
+                                  onClick={() => selectClient(c)}
+                                  onMouseEnter={() => setActiveSuggestion(i)}
+                                  className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-all flex flex-col gap-0.5 border-b border-slate-100 last:border-0 ${
+                                    isSelected ? 'bg-primary text-white' : 'hover:bg-slate-50 text-slate-700'
+                                  }`}
+                                >
+                                  <span className={`${isSelected ? 'text-white' : 'text-slate-900'} font-black text-xs`}>{nameStr}</span>
+                                  <span className={`${isSelected ? 'text-slate-200' : 'text-slate-400'} font-mono text-[10px]`}>{nicStr}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
 
-                  return (
-                    <>
-                      {showSuggestions && suggestions.length > 0 && (
-                        <div className="absolute z-50 left-0 right-0 top-20 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
-                          {suggestions.map((c, i) => {
-                            const nicStr = c.nationalId || c.national_id || c.id || '';
-                            const nameStr = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
-                            const isSelected = i === activeSuggestion;
-                            return (
-                              <button
-                                key={c.id || i}
-                                type="button"
-                                onClick={() => selectClient(c)}
-                                onMouseEnter={() => setActiveSuggestion(i)}
-                                className={`w-full text-left px-4 py-3 text-xs font-bold transition-all flex flex-col gap-0.5 border-b border-slate-100 last:border-0 ${
-                                  isSelected ? 'bg-primary text-white' : 'hover:bg-slate-50 text-slate-700'
-                                }`}
-                              >
-                                <span className={`${isSelected ? 'text-white' : 'text-slate-900'} font-black text-sm`}>{nameStr}</span>
-                                <span className={`${isSelected ? 'text-slate-200' : 'text-slate-400'} font-mono`}>{nicStr}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                        {/* Fallback Add Customer */}
+                        {clientId && !resolvedName && suggestions.length === 0 && (
+                          <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2">
+                            <span className="text-amber-800 text-[11px] font-black tracking-tight">Customer NIC not found.</span>
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                window.location.href = `/clients?register=true&nic=${encodeURIComponent(clientId)}`;
+                              }}
+                              className="bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-widest py-1.5 rounded-xl flex items-center justify-center gap-1.5 h-8 w-full"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Register New Customer
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
 
-                      {/* Fallback "Add Customer" redirection button when NIC not found */}
-                      {clientId && !resolvedName && suggestions.length === 0 && (
-                        <div className="mt-2 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2">
-                          <span className="text-amber-800 text-[11px] font-black tracking-tight">This Customer NIC is not registered in the system.</span>
-                          <Button
-                            type="button"
-                            onClick={() => {
-                              window.location.href = `/clients?register=true&nic=${encodeURIComponent(clientId)}`;
-                            }}
-                            className="bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-widest py-2 rounded-xl flex items-center justify-center gap-1.5 h-9 w-full"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Add Customer
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {resolvedName && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl mt-1">
-                    <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-emerald-700 font-black text-sm">{resolvedName}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Extended Customer Contact Info (Phone & Address) */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Phone Number</Label>
-                  <Input
-                    value={clientPhone}
-                    onChange={e => setClientPhone(e.target.value)}
-                    placeholder="07X XXX XXXX"
-                    className="h-10 bg-white/50 rounded-xl text-sm"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address</Label>
-                  <Input
-                    value={clientAddress}
-                    onChange={e => setClientAddress(e.target.value)}
-                    placeholder="Customer Address"
-                    className="h-10 bg-white/50 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Bill Prefix & Bill Number Input Block */}
-              <div className="grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                <div className="flex flex-col gap-1.5">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Type / Prefix</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {BILL_PREFIXES.map(pref => (
-                      <button
-                        key={pref}
-                        type="button"
-                        onClick={() => {
-                          setBillPrefix(pref);
-                          // Automatically map the bill prefix to the corresponding tenor period
-                          if (pref === '1R') setPeriodMonths('1');
-                          else if (pref === '3M' || pref === '3R') setPeriodMonths('3');
-                          else if (pref === '6M' || pref === '6R') setPeriodMonths('6');
-                          else if (pref === '12R') setPeriodMonths('12');
-                        }}
-                        className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all border ${
-                          billPrefix === pref
-                            ? 'bg-primary text-white border-primary shadow-md scale-105'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {pref}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Number</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-sm text-primary px-3 py-2.5 bg-primary/10 border border-primary/20 rounded-xl">
-                      {billPrefix || '1R'}
-                    </span>
-                    <Input
-                      value={billNo}
-                      onChange={e => setBillNo(e.target.value)}
-                      placeholder="E.g., 20743"
-                      className="h-11 bg-white rounded-xl font-mono font-bold text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Item Category Shortcuts & Description */}
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pawn Item Category & Description</Label>
-                  <div className="flex gap-1">
-                    {ITEM_TYPES.map(cat => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          setItemType(cat);
-                          setDescription(prev => prev ? `${prev} (${cat})` : `Gold Collateral (${cat})`);
-                        }}
-                        className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
-                          itemType === cat ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Input
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="E.g., 22k Gold Chain"
-                  className="h-12 bg-white/50 rounded-xl"
-                />
-              </div>
-
-              {/* Dedicated Grams & Milligrams (mg) Weight & Tenor Period Fields */}
-              <div className="grid gap-3 p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-500/40 rounded-2xl shadow-md">
-                <div className="flex items-center justify-between">
-                  <Label className="font-black text-[11px] uppercase tracking-widest text-amber-700 flex items-center gap-1.5">
-                    <Scale className="w-4 h-4 text-amber-600" />
-                    Item Gold Weight & Pawn Tenor
-                  </Label>
-                  {goldWeight && (
-                    <span className="px-3 py-1 bg-amber-600 text-white font-black text-[10px] rounded-xl tracking-wider shadow-sm">
-                      Total: {goldWeight} g {weightMg ? `(${weightGrams || 0}g ${weightMg}mg)` : ''}
-                    </span>
+                  {resolvedName && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl mt-1">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-emerald-700 font-black text-xs">{resolvedName}</span>
+                    </div>
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="grid gap-1">
-                    <Label className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Weight (Grams - g)</Label>
-                    <div className="relative flex items-center">
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="E.g., 12"
-                        value={weightGrams}
-                        onChange={e => handleWeightChange(e.target.value, weightMg)}
-                        className="h-11 bg-white border-2 border-amber-400/60 focus:border-amber-600 rounded-xl font-mono font-bold text-slate-900 pr-7 text-xs"
-                      />
-                      <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">g</span>
-                    </div>
+                {/* Extended Contact Info */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Phone Number</Label>
+                    <Input
+                      value={clientPhone}
+                      onChange={e => setClientPhone(e.target.value)}
+                      placeholder="07X XXX XXXX"
+                      className="h-10 bg-white/80 rounded-xl text-xs font-mono"
+                    />
                   </div>
-
-                  <div className="grid gap-1">
-                    <Label className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Weight (Milligrams - mg)</Label>
-                    <div className="relative flex items-center">
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="E.g., 500"
-                        value={weightMg}
-                        onChange={e => handleWeightChange(weightGrams, e.target.value)}
-                        className="h-11 bg-white border-2 border-amber-400/60 focus:border-amber-600 rounded-xl font-mono font-bold text-slate-900 pr-9 text-xs"
-                      />
-                      <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">mg</span>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-1">
-                    <Label className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Tenor Period</Label>
-                    <Select value={periodMonths} onValueChange={(v) => setPeriodMonths(v || '3')}>
-                      <SelectTrigger className="h-11 bg-white border-2 border-amber-400/60 focus:border-amber-600 text-xs font-bold font-mono">
-                        <SelectValue placeholder="3 Months" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-slate-200">
-                        <SelectItem value="1" className="text-xs font-mono font-bold">1 Month (1R)</SelectItem>
-                        <SelectItem value="3" className="text-xs font-mono font-bold">3 Months (3M / 3R)</SelectItem>
-                        <SelectItem value="6" className="text-xs font-mono font-bold">6 Months (6M / 6R)</SelectItem>
-                        <SelectItem value="12" className="text-xs font-mono font-bold">12 Months (12R)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-1.5">
+                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address</Label>
+                    <Input
+                      value={clientAddress}
+                      onChange={e => setClientAddress(e.target.value)}
+                      placeholder="Customer Address"
+                      className="h-10 bg-white/80 rounded-xl text-xs"
+                    />
                   </div>
                 </div>
+
+                {/* Bill Prefix & Bill Number Block */}
+                <div className="grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Type / Prefix</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {BILL_PREFIXES.map(pref => (
+                        <button
+                          key={pref}
+                          type="button"
+                          onClick={() => {
+                            setBillPrefix(pref);
+                            if (pref === '1R') setPeriodMonths('1');
+                            else if (pref === '3M' || pref === '3R') setPeriodMonths('3');
+                            else if (pref === '6M' || pref === '6R') setPeriodMonths('6');
+                            else if (pref === '12R') setPeriodMonths('12');
+                          }}
+                          className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all border ${
+                            billPrefix === pref
+                              ? 'bg-primary text-white border-primary shadow-md scale-105'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {pref}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Number</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-sm text-primary px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl">
+                        {billPrefix || '1R'}
+                      </span>
+                      <Input
+                        value={billNo}
+                        onChange={e => setBillNo(e.target.value)}
+                        placeholder="E.g., 20743"
+                        className="h-10 bg-white rounded-xl font-mono font-bold text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tenor Period */}
+                <div className="grid gap-1.5">
+                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Tenor Period</Label>
+                  <Select value={periodMonths} onValueChange={(v) => setPeriodMonths(v || '3')}>
+                    <SelectTrigger className="h-10 bg-white border border-slate-200 rounded-xl text-xs font-bold font-mono">
+                      <SelectValue placeholder="3 Months" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-slate-200">
+                      <SelectItem value="1" className="text-xs font-mono font-bold">1 Month (1R)</SelectItem>
+                      <SelectItem value="3" className="text-xs font-mono font-bold">3 Months (3M / 3R)</SelectItem>
+                      <SelectItem value="6" className="text-xs font-mono font-bold">6 Months (6M / 6R)</SelectItem>
+                      <SelectItem value="12" className="text-xs font-mono font-bold">12 Months (12R)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
               </div>
 
-              {/* Gold Calculator Collapsible Helper */}
-              <div className="border border-amber-100 bg-amber-50/40 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-800">
-                    <Calculator className="w-3.5 h-3.5 text-amber-600" /> Gold Valuation Helper
-                  </span>
-                  <Button 
-                    type="button" 
-                    variant="link" 
-                    onClick={() => setShowGoldCalc(!showGoldCalc)}
-                    className="h-auto p-0 font-black text-[10px] uppercase tracking-wider text-amber-600 hover:text-amber-700"
-                  >
-                    {showGoldCalc ? "Hide Helper" : "Show Helper"}
+              {/* RIGHT COLUMN: Multi-Item Collateral & Valuation */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    2. Collateral Items & Valuation (Milligrams - mg)
+                  </h3>
+                  <Button type="button" size="sm" onClick={handleAddItem} className="h-7 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-lg gap-1">
+                    <Plus className="w-3 h-3" /> Add Collateral Item (+)
                   </Button>
                 </div>
 
-                {showGoldCalc && (
-                  <div className="grid gap-3 pt-2 border-t border-amber-100/50 animate-in fade-in duration-300">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Purity</Label>
-                        <Select value={goldPurity} onValueChange={(val) => setGoldPurity(val || '22K')}>
-                          <SelectTrigger className="h-10 bg-white border-slate-200 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white border-slate-200">
-                            <SelectItem value="24K" className="text-xs">24K (99.9%)</SelectItem>
-                            <SelectItem value="22K" className="text-xs">22K (91.6%)</SelectItem>
-                            <SelectItem value="20K" className="text-xs">20K (83.3%)</SelectItem>
-                            <SelectItem value="18K" className="text-xs">18K (75.0%)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                {/* Multi-Item Collateral List */}
+                <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                  {itemsList.map((item, idx) => {
+                    const subTag = billNo ? `${billPrefix} ${billNo.trim()}-${idx + 1}` : `ITEM #${idx + 1}`;
+                    return (
+                      <div key={idx} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 relative group">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-0.5 bg-amber-500/10 text-amber-800 font-mono font-black text-[10px] rounded-lg border border-amber-500/20">
+                            Sub-Bill: {subTag}
+                          </span>
+                          {itemsList.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(idx)} className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[9px] font-black text-slate-500 uppercase">Category</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {ITEM_TYPES.map(cat => (
+                                <button key={cat} type="button" onClick={() => handleUpdateItem(idx, 'itemType', cat)} className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border ${item.itemType === cat ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label className="text-[9px] font-black text-slate-500 uppercase">Purity</Label>
+                            <Select value={item.purity || '22K'} onValueChange={v => handleUpdateItem(idx, 'purity', v)}>
+                              <SelectTrigger className="h-8 bg-white border-slate-200 text-xs font-bold">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white border-slate-200">
+                                <SelectItem value="24K" className="text-xs">24K (99.9%)</SelectItem>
+                                <SelectItem value="22K" className="text-xs">22K (91.6%)</SelectItem>
+                                <SelectItem value="20K" className="text-xs">20K (83.3%)</SelectItem>
+                                <SelectItem value="18K" className="text-xs">18K (75.0%)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[9px] font-black text-slate-500 uppercase">Item Description</Label>
+                            <Input value={item.description} onChange={e => handleUpdateItem(idx, 'description', e.target.value)} placeholder="E.g., Gold Chain" className="h-9 bg-white text-xs" />
+                          </div>
+                          <div>
+                            <Label className="text-[9px] font-black text-slate-500 uppercase">Weight in Milligrams (mg)</Label>
+                            <div className="relative flex items-center">
+                              <Input type="number" value={item.weightMg} onChange={e => handleUpdateItem(idx, 'weightMg', e.target.value)} placeholder="E.g., 12500" className="h-9 bg-white font-mono font-bold text-xs pr-8" />
+                              <span className="absolute right-2 text-[10px] font-black text-slate-400 pointer-events-none">mg</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight (g)</Label>
-                        <Input 
-                          type="number" 
-                          placeholder="10" 
-                          value={goldWeight} 
-                          onChange={e => {
-                            const val = e.target.value;
-                            setGoldWeight(val);
-                            const wNum = parseFloat(val) || 0;
-                            if (wNum > 0) {
-                              const g = Math.floor(wNum);
-                              const mg = Math.round((wNum - g) * 1000);
-                              setWeightGrams(String(g || ''));
-                              setWeightMg(mg > 0 ? String(mg) : '');
-                            }
-                          }} 
-                          className="h-10 bg-white border-slate-200 text-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gold Rate per g (Rs.)</Label>
-                        <Input 
-                          type="number" 
-                          value={goldRate} 
-                          onChange={e => setGoldRate(e.target.value)} 
-                          className="h-10 bg-white border-slate-200 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">LTV Max Ratio (%)</Label>
-                        <Input 
-                          type="number" 
-                          value={goldLtv} 
-                          onChange={e => setGoldLtv(e.target.value)} 
-                          className="h-10 bg-white border-slate-200 text-xs"
-                        />
-                      </div>
-                    </div>
-                    <Button 
-                      type="button" 
-                      onClick={applyGoldCalculation} 
-                      className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-widest h-10 rounded-xl mt-1 gap-1"
-                    >
-                      <Coins className="w-3.5 h-3.5" /> Apply Appraisal & Disbursal
-                    </Button>
+                    );
+                  })}
+                </div>
+
+                {/* Aggregate Summary */}
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold">
+                    <Scale className="w-4 h-4 text-amber-600" />
+                    <span>Collateral Items: {itemsList.length}</span>
                   </div>
-                )}
+                  <span className="font-mono font-black text-amber-900 text-xs">
+                    Total Weight: {itemsList.reduce((s, i) => s + (parseFloat(i.weightMg) || 0), 0).toLocaleString()} mg
+                  </span>
+                </div>
+
+                {/* Financial Values */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1">
+                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Appraised Value (Rs.)</Label>
+                    <Input value={appraisal} onChange={e => setAppraisal(e.target.value)} type="number" placeholder="100000" className="h-11 bg-white rounded-xl text-xs font-bold" />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Disbursed Amount (Rs.)</Label>
+                    <Input value={amount} onChange={e => setAmount(e.target.value)} type="number" placeholder="85000" className="h-11 bg-blue-50 border-blue-300 rounded-xl text-xs font-black text-blue-900" />
+                  </div>
+                </div>
+
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised Value (Rs.)</Label>
-                  <Input
-                    value={appraisal}
-                    onChange={e => setAppraisal(e.target.value)}
-                    type="number"
-                    placeholder="100000"
-                    className="h-12 bg-white/50 rounded-xl"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed Amount (Rs.)</Label>
-                  <Input
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    type="number"
-                    placeholder="85000"
-                    className="h-12 bg-blue-50 border-blue-300 rounded-xl font-bold"
-                  />
-                </div>
-              </div>
             </div>
 
+            {/* Footer */}
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
               <Button variant="ghost" className="font-bold text-slate-500 h-12 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
               <Button
@@ -1265,15 +1249,27 @@ export default function PawnesPage() {
                         Print / Details
                       </Button>
                       {pawn.status === 'ACTIVE' && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => openRedeem(pawn)}
-                          className="h-8 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
-                        >
-                          <Coins className="h-3.5 w-3.5" />
-                          Settle
-                        </Button>
+                        <>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => openRedeem(pawn)}
+                            className="h-8 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
+                          >
+                            <Coins className="h-3.5 w-3.5" />
+                            Settle
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendReminder(pawn)}
+                            className="h-8 px-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 flex items-center gap-1 font-bold text-xs shrink-0 shadow-sm cursor-pointer transition-all"
+                            title="Send Customer SMS Reminder"
+                          >
+                            <Send className="h-3.5 w-3.5 text-amber-600" />
+                            SMS Reminder
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="outline"

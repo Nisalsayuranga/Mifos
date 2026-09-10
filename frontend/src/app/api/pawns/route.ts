@@ -223,36 +223,68 @@ export async function POST(request: Request) {
 
     if (pawnErr) throw pawnErr;
 
-    // 3. Insert pawn collateral items into pawn_items table if provided
-    if (Array.isArray(items) && items.length > 0) {
-      const pawnItemsPayload = items.map((item: any) => ({
-        id: crypto.randomUUID(),
-        pawn_id: pawnId,
-        item_type: item.item_type || itemType || 'Gold',
-        purity: item.purity || '22K',
-        weight_grams: parseFloat(item.weight_grams) || 0,
-        weight_mg: parseFloat(item.weight_mg) || 0,
-        appraised_value: parseFloat(item.appraised_value) || 0,
-        description: item.description || ''
-      }));
-      await adminSupabase.from('pawn_items').insert(pawnItemsPayload);
-    }
+    // 3. Insert pawn collateral items into pawn_items and stock_items with sub-bill numbers (+)
+    const baseBill = billNo || pawnId.substring(0, 8).toUpperCase();
 
-    // 4. Create matching vault stock item
-    try {
-      await adminSupabase.from('stock_items').insert([{
-        id: crypto.randomUUID(),
-        bill_no: billNo || pawnId.substring(0, 8),
-        branch_id: targetBranchId,
-        item_type: description || 'Pawned Gold Collateral',
-        weight: finalWeightGrams + (finalWeightMg / 1000),
-        price: finalAppraised,
-        status: 'Active',
-        date: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString()
-      }]);
-    } catch (stockErr) {
-      console.warn("Could not insert matching vault stock item, but proceeding:", stockErr);
+    if (Array.isArray(items) && items.length > 0) {
+      const pawnItemsPayload = items.map((item: any, idx: number) => {
+        const itemMg = parseFloat(item.weightMg || item.weight_mg) || 0;
+        const itemAppraised = parseFloat(item.appraisedValue || item.appraised_value) || (finalAppraised / items.length);
+        const subBillNo = items.length > 1 ? `${baseBill}-${idx + 1}` : baseBill;
+
+        return {
+          id: crypto.randomUUID(),
+          pawn_id: pawnId,
+          item_type: item.itemType || item.item_type || itemType || 'Gold',
+          purity: item.purity || '22K',
+          weight_grams: itemMg / 1000,
+          weight_mg: itemMg,
+          appraised_value: itemAppraised,
+          description: `${item.description || item.itemType || 'Gold Item'} (${subBillNo})`
+        };
+      });
+      await adminSupabase.from('pawn_items').insert(pawnItemsPayload);
+
+      // Create individual matching stock items for each collateral sub-item
+      try {
+        const stockPayloads = items.map((item: any, idx: number) => {
+          const itemMg = parseFloat(item.weightMg || item.weight_mg) || 0;
+          const itemAppraised = parseFloat(item.appraisedValue || item.appraised_value) || (finalAppraised / items.length);
+          const subBillNo = items.length > 1 ? `${baseBill}-${idx + 1}` : baseBill;
+
+          return {
+            id: crypto.randomUUID(),
+            bill_no: subBillNo,
+            branch_id: targetBranchId,
+            item_type: `${item.description || item.itemType || 'Pawned Gold Collateral'} (${item.purity || '22K'})`,
+            weight: itemMg / 1000,
+            price: itemAppraised,
+            status: 'Active',
+            date: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString()
+          };
+        });
+        await adminSupabase.from('stock_items').insert(stockPayloads);
+      } catch (stockErr) {
+        console.warn("Could not insert matching vault stock items, but proceeding:", stockErr);
+      }
+    } else {
+      // Single default stock item if items array is empty
+      try {
+        await adminSupabase.from('stock_items').insert([{
+          id: crypto.randomUUID(),
+          bill_no: baseBill,
+          branch_id: targetBranchId,
+          item_type: description || 'Pawned Gold Collateral',
+          weight: finalWeightMg / 1000 || finalWeightGrams,
+          price: finalAppraised,
+          status: 'Active',
+          date: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString()
+        }]);
+      } catch (stockErr) {
+        console.warn("Could not insert matching vault stock item, proceeding:", stockErr);
+      }
     }
 
     await recordAuditLog(session, {
