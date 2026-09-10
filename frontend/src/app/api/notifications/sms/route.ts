@@ -47,6 +47,8 @@ export async function POST(req: Request) {
  */
 export async function GET(req: Request) {
   try {
+    const session = await getAuthenticatedUser(req);
+
     const { data: logs } = await adminSupabase
       .from('sms_logs')
       .select('*')
@@ -59,16 +61,27 @@ export async function GET(req: Request) {
       .eq('key', 'sms_gateway_config')
       .single();
 
+    const { data: branchesData } = await adminSupabase
+      .from('branches')
+      .select('*')
+      .order('name', { ascending: true });
+
     return NextResponse.json({
       logs: logs || [],
+      isAdmin: session?.role === 'ADMIN',
+      userBranchId: session?.branchId || 'HQ',
+      branches: branchesData || [{ id: 'HQ', name: 'Head Office' }],
       config: settingsData?.value || {
         enabled: true,
-        gatewayUrl: 'http://192.168.1.50:8080/send',
-        apiKey: 'MIFOS_SMS_SECRET_2026',
-        simSlot: 1
+        provider: 'TEXTBEE',
+        deviceId: '6aa2895cccb6c72709fa5556',
+        apiKey: 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg',
+        gatewayUrl: 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms',
+        simSlot: 1,
+        branches: {}
       }
     });
   } catch (err: any) {
-    return NextResponse.json({ logs: [], config: {} });
+    return NextResponse.json({ logs: [], config: {}, branches: [], isAdmin: false });
   }
 }

@@ -13,13 +13,50 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { gatewayUrl, apiKey, simSlot, enabled } = body;
+    const { branchId, branchName, email, deviceId, gatewayUrl, apiKey, simSlot, enabled } = body;
+
+    // Fetch existing settings to preserve other branch configs
+    const { data: existingData } = await adminSupabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'sms_gateway_config')
+      .single();
+
+    const existingConfig = existingData?.value || {
+      enabled: true,
+      provider: 'TEXTBEE',
+      deviceId: '6aa2895cccb6c72709fa5556',
+      apiKey: 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg',
+      gatewayUrl: 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms',
+      simSlot: 1,
+      branches: {}
+    };
+
+    let updatedBranches = { ...(existingConfig.branches || {}) };
+
+    if (branchId) {
+      // Update specific branch config
+      updatedBranches[branchId] = {
+        branchId,
+        branchName: branchName || branchId,
+        email: email || '',
+        deviceId: deviceId || '',
+        apiKey: apiKey || '',
+        gatewayUrl: gatewayUrl || (deviceId ? `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms` : ''),
+        simSlot: parseInt(simSlot) || 1,
+        enabled: enabled !== false,
+        updatedAt: new Date().toISOString()
+      };
+    }
 
     const configValue = {
-      gatewayUrl: gatewayUrl || 'http://192.168.1.50:8080/send',
-      apiKey: apiKey || 'MIFOS_SMS_SECRET_2026',
-      simSlot: simSlot || 1,
-      enabled: enabled !== false,
+      ...existingConfig,
+      gatewayUrl: !branchId ? (gatewayUrl || existingConfig.gatewayUrl) : existingConfig.gatewayUrl,
+      apiKey: !branchId ? (apiKey || existingConfig.apiKey) : existingConfig.apiKey,
+      deviceId: !branchId ? (deviceId || existingConfig.deviceId) : existingConfig.deviceId,
+      simSlot: !branchId ? (parseInt(simSlot) || existingConfig.simSlot || 1) : existingConfig.simSlot,
+      enabled: !branchId ? (enabled !== false) : existingConfig.enabled,
+      branches: updatedBranches,
       updatedAt: new Date().toISOString()
     };
 
@@ -41,7 +78,7 @@ export async function POST(req: Request) {
       await recordAuditLog(session, {
         action: 'UPDATE_SMS_GATEWAY_CONFIG',
         resource: 'system_settings:sms_gateway_config',
-        details: configValue
+        details: { branchId: branchId || 'GLOBAL', config: configValue }
       });
     }
 

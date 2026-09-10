@@ -33,26 +33,35 @@ export async function sendFreeSms(params: SendSmsParams) {
       .eq('key', 'sms_gateway_config')
       .single();
 
-    const defaultTextbeeUrl = 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms';
     const defaultTextbeeApiKey = 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg';
+    const defaultDeviceId = '6aa2895cccb6c72709fa5556';
+    const defaultTextbeeUrl = `https://api.textbee.dev/api/v1/gateway/devices/${defaultDeviceId}/send-sms`;
 
-    const gatewayConfig = settingsData?.value || {
-      enabled: true,
-      provider: 'TEXTBEE',
-      gatewayUrl: defaultTextbeeUrl,
-      apiKey: defaultTextbeeApiKey,
-      deviceId: '6aa2895cccb6c72709fa5556',
-      simSlot: 1
-    };
+    const globalConfig = settingsData?.value || {};
 
-    const targetUrl = gatewayConfig.gatewayUrl || defaultTextbeeUrl;
-    const targetApiKey = gatewayConfig.apiKey || defaultTextbeeApiKey;
+    // Check branch-specific config
+    const branchConfig = (branchId && globalConfig?.branches?.[branchId]) ? globalConfig.branches[branchId] : null;
 
-    if (targetUrl.includes('textbee.dev') || gatewayConfig.provider === 'TEXTBEE') {
+    let targetDeviceId = branchConfig?.deviceId || globalConfig?.deviceId || defaultDeviceId;
+    let targetApiKey = branchConfig?.apiKey || globalConfig?.apiKey || defaultTextbeeApiKey;
+    let targetUrl = branchConfig?.gatewayUrl || globalConfig?.gatewayUrl || defaultTextbeeUrl;
+    let targetEnabled = branchConfig?.enabled !== undefined ? branchConfig.enabled : (globalConfig?.enabled !== false);
+    let isBranchCustom = !!(branchConfig?.deviceId && branchConfig?.apiKey);
+
+    if (!targetEnabled) {
+      return {
+        success: false,
+        status: 'DISABLED',
+        phone: cleanPhone,
+        notice: `SMS Gateway disabled for branch ${branchId || 'HQ'}`
+      };
+    }
+
+    if (targetUrl.includes('textbee.dev') || globalConfig?.provider === 'TEXTBEE' || targetDeviceId) {
       try {
-        const textbeeEndpoint = targetUrl.includes('/send-sms') 
-          ? targetUrl 
-          : `https://api.textbee.dev/api/v1/gateway/devices/${gatewayConfig.deviceId || '6aa2895cccb6c72709fa5556'}/send-sms`;
+        const textbeeEndpoint = targetUrl.includes('/send-sms')
+          ? targetUrl
+          : `https://api.textbee.dev/api/v1/gateway/devices/${targetDeviceId}/send-sms`;
 
         const smsRes = await fetch(textbeeEndpoint, {
           method: 'POST',
@@ -69,7 +78,7 @@ export async function sendFreeSms(params: SendSmsParams) {
 
         if (smsRes.ok) {
           smsSuccess = true;
-          dispatchNotice = 'SMS dispatched via TextBee Cloud Gateway successfully!';
+          dispatchNotice = `SMS dispatched via ${isBranchCustom ? `Branch [${branchId}]` : 'Default'} TextBee Gateway!`;
         } else {
           const errText = await smsRes.text();
           dispatchNotice = `TextBee Gateway returned HTTP ${smsRes.status}: ${errText}`;
@@ -88,14 +97,14 @@ export async function sendFreeSms(params: SendSmsParams) {
           body: JSON.stringify({
             to: cleanPhone,
             message: message,
-            simSlot: gatewayConfig.simSlot || 1
+            simSlot: branchConfig?.simSlot || globalConfig?.simSlot || 1
           }),
           signal: AbortSignal.timeout(4000)
         });
 
         if (smsRes.ok) {
           smsSuccess = true;
-          dispatchNotice = 'SMS dispatched via Android SIM Gateway successfully!';
+          dispatchNotice = `SMS dispatched via ${isBranchCustom ? `Branch [${branchId}]` : 'Default'} Android SIM Gateway!`;
         } else {
           dispatchNotice = `Android Gateway returned HTTP ${smsRes.status}`;
         }

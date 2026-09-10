@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Smartphone, Send, RefreshCcw, Save, ShieldCheck, 
-  CheckCircle2, AlertTriangle, MessageSquare, Radio, Server
+  CheckCircle2, AlertTriangle, MessageSquare, Radio, Server,
+  Building2, Lock
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,12 +17,22 @@ export default function SmsSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  /* Branch List & Selected Branch */
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('GLOBAL');
 
   /* Gateway Config State */
-  const [gatewayUrl, setGatewayUrl] = useState('https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms');
+  const [deviceId, setDeviceId] = useState('6aa2895cccb6c72709fa5556');
   const [apiKey, setApiKey] = useState('txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg');
+  const [gatewayUrl, setGatewayUrl] = useState('https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms');
+  const [email, setEmail] = useState('');
   const [simSlot, setSimSlot] = useState('1');
   const [enabled, setEnabled] = useState(true);
+
+  /* All Branch Configs map */
+  const [branchConfigs, setBranchConfigs] = useState<Record<string, any>>({});
 
   /* Test SMS State */
   const [testPhone, setTestPhone] = useState('0771234567');
@@ -36,13 +47,14 @@ export default function SmsSettingsPage() {
       const res = await fetch('/api/notifications/sms');
       if (res.ok) {
         const data = await res.json();
-        if (data.config) {
-          setGatewayUrl(data.config.gatewayUrl || 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms');
-          setApiKey(data.config.apiKey || 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg');
-          setSimSlot(String(data.config.simSlot || '1'));
-          setEnabled(data.config.enabled !== false);
-        }
+        setIsAdmin(data.isAdmin !== false);
+        setBranches(data.branches || [{ id: 'HQ', name: 'Head Office' }]);
         setLogs(data.logs || []);
+
+        const config = data.config || {};
+        setBranchConfigs(config.branches || {});
+
+        populateFields(selectedBranchId, config);
       }
     } catch (e) {
       console.error(e);
@@ -52,29 +64,69 @@ export default function SmsSettingsPage() {
     }
   };
 
+  const populateFields = (branchId: string, globalConfig: any) => {
+    const bConfigs = globalConfig?.branches || branchConfigs || {};
+    if (branchId === 'GLOBAL') {
+      setDeviceId(globalConfig?.deviceId || '6aa2895cccb6c72709fa5556');
+      setApiKey(globalConfig?.apiKey || 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg');
+      setGatewayUrl(globalConfig?.gatewayUrl || 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms');
+      setEmail('headOffice@rupasinghe.lk');
+      setSimSlot(String(globalConfig?.simSlot || '1'));
+      setEnabled(globalConfig?.enabled !== false);
+    } else {
+      const bConf = bConfigs[branchId] || {};
+      setDeviceId(bConf.deviceId || '');
+      setApiKey(bConf.apiKey || '');
+      setGatewayUrl(bConf.gatewayUrl || (bConf.deviceId ? `https://api.textbee.dev/api/v1/gateway/devices/${bConf.deviceId}/send-sms` : ''));
+      setEmail(bConf.email || '');
+      setSimSlot(String(bConf.simSlot || '1'));
+      setEnabled(bConf.enabled !== false);
+    }
+  };
+
   useEffect(() => {
     loadSettingsAndLogs();
   }, []);
 
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranchId(newBranchId);
+    fetch('/api/notifications/sms')
+      .then(res => res.json())
+      .then(data => {
+        populateFields(newBranchId, data.config);
+      })
+      .catch(() => {});
+  };
+
   const handleSaveConfig = async () => {
+    if (!isAdmin) return toast.error('Only Administrators can modify SMS Gateway settings.');
     setSaving(true);
-    const toastId = toast.loading('Saving Android SIM Gateway settings...');
+    const toastId = toast.loading(`Saving ${selectedBranchId === 'GLOBAL' ? 'Master Default' : `Branch [${selectedBranchId}]`} TextBee Gateway...`);
+
+    const selectedBranchObj = branches.find(b => b.id === selectedBranchId);
+
     try {
       const res = await fetch('/api/settings/sms-gateway', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gatewayUrl,
+          branchId: selectedBranchId === 'GLOBAL' ? undefined : selectedBranchId,
+          branchName: selectedBranchObj?.name || selectedBranchId,
+          email,
+          deviceId,
           apiKey,
+          gatewayUrl: gatewayUrl || (deviceId ? `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms` : ''),
           simSlot: parseInt(simSlot) || 1,
           enabled
         })
       });
 
       if (res.ok) {
-        toast.success('Android SIM Gateway configuration saved!', { id: toastId });
+        toast.success(`TextBee Gateway saved for ${selectedBranchId === 'GLOBAL' ? 'Master System Default' : selectedBranchObj?.name || selectedBranchId}!`, { id: toastId });
+        loadSettingsAndLogs();
       } else {
-        toast.error('Failed to save configuration', { id: toastId });
+        const err = await res.json();
+        toast.error(err.error || 'Failed to save configuration', { id: toastId });
       }
     } catch (err: any) {
       toast.error('Error saving settings: ' + err.message, { id: toastId });
@@ -86,7 +138,7 @@ export default function SmsSettingsPage() {
   const handleSendTestSms = async () => {
     if (!testPhone || !testMessage) return toast.error('Enter phone number and message');
     setTesting(true);
-    const toastId = toast.loading('Sending test SMS via Android Gateway...');
+    const toastId = toast.loading('Sending test SMS via TextBee Gateway...');
 
     try {
       const res = await fetch('/api/notifications/sms', {
@@ -104,7 +156,7 @@ export default function SmsSettingsPage() {
       const data = await res.json();
       if (res.ok) {
         if (data.status === 'SENT') {
-          toast.success('Test SMS dispatched successfully via Android SIM!', { id: toastId });
+          toast.success(`Test SMS dispatched via TextBee Gateway! (${data.notice})`, { id: toastId });
         } else {
           toast.info(`SMS queued in database (${data.notice})`, { id: toastId });
         }
@@ -129,11 +181,16 @@ export default function SmsSettingsPage() {
             <Smartphone className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter leading-none">
-              Android SIM <span className="bg-gradient-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent">SMS Gateway</span>
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-black text-slate-900 tracking-tighter leading-none">
+                Multi-Branch <span className="bg-gradient-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent">TextBee SMS Gateway</span>
+              </h1>
+              <span className="px-3 py-1 bg-amber-500/10 text-amber-700 border border-amber-500/20 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Admin Only
+              </span>
+            </div>
             <p className="text-slate-500 font-semibold text-xs tracking-tight mt-1">
-              Free unlimited customer receipt SMS dispatch via branch Android phone SIM card.
+              Configure independent TextBee Android SIM devices per branch tablet so customer SMS dispatches from local branch SIMs.
             </p>
           </div>
         </div>
@@ -143,56 +200,125 @@ export default function SmsSettingsPage() {
           variant="outline"
           className="h-11 px-4 bg-white/80 border-slate-200 text-slate-700 font-bold rounded-2xl shadow-sm text-xs"
         >
-          <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin text-amber-500' : ''}`} /> Refresh Logs
+          <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin text-amber-500' : ''}`} /> Refresh Status
         </Button>
+      </div>
+
+      {/* Admin Authorization Notice */}
+      {!isAdmin && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-900 font-bold text-xs shadow-md">
+          <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+          <div>
+            <span>Read-Only Mode: You are logged in as a Teller.</span>
+            <p className="text-[11px] font-medium text-amber-700 mt-0.5">
+              Only System Administrators can add or modify branch TextBee SMS credentials.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Branch Selector Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <button
+          onClick={() => handleBranchChange('GLOBAL')}
+          className={`px-5 py-3 rounded-2xl text-xs font-black transition-all duration-200 flex items-center gap-2 whitespace-nowrap shadow-sm border ${
+            selectedBranchId === 'GLOBAL'
+              ? 'bg-slate-950 text-amber-400 border-slate-900 shadow-md scale-105'
+              : 'bg-white/80 text-slate-600 border-slate-200 hover:bg-slate-100'
+          }`}
+        >
+          <Server className="w-4 h-4" /> Master Default Gateway
+        </button>
+
+        {branches.map((b) => {
+          const hasCustom = !!branchConfigs[b.id]?.deviceId;
+          return (
+            <button
+              key={b.id}
+              onClick={() => handleBranchChange(b.id)}
+              className={`px-5 py-3 rounded-2xl text-xs font-black transition-all duration-200 flex items-center gap-2 whitespace-nowrap shadow-sm border ${
+                selectedBranchId === b.id
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-105'
+                  : 'bg-white/80 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>{b.name || b.id} ({b.id})</span>
+              {hasCustom && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Custom Branch Device Connected" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Gateway Configuration Settings Card */}
+        {/* Gateway Configuration Card */}
         <Card className="glass border-white/40 shadow-xl rounded-3xl p-6 lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2">
-              <Server className="w-5 h-5 text-amber-500" />
-              <h2 className="font-black text-base text-slate-900">Gateway Connection Settings</h2>
+              <Building2 className="w-5 h-5 text-amber-500" />
+              <h2 className="font-black text-base text-slate-900">
+                {selectedBranchId === 'GLOBAL' ? 'Master Default Gateway Config' : `Branch Configuration: ${branches.find(b => b.id === selectedBranchId)?.name || selectedBranchId}`}
+              </h2>
             </div>
             <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-mono text-[10px] font-black uppercase tracking-wider">
-              100% Free Local SIM
+              {selectedBranchId === 'GLOBAL' ? 'Global Fallback SIM' : `Branch [${selectedBranchId}] Tablet SIM`}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2 md:col-span-2">
-              <Label className="text-xs font-bold text-slate-700">SMS Gateway Endpoint URL (TextBee / Custom)</Label>
+              <Label className="text-xs font-bold text-slate-700">Branch Tablet / Device Email Profile</Label>
               <Input
-                value={gatewayUrl}
-                onChange={e => setGatewayUrl(e.target.value)}
-                placeholder="https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                disabled={!isAdmin}
+                placeholder="e.g. branch.kandy@rupasinghe.lk"
                 className="h-11 rounded-xl bg-white/80 font-mono text-xs"
               />
               <p className="text-[11px] text-slate-400">
-                TextBee Cloud API endpoint or local Android IP gateway URL.
+                Email address associated with the TextBee profile logged in on this branch's Android tablet.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-700">Gateway API Key / Secret Token</Label>
+              <Label className="text-xs font-bold text-slate-700">TextBee Device ID</Label>
               <Input
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                type="password"
-                placeholder="txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg"
+                value={deviceId}
+                onChange={e => setDeviceId(e.target.value)}
+                disabled={!isAdmin}
+                placeholder="e.g. 6aa2895cccb6c72709fa5556"
                 className="h-11 rounded-xl bg-white/80 font-mono text-xs"
               />
+              <p className="text-[11px] text-slate-400">
+                Found in TextBee Mobile App under Settings ➔ Device ID.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-700">Default SIM Card Slot</Label>
+              <Label className="text-xs font-bold text-slate-700">TextBee API Key</Label>
               <Input
-                value={simSlot}
-                onChange={e => setSimSlot(e.target.value)}
-                type="number"
-                placeholder="1"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                disabled={!isAdmin}
+                type="password"
+                placeholder="txb_..."
+                className="h-11 rounded-xl bg-white/80 font-mono text-xs"
+              />
+              <p className="text-[11px] text-slate-400">
+                API Key for this branch's TextBee profile (`txb_...`).
+              </p>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label className="text-xs font-bold text-slate-700">API Endpoint URL (Auto-Generated)</Label>
+              <Input
+                value={gatewayUrl || (deviceId ? `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms` : '')}
+                onChange={e => setGatewayUrl(e.target.value)}
+                disabled={!isAdmin}
+                placeholder="https://api.textbee.dev/api/v1/gateway/devices/.../send-sms"
                 className="h-11 rounded-xl bg-white/80 font-mono text-xs"
               />
             </div>
@@ -202,25 +328,27 @@ export default function SmsSettingsPage() {
           <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 text-xs text-amber-900 font-medium">
             <div className="flex items-center gap-2 font-bold text-amber-800">
               <Radio className="w-4 h-4 animate-pulse" />
-              <span>How TextBee Free Android SIM SMS Works:</span>
+              <span>How Branch TextBee Setup Works:</span>
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[11.5px] text-slate-700">
-              <li>Install the <b>TextBee</b> app on your Android phone (Infinix X6879 connected to Airtel/Dialog SIM).</li>
-              <li>Ensure <b>Gateway Enabled</b> is turned ON in the TextBee mobile app.</li>
-              <li>Your API Key <code className="bg-white/80 px-1 py-0.5 rounded font-mono">txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg</code> connects your web app to your phone anywhere in the world!</li>
-              <li>Receipts & manual reminders send directly through your mobile SIM card 100% free!</li>
+              <li>Install the <b>TextBee app</b> on each branch's Android tablet / mobile phone.</li>
+              <li>Log in using that branch's email profile & insert the branch local SIM card.</li>
+              <li>Copy the <b>Device ID</b> and <b>API Key</b> from that tablet into the branch tab above and click <b>Save</b>.</li>
+              <li>When tellers in that branch originate a loan, SMS receipts automatically send from that branch's tablet SIM!</li>
             </ol>
           </div>
 
-          <div className="flex justify-end pt-2">
-            <Button
-              onClick={handleSaveConfig}
-              disabled={saving}
-              className="h-11 px-6 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs gap-2 shadow-lg shadow-amber-500/20"
-            >
-              <Save className="w-4 h-4" /> Save Gateway Settings
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end pt-2">
+              <Button
+                onClick={handleSaveConfig}
+                disabled={saving}
+                className="h-11 px-6 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs gap-2 shadow-lg shadow-amber-500/20"
+              >
+                <Save className="w-4 h-4" /> Save {selectedBranchId === 'GLOBAL' ? 'Master Default' : `Branch [${selectedBranchId}]`} Gateway
+              </Button>
+            </div>
+          )}
         </Card>
 
         {/* Test SMS Dispatcher Card */}
@@ -244,7 +372,7 @@ export default function SmsSettingsPage() {
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Message Content</Label>
               <textarea
-                rows={4}
+                rows={3}
                 value={testMessage}
                 onChange={e => setTestMessage(e.target.value)}
                 className="w-full p-3 rounded-xl bg-white/80 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/30"
@@ -263,6 +391,82 @@ export default function SmsSettingsPage() {
 
       </div>
 
+      {/* Branch Gateway Summary Matrix */}
+      <Card className="glass border-white/40 shadow-2xl rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-black text-lg text-slate-900 tracking-tight">Branch SMS Gateway Status Matrix</h2>
+            <p className="text-xs text-slate-500 font-medium">All registered system branches and their active TextBee SIM gateway devices.</p>
+          </div>
+          <span className="text-xs font-bold text-slate-400">Total Branches: {branches.length}</span>
+        </div>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-slate-950 text-white">
+              <TableRow className="hover:bg-slate-900 border-slate-800">
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300 py-4 pl-6">Branch Code & Name</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">Device Email / Profile</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">TextBee Device ID</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">API Key Status</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">Connection Mode</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300 pr-6 text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-slate-100">
+              {branches.map((b) => {
+                const bConf = branchConfigs[b.id];
+                const hasCustom = !!(bConf?.deviceId && bConf?.apiKey);
+                const activeDeviceId = bConf?.deviceId || '6aa2895cccb6c72709fa5556 (Default)';
+
+                return (
+                  <TableRow key={b.id} className="hover:bg-slate-50 transition-colors">
+                    <TableCell className="pl-6 font-bold text-xs text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-amber-500" />
+                        <div>
+                          <p className="font-black text-slate-900">{b.name || b.id}</p>
+                          <p className="text-[10px] font-mono text-slate-400">ID: {b.id}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-600">
+                      {bConf?.email || '—'}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-semibold text-slate-800">
+                      {activeDeviceId}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-500">
+                      {hasCustom ? '••••••••' + (bConf?.apiKey?.slice(-4) || '') : 'Default HQ Key'}
+                    </TableCell>
+                    <TableCell>
+                      {hasCustom ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-mono text-[10px] font-black">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" /> CUSTOM BRANCH SIM
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full font-mono text-[10px] font-black">
+                          <Radio className="w-3 h-3 text-amber-500" /> FALLBACK TO HQ
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <Button
+                        onClick={() => handleBranchChange(b.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-xs font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-xl"
+                      >
+                        Configure Device
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       {/* Dispatch Logs Table */}
       <Card className="glass border-white/40 shadow-2xl rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -274,6 +478,7 @@ export default function SmsSettingsPage() {
             <TableHeader className="bg-slate-950 text-white">
               <TableRow className="hover:bg-slate-900 border-slate-800">
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300 py-4 pl-6">Timestamp</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">Branch</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">Customer Mobile</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">Message Text</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-300">Ticket #</TableHead>
@@ -283,7 +488,7 @@ export default function SmsSettingsPage() {
             <TableBody className="divide-y divide-slate-100">
               {logs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-slate-400 font-bold text-sm">
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-400 font-bold text-sm">
                     No SMS dispatch logs recorded yet.
                   </TableCell>
                 </TableRow>
@@ -296,6 +501,9 @@ export default function SmsSettingsPage() {
                     <TableRow key={log.id} className="hover:bg-slate-50 transition-colors">
                       <TableCell className="pl-6 font-mono text-xs font-semibold text-slate-600">
                         {dateStr}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-bold text-amber-600">
+                        {log.branch_id || 'HQ'}
                       </TableCell>
                       <TableCell className="font-mono text-xs font-bold text-slate-900">
                         {log.phone}
