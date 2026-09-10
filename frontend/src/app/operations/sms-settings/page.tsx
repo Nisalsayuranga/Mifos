@@ -18,14 +18,14 @@ export default function SmsSettingsPage() {
   const [testing, setTesting] = useState(false);
 
   /* Gateway Config State */
-  const [gatewayUrl, setGatewayUrl] = useState('http://192.168.1.50:8080/send');
-  const [apiKey, setApiKey] = useState('MIFOS_SMS_SECRET_2026');
+  const [gatewayUrl, setGatewayUrl] = useState('https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms');
+  const [apiKey, setApiKey] = useState('txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg');
   const [simSlot, setSimSlot] = useState('1');
   const [enabled, setEnabled] = useState(true);
 
   /* Test SMS State */
   const [testPhone, setTestPhone] = useState('0771234567');
-  const [testMessage, setTestMessage] = useState('RUPASINGHE PAWNING: Test receipt message from Android SIM Gateway.');
+  const [testMessage, setTestMessage] = useState('RUPASINGHE PAWNING: Test receipt message from TextBee Gateway.');
 
   /* SMS Logs */
   const [logs, setLogs] = useState<any[]>([]);
@@ -37,8 +37,8 @@ export default function SmsSettingsPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.config) {
-          setGatewayUrl(data.config.gatewayUrl || 'http://192.168.1.50:8080/send');
-          setApiKey(data.config.apiKey || 'MIFOS_SMS_SECRET_2026');
+          setGatewayUrl(data.config.gatewayUrl || 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms');
+          setApiKey(data.config.apiKey || 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg');
           setSimSlot(String(data.config.simSlot || '1'));
           setEnabled(data.config.enabled !== false);
         }
@@ -163,15 +163,15 @@ export default function SmsSettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2 md:col-span-2">
-              <Label className="text-xs font-bold text-slate-700">Android Phone Local IP Gateway URL</Label>
+              <Label className="text-xs font-bold text-slate-700">SMS Gateway Endpoint URL (TextBee / Custom)</Label>
               <Input
                 value={gatewayUrl}
                 onChange={e => setGatewayUrl(e.target.value)}
-                placeholder="http://192.168.1.50:8080/send"
+                placeholder="https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms"
                 className="h-11 rounded-xl bg-white/80 font-mono text-xs"
               />
               <p className="text-[11px] text-slate-400">
-                Enter the IP address of the Android phone connected to branch Wi-Fi running SMS Gateway app.
+                TextBee Cloud API endpoint or local Android IP gateway URL.
               </p>
             </div>
 
@@ -181,13 +181,13 @@ export default function SmsSettingsPage() {
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 type="password"
-                placeholder="MIFOS_SMS_SECRET_2026"
+                placeholder="txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg"
                 className="h-11 rounded-xl bg-white/80 font-mono text-xs"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-700">SIM Card Slot</Label>
+              <Label className="text-xs font-bold text-slate-700">Default SIM Card Slot</Label>
               <Input
                 value={simSlot}
                 onChange={e => setSimSlot(e.target.value)}
@@ -202,13 +202,13 @@ export default function SmsSettingsPage() {
           <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 text-xs text-amber-900 font-medium">
             <div className="flex items-center gap-2 font-bold text-amber-800">
               <Radio className="w-4 h-4 animate-pulse" />
-              <span>How to setup Free Android SIM SMS:</span>
+              <span>How TextBee Free Android SIM SMS Works:</span>
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[11.5px] text-slate-700">
-              <li>Connect an Android phone to the branch Wi-Fi network.</li>
-              <li>Install any standard free SMS Gateway app (e.g., <i>SMS Gateway API</i>) from Play Store.</li>
-              <li>Insert SIM card with an Unlimited SMS pack.</li>
-              <li>Copy the HTTP URL (e.g. <code className="bg-white/80 px-1 py-0.5 rounded font-mono">http://192.168.1.50:8080/send</code>) into the box above and click Save.</li>
+              <li>Install the <b>TextBee</b> app on your Android phone (Infinix X6879 connected to Airtel/Dialog SIM).</li>
+              <li>Ensure <b>Gateway Enabled</b> is turned ON in the TextBee mobile app.</li>
+              <li>Your API Key <code className="bg-white/80 px-1 py-0.5 rounded font-mono">txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg</code> connects your web app to your phone anywhere in the world!</li>
+              <li>Receipts & manual reminders send directly through your mobile SIM card 100% free!</li>
             </ol>
           </div>
 

@@ -33,20 +33,57 @@ export async function sendFreeSms(params: SendSmsParams) {
       .eq('key', 'sms_gateway_config')
       .single();
 
+    const defaultTextbeeUrl = 'https://api.textbee.dev/api/v1/gateway/devices/6aa2895cccb6c72709fa5556/send-sms';
+    const defaultTextbeeApiKey = 'txb_SQX87S1btDchmgxYURa40D3I3WEjxSqg';
+
     const gatewayConfig = settingsData?.value || {
       enabled: true,
-      gatewayUrl: 'http://192.168.1.50:8080/send',
-      apiKey: 'MIFOS_SMS_SECRET_2026',
+      provider: 'TEXTBEE',
+      gatewayUrl: defaultTextbeeUrl,
+      apiKey: defaultTextbeeApiKey,
+      deviceId: '6aa2895cccb6c72709fa5556',
       simSlot: 1
     };
 
-    if (gatewayConfig.gatewayUrl && gatewayConfig.gatewayUrl.startsWith('http')) {
+    const targetUrl = gatewayConfig.gatewayUrl || defaultTextbeeUrl;
+    const targetApiKey = gatewayConfig.apiKey || defaultTextbeeApiKey;
+
+    if (targetUrl.includes('textbee.dev') || gatewayConfig.provider === 'TEXTBEE') {
       try {
-        const smsRes = await fetch(gatewayConfig.gatewayUrl, {
+        const textbeeEndpoint = targetUrl.includes('/send-sms') 
+          ? targetUrl 
+          : `https://api.textbee.dev/api/v1/gateway/devices/${gatewayConfig.deviceId || '6aa2895cccb6c72709fa5556'}/send-sms`;
+
+        const smsRes = await fetch(textbeeEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${gatewayConfig.apiKey || ''}`
+            'x-api-key': targetApiKey
+          },
+          body: JSON.stringify({
+            recipients: [cleanPhone],
+            message: message
+          }),
+          signal: AbortSignal.timeout(6000)
+        });
+
+        if (smsRes.ok) {
+          smsSuccess = true;
+          dispatchNotice = 'SMS dispatched via TextBee Cloud Gateway successfully!';
+        } else {
+          const errText = await smsRes.text();
+          dispatchNotice = `TextBee Gateway returned HTTP ${smsRes.status}: ${errText}`;
+        }
+      } catch (textbeeErr: any) {
+        dispatchNotice = `TextBee Error: ${textbeeErr?.message || 'Gateway connection failed'}`;
+      }
+    } else if (targetUrl.startsWith('http')) {
+      try {
+        const smsRes = await fetch(targetUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${targetApiKey}`
           },
           body: JSON.stringify({
             to: cleanPhone,
@@ -60,10 +97,10 @@ export async function sendFreeSms(params: SendSmsParams) {
           smsSuccess = true;
           dispatchNotice = 'SMS dispatched via Android SIM Gateway successfully!';
         } else {
-          dispatchNotice = `Android SMS Gateway returned HTTP ${smsRes.status}`;
+          dispatchNotice = `Android Gateway returned HTTP ${smsRes.status}`;
         }
       } catch (gatewayErr: any) {
-        dispatchNotice = 'Local Android SIM Gateway offline or unreachable on Wi-Fi.';
+        dispatchNotice = 'Local Android SIM Gateway offline or unreachable.';
       }
     } else {
       dispatchNotice = 'SMS Gateway URL not configured yet.';
