@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,8 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Plus, Search, FileText, Package, TrendingUp, AlertTriangle,
-  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download
+  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download, Bluetooth
 } from "lucide-react"
+import { WebBluetoothTransport } from "@/lib/bluetooth/WebBluetoothTransport";
+import { EscPosAdapter } from "@/lib/bluetooth/EscPosAdapter";
+import { PawnBill80mmReceipt } from "@/components/receipts/PawnBill80mmReceipt";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -1681,8 +1684,6 @@ function PawnDetailsModal({
     return { name, address, nic, phone };
   };
 
-  // Auto-print flag: trigger once when pawn first opens
-  const [hasAutoPrinted, setHasAutoPrinted] = useState(false);
 
   useEffect(() => {
     if (pawn) {
@@ -1728,20 +1729,13 @@ function PawnDetailsModal({
       setBillAppraised(String(pawn.appraised_value || 0));
       setBillWeight(formattedWeightStr || String(computedWeight));
       setBillLastDate(formattedLastDate);
-      setHasAutoPrinted(false); // reset for new pawn
     }
   }, [pawn]);
 
-  // Auto-trigger print dialog ~800ms after bill opens (so fields are populated)
-  useEffect(() => {
-    if (pawn && !hasAutoPrinted) {
-      const timer = setTimeout(() => {
-        setHasAutoPrinted(true);
-        handlePrint();
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [pawn, hasAutoPrinted]);
+
+  // Bluetooth printing hooks — must be declared before any early return
+  const receipt80mmRef = useRef<HTMLDivElement>(null);
+  const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
 
   if (!pawn) return null;
 
@@ -1790,259 +1784,93 @@ function PawnDetailsModal({
     }
   };
 
-  const getPrintableBillHtml = (targetPawn: any, state: any) => {
-    const p = targetPawn || {};
+  // Build the ESC/POS text receipt and send via Bluetooth — no html2canvas needed
+  const handleBluetoothPrint = async () => {
+    setIsBluetoothPrinting(true);
+    const toastId = toast.loading('Connecting to Bluetooth Printer...');
 
-    const finalBillNo = state.billNo || getBillNo(p) || '—';
-    const createdDate = p.created_at ? new Date(p.created_at) : new Date();
-    const finalDate = state.billDate || createdDate.toLocaleDateString('en-GB');
+    try {
+      const transport = new WebBluetoothTransport();
+      const connected = await transport.connect();
+      if (!connected) throw new Error('Could not connect to printer.');
 
-    const pTenor = parseInt(state.billMonths || p.period_months, 10) || 3;
-    const finalMonths = String(pTenor);
+      toast.loading('Sending receipt to printer...', { id: toastId });
 
-    const lastD = new Date(createdDate);
-    lastD.setMonth(lastD.getMonth() + pTenor);
-    const finalLastDate = state.billLastDate || lastD.toLocaleDateString('en-GB');
+      const adapter = new EscPosAdapter();
+      const sep  = '----------------------------------------';
+      const dsep = '- - - - - - - - - - - - - - - - - - - -';
+      const fmt  = (n: number) => n.toLocaleString();
+      const amt  = parseFloat(billAmount || '0');
 
-    const cDetails = resolveClientDetails(p);
-    const finalName = state.billName || cDetails.name || 'Valued Customer';
-    const finalAddress = state.billAddress || cDetails.address || '—';
-    const finalNic = state.billNic || cDetails.nic || '—';
-    const finalPhone = state.billPhone || cDetails.phone || '—';
+      const lines: Uint8Array[] = [
+        adapter.init(),
+        // ── HEADER (centered) ──
+        adapter.align(1),
+        adapter.text('RUPASINGHE TRUST\n', true, true, true),
+        adapter.text('INVESTMENTS LTD.\n', true, false, true),
+        adapter.text('(PREV. L.S. RUPASINGHE PAWN BROKERS)\n'),
+        adapter.text(`${billBranchAddress || 'Head Office, Dehiwala.'}\n`),
+        adapter.text('Tel: 011 7006588\n'),
+        adapter.text(`${sep}\n`),
+        adapter.text('** PAWN BILL / රාකනු රසීදය **\n', true),
+        adapter.text(`${sep}\n`),
+        // ── BODY (left aligned) ──
+        adapter.align(0),
+        adapter.text(`R No: ${billNo}\n`, true),
+        adapter.text(`Date: ${billDate}\n`),
+        adapter.text(`Months / මාස: ${billMonths}\n`),
+        adapter.text(`${sep}\n`),
+        adapter.text(`I the undersigned: ${billName}\n`),
+        adapter.text(`of: ${billAddress}\n`),
+        adapter.text(`NIC: ${billNic}\n`),
+        adapter.text(`Phone: ${billPhone}\n`),
+        adapter.text('being the lawful owner of the articles\n'),
+        adapter.text('mentioned below has sold out right for\n'),
+        // ── AMOUNT (centered) ──
+        adapter.align(1),
+        adapter.text(`${sep}\n`),
+        adapter.text(`Rs. ${fmt(amt)}\n`, true, false, true),
+        adapter.text(`${sep}\n`),
+        // ── ARTICLES (left) ──
+        adapter.align(0),
+        adapter.text('ARTICLES DESCRIPTION:\n', true),
+        adapter.text(`${billDesc}\n`, true),
+        adapter.text(`Appraised: Rs. ${billAppraised}\n`),
+        adapter.text(`Total Weight: ${billWeight}\n`),
+        adapter.text(`${sep}\n`),
+        // ── TERMS ──
+        adapter.text('I hold responsible and liable for any\n'),
+        adapter.text('claims arising on sale of the articles.\n'),
+        adapter.text('මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.\n'),
+        adapter.text(`${sep}\n`),
+        adapter.text(`Last Date: ${billLastDate}\n`, true),
+        adapter.text(`Name: ${billName}\n`),
+        adapter.feed(3),
+        // ── STUB ──
+        adapter.text(`${sep}\n`),
+        adapter.text(`R No: ${billNo}    ........ Signature\n`),
+        adapter.feed(4),
+        adapter.cut(),
+      ];
 
-    const finalAmount = parseFloat(state.billAmount) || parseFloat(p.disbursed_amount) || 0;
-    const finalAppraised = parseFloat(state.billAppraised) || parseFloat(p.appraised_value) || finalAmount;
-    const finalDesc = state.billDesc || getCleanDescription(p) || 'Gold Collateral';
-    const finalBranchAddress = state.billBranchAddress || getBranchAddress(p, branchesList) || 'Branch Office';
 
-    let wVal = (parseFloat(p.weight_grams) || 0) + ((parseFloat(p.weight_mg) || 0) / 1000);
-    if (wVal <= 0) {
-      wVal = parseFloat(String(p.weight || '').replace(/[^0-9.]/g, '')) || 0;
-    }
-    let finalWeight = state.billWeight;
-    if (!finalWeight || finalWeight === 'g' || finalWeight === '0 g' || finalWeight === '0') {
-      if (wVal > 0) {
-        const g = Math.floor(wVal);
-        const mg = Math.round((wVal - g) * 1000);
-        finalWeight = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+      const payload = EscPosAdapter.concat(lines);
+      await transport.write(payload);
+
+      toast.success('Pawn Bill Printed via Bluetooth!', { id: toastId });
+      setTimeout(() => transport.disconnect(), 1000);
+
+    } catch (err: any) {
+      if (err.name === 'NotFoundError' || err.message?.includes('cancel')) {
+        toast.error('Bluetooth connection cancelled.', { id: toastId });
       } else {
-        finalWeight = '—';
+        toast.error('Bluetooth Print Failed', { description: err.message, id: toastId });
       }
+    } finally {
+      setIsBluetoothPrinting(false);
     }
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8"/>
-        <title>Pawn Bill - ${finalBillNo}</title>
-        <style>
-          body { 
-            font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; 
-            background: white; 
-            color: #0f172a; 
-            margin: 0; padding: 0;
-          }
-          .bill-card {
-            margin: 0 auto; 
-            background: white; 
-            color: #0f172a; 
-            padding: 20px; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 8px;
-          }
-          @media print {
-            .no-print, #selection-screen { display: none !important; }
-            html, body { 
-              -webkit-print-color-adjust: exact !important; 
-              print-color-adjust: exact !important; 
-              background: white !important; 
-              margin: 0 !important; padding: 0 !important; 
-            }
-            .bill-card {
-              border: none;
-              padding: 0;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <!-- PAPER SIZE SELECTION SCREEN -->
-        <div id="selection-screen" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:Arial,sans-serif; background-color:#f3f4f6; position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999;">
-            <h2 style="color:#111827; margin-bottom: 20px;">Select Paper Size for Pawn Bill</h2>
-            <div style="display:flex; gap:15px; flex-wrap: wrap; justify-content: center; max-width: 600px;">
-                <button onclick="startPrinting('A4')" style="padding:15px 25px; font-size:15px; cursor:pointer; background-color:#3b82f6; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                    <strong>A4 Size</strong><br/><span style="font-size:12px; opacity:0.8;">Standard Format</span>
-                </button>
-                <button onclick="startPrinting('A5')" style="padding:15px 25px; font-size:15px; cursor:pointer; background-color:#10b981; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                    <strong>A5 Size (PC)</strong><br/><span style="font-size:12px; opacity:0.8;">For Laptops/Desktops</span>
-                </button>
-                <button onclick="startPrinting('A5_TABLET')" style="padding:15px 25px; font-size:15px; cursor:pointer; background-color:#f59e0b; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                    <strong>A5 Size (Tablet Fix)</strong><br/><span style="font-size:12px; opacity:0.8;">Use if App forces A4</span>
-                </button>
-            </div>
-        </div>
-
-        <div id="bill-content" style="display:none;" class="bill-card">
-          <!-- Header -->
-          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 12px;">
-            <h2 style="font-size: 20px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
-            <p style="font-size: 10px; font-weight: 700; font-style: italic; color: #334155; margin: 2px 0;">(PREVIOUSLY L. S. RUPASINGHE PAWN BROKERS)</p>
-            <div style="display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 600; color: #1e293b; margin-top: 4px;">
-              <span>Phone: 011 7006588</span>
-              <span style="font-weight: 700;">${finalBranchAddress}</span>
-            </div>
-          </div>
-
-          <!-- Top Row: Months & Date -->
-          <div style="display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; margin-bottom: 10px;">
-            <div>
-              <span>මාස / Months: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${finalMonths}</span>
-            </div>
-            <div>
-              <span>Date: </span> <span style="border-bottom: 1px solid #0f172a; padding: 0 10px; font-family: monospace;">${finalDate}</span>
-            </div>
-          </div>
-
-          <!-- Customer Declaration -->
-          <div style="font-size: 11.5px; margin-bottom: 12px; line-height: 1.7;">
-            <div>
-              I the undersigned <span style="border-bottom: 1px solid #0f172a; font-weight: bold; padding: 0 8px;">${finalName}</span>
-            </div>
-            <div>
-              of <span style="border-bottom: 1px solid #0f172a; padding: 0 8px;">${finalAddress}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
-              <div>N.I.C. No. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; padding: 0 8px;">${finalNic}</span></div>
-              <div>Phone No. <span style="border-bottom: 1px solid #0f172a; font-family: monospace; padding: 0 8px;">${finalPhone}</span></div>
-            </div>
-            <div style="margin-top: 4px;">
-              being the lawful owner of the articles mentioned below has sold out right for
-            </div>
-            <div style="margin-top: 4px;">
-              Rs. <span style="border-bottom: 1px solid #0f172a; font-weight: bold; font-family: monospace; font-size: 15px; padding: 0 8px;">Rs. ${finalAmount.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <!-- Articles Description & Weight -->
-          <div style="border: 1px solid #94a3b8; border-radius: 6px; padding: 10px; margin-bottom: 12px; background: #f8fafc;">
-            <div style="font-weight: bold; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Articles Description:</div>
-            <div style="font-weight: bold; font-size: 14px; color: #0f172a; margin-bottom: 6px;">${finalDesc}</div>
-            <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; border-top: 1px solid #cbd5e1; padding-top: 6px; color: #1e293b;">
-              <span>Appraised Valuation: <b>Rs. ${finalAppraised.toLocaleString()}</b></span>
-              <span>Total Weight: <b style="font-family: monospace;">${finalWeight}</b></span>
-            </div>
-          </div>
-
-          <!-- Legal Terms -->
-          <div style="font-size: 10px; color: #1e293b; margin-bottom: 12px; line-height: 1.4;">
-            <p style="margin: 2px 0;">I hold responsible and liable or any claims that may arise on the sale of the articles.</p>
-            <p style="font-weight: bold; color: #0f172a; margin: 2px 0;">මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.</p>
-            <p style="font-size: 9.5px; margin: 2px 0;">රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් එදිනට පසු බඩු විකුණනු ලැබේ.</p>
-          </div>
-
-          <!-- Boxed Amount, Last Date, Signature & Stamp -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 10px 0; margin-bottom: 12px;">
-            <div style="width: 58%;">
-              <div style="border: 2px solid #0f172a; border-radius: 6px; padding: 6px; text-align: center; background: #f8fafc; margin-bottom: 8px;">
-                <span style="font-size: 11px; font-weight: bold; color: #475569; display: block;">Rs.</span>
-                <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">Rs. ${finalAmount.toLocaleString()}</span>
-              </div>
-              <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px;">
-                <span>අවසාන දිනය / Last Date: </span>
-                <span style="border-bottom: 1px solid #0f172a; font-family: monospace;">${finalLastDate}</span>
-              </div>
-              <div style="font-size: 11px; margin-bottom: 4px;">
-                <span>ගනුදෙනු බාරගත් අයගේ අත්සන: </span>
-                <span style="border-bottom: 1px solid #0f172a;">............................</span>
-              </div>
-              <div style="font-size: 11px;">
-                <span>නම: </span>
-                <span style="border-bottom: 1px solid #0f172a; font-weight: 600;">${finalName}</span>
-              </div>
-            </div>
-
-            <div style="width: 38%; text-align: center;">
-              <div style="width: 90px; height: 90px; border: 2px dashed #94a3b8; border-radius: 6px; margin: 0 auto 8px auto; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #94a3b8;">
-                STAMP
-              </div>
-              <div style="font-size: 15px; font-weight: 900; font-family: monospace; color: #0f172a;">
-                R No. <span style="color: #1e3a8a;">${finalBillNo}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Perforated Stub Line -->
-          <div style="border-top: 2px dashed #94a3b8; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-family: monospace; font-weight: bold;">
-            <div>R No. <span style="color: #1e3a8a;">${finalBillNo}</span></div>
-            <div style="font-weight: normal; font-size: 11px; font-family: sans-serif; color: #475569;">......................................... Signature</div>
-          </div>
-        </div>
-        <script>
-          function startPrinting(paperSize) {
-              document.getElementById('selection-screen').style.display = 'none';
-              document.getElementById('bill-content').style.display = 'block';
-
-              const style = document.createElement('style');
-              if (paperSize === 'A5') {
-                  style.innerHTML = \`
-                      @page { size: A5 portrait; margin: 5mm 8mm; }
-                      .bill-card { max-width: 100%; }
-                  \`;
-              } else if (paperSize === 'A5_TABLET') {
-                  style.innerHTML = \`
-                      @page { size: A4 portrait; margin: 0; }
-                      body { margin: 0; padding: 0; display: flex; justify-content: flex-start; align-items: flex-start; }
-                      .bill-card { 
-                          width: 135mm; 
-                          max-width: 135mm; 
-                          margin-top: 5mm;
-                          margin-left: 8mm;
-                          padding: 0;
-                      }
-                  \`;
-              } else {
-                  style.innerHTML = \`
-                      @page { size: A4 portrait; margin: 10mm 15mm; }
-                      .bill-card { max-width: 650px; }
-                  \`;
-              }
-              document.head.appendChild(style);
-
-              setTimeout(() => {
-                  window.print();
-                  setTimeout(() => { window.close(); }, 500);
-              }, 100);
-          }
-        </script>
-      </body>
-      </html>
-    `;
   };
 
-  const handlePrint = (targetPawn?: any) => {
-    const printWindow = window.open('', '_blank', 'width=800,height=900');
-    if (!printWindow) return;
-    const html = getPrintableBillHtml(targetPawn || pawn, {
-      billNo, billMonths, billDate, billBranchAddress, billName, billAddress, billNic, billPhone, billAmount, billDesc, billAppraised, billWeight, billLastDate
-    });
-    printWindow.document.write(html);
-    printWindow.document.close();
-  };
-
-  const handleDownloadPdf = () => {
-    const printWin = window.open('', '_blank', 'width=800,height=900');
-    if (!printWin) {
-      toast.error('Popup blocked. Please allow popups and try again.');
-      return;
-    }
-    const html = getPrintableBillHtml(pawn, {
-      billNo, billMonths, billDate, billBranchAddress, billName, billAddress, billNic, billPhone, billAmount, billDesc, billAppraised, billWeight, billLastDate
-    });
-    printWin.document.write(html);
-    printWin.document.close();
-    toast.success('Print dialog opened — select "Save as PDF" to download.');
-  };
 
   return (
     <Dialog open={!!pawn} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -2066,23 +1894,18 @@ function PawnDetailsModal({
                 Reset Defaults
               </Button>
               <Button
-                onClick={handleDownloadPdf}
+                onClick={handleBluetoothPrint}
+                disabled={isBluetoothPrinting}
                 type="button"
-                variant="outline"
-                className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/60 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+                className="bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
               >
-                <Download className="w-4 h-4" /> Download PDF
-              </Button>
-              <Button
-                onClick={handlePrint}
-                type="button"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
-              >
-                <Printer className="w-4 h-4" /> Print Customer Bill
+                <Bluetooth className="w-4 h-4" />
+                {isBluetoothPrinting ? 'PRINTING...' : 'BLUETOOTH PRINT (80mm)'}
               </Button>
             </div>
           </div>
         </DialogHeader>
+
 
         {/* Interactive Bill Editor Container */}
         <div className="py-4 flex justify-center bg-slate-900/80 rounded-2xl border border-slate-800 my-2">

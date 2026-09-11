@@ -39,4 +39,4 @@ export async function POST(req: Request) {
     console.error('CCTV Agent Heartbeat error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+}
