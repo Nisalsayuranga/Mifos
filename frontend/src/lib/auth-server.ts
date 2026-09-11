@@ -12,7 +12,7 @@ export const adminSupabase = createClient(supabaseUrl, supabaseServiceKey, {
 export interface AuthSession {
   user: any;
   profile: any;
-  role: 'ADMIN' | 'TELLER';
+  role: 'ADMIN' | 'TELLER' | 'AUDITOR';
   branchId: string;
   branchName?: string;
   isAuthorized: boolean;
@@ -59,7 +59,7 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
       .eq('id', user.id)
       .single();
 
-    const role = (profile?.role || 'TELLER').toUpperCase() as 'ADMIN' | 'TELLER';
+    const role = (profile?.role || 'TELLER').toUpperCase() as 'ADMIN' | 'TELLER' | 'AUDITOR';
     const branchId = profile?.branch_id || 'HQ';
     const branchName = profile?.branch_name || '';
 
@@ -83,7 +83,7 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
  */
 export function validateBranchAccess(session: AuthSession | null, targetBranchId?: string | null): boolean {
   if (!session) return false;
-  if (session.role === 'ADMIN') return true;
+  if (session.role === 'ADMIN' || session.role === 'AUDITOR') return true;
 
   // TELLER role
   if (!targetBranchId || targetBranchId === 'ALL' || targetBranchId === 'HQ') {
@@ -100,7 +100,7 @@ export function validateBranchAccess(session: AuthSession | null, targetBranchId
  */
 export async function enforceApiAuth(
   request: Request,
-  requiredRole?: 'ADMIN' | 'TELLER',
+  requiredRole?: 'ADMIN' | 'TELLER' | 'AUDITOR',
   targetBranchId?: string | null
 ): Promise<{ session: AuthSession | null; errorResponse: NextResponse | null }> {
   const session = await getAuthenticatedUser(request);

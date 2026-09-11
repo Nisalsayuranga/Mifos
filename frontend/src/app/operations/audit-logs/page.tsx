@@ -25,8 +25,42 @@ export default function AuditLogsPage() {
   const [dateFilter, setDateFilter] = useState('ALL');
   const [userRole, setUserRole] = useState('TELLER');
 
+  /* Auditor Verification State */
+  const [verifiedLogsMap, setVerifiedLogsMap] = useState<Record<string, { verifiedBy: string; verifiedAt: string }>>({});
+
   /* Details Inspector Modal */
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
+
+  useEffect(() => {
+    try {
+      const storedMap = localStorage.getItem('auditor_verified_logs');
+      if (storedMap) {
+        setVerifiedLogsMap(JSON.parse(storedMap));
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleVerifyLog = (logId: string) => {
+    const stored = localStorage.getItem('user');
+    const user = stored ? JSON.parse(stored) : null;
+    const auditorEmail = user?.email || 'Auditor';
+
+    setVerifiedLogsMap(prev => {
+      const updated = {
+        ...prev,
+        [logId]: {
+          verifiedBy: auditorEmail,
+          verifiedAt: new Date().toISOString()
+        }
+      };
+      localStorage.setItem('auditor_verified_logs', JSON.stringify(updated));
+      return updated;
+    });
+
+    toast.success('Audit Log Verified!', {
+      description: `Log entry officially verified by ${auditorEmail}.`
+    });
+  };
 
   const loadBranches = async () => {
     try {
@@ -46,7 +80,7 @@ export default function AuditLogsPage() {
       if (user) setUserRole(user.role || 'TELLER');
 
       const params = new URLSearchParams({
-        branchId: user?.role === 'ADMIN' ? filterBranch : (user?.branchId || 'HQ'),
+        branchId: (user?.role === 'ADMIN' || user?.role === 'AUDITOR') ? filterBranch : (user?.branchId || 'HQ'),
         action: filterAction,
       });
 
@@ -437,16 +471,36 @@ export default function AuditLogsPage() {
                           </div>
                         </TableCell>
 
-                        {/* Inspect Details Button */}
+                        {/* Inspect & Auditor Verification Buttons */}
                         <TableCell className="text-right pr-6">
-                          <Button
-                            onClick={() => setSelectedLog(log)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-3 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 font-bold rounded-xl text-xs gap-1.5"
-                          >
-                            <Eye className="w-3.5 h-3.5" /> Details
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {verifiedLogsMap[log.id] ? (
+                              <span 
+                                className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2.5 py-1 rounded-lg"
+                                title={`Verified by ${verifiedLogsMap[log.id].verifiedBy} on ${new Date(verifiedLogsMap[log.id].verifiedAt).toLocaleString()}`}
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                              </span>
+                            ) : (userRole === 'ADMIN' || userRole === 'AUDITOR') ? (
+                              <Button
+                                onClick={() => handleVerifyLog(log.id)}
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 font-black text-[10px] uppercase tracking-wider rounded-xl gap-1 cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3 h-3" /> Verify
+                              </Button>
+                            ) : null}
+
+                            <Button
+                              onClick={() => setSelectedLog(log)}
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-3 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 font-bold rounded-xl text-xs gap-1.5 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Details
+                            </Button>
+                          </div>
                         </TableCell>
 
                       </TableRow>

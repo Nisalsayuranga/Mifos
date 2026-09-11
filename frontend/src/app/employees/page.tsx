@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 
 // Branches will be fetched dynamically from /api/branches
 
-const ROLES = ['TELLER', 'ADMIN'];
+const ROLES = ['TELLER', 'ADMIN', 'AUDITOR'];
 
 export default function StaffPage() {
   const [staff, setStaff]             = useState<any[]>([]);
@@ -200,6 +200,7 @@ export default function StaffPage() {
 
   const roleColor = (r: string) => {
     if (r === 'ADMIN') return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+    if (r === 'AUDITOR') return 'bg-amber-100 text-amber-900 border-amber-300';
     return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   };
 
@@ -237,11 +238,12 @@ export default function StaffPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Total Users',  value: staff.length,                                              color: 'text-slate-900' },
           { label: 'Branches',     value: branches.length,                                           color: 'text-emerald-600' },
           { label: 'Admins',       value: staff.filter(s => s.role === 'ADMIN').length,              color: 'text-indigo-600' },
+          { label: 'Auditors',     value: staff.filter(s => s.role === 'AUDITOR').length,            color: 'text-amber-600' },
           { label: 'Active Today', value: staff.filter(s => s.lastSignIn && new Date(s.lastSignIn) > new Date(Date.now() - 86400000)).length, color: 'text-primary' },
         ].map(s => (
           <div key={s.label} className="glass border-white/40 rounded-2xl p-6 shadow-lg">
@@ -456,6 +458,10 @@ export default function StaffPage() {
                       <span className="text-indigo-600 font-bold flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5" /> All Branches (Admin)
                       </span>
+                    ) : user.role === 'AUDITOR' ? (
+                      <span className="text-amber-700 font-bold flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> All Branches (Auditor)
+                      </span>
                     ) : (
                       <div className="flex flex-col">
                         <span className="text-slate-900 font-bold">{user.branch_name || 'Rotational Branch'}</span>
@@ -465,7 +471,7 @@ export default function StaffPage() {
                   </TableCell>
                   <TableCell className="px-8 py-5">
                     <span className="font-black text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-lg tracking-widest" title={user.branch_id}>
-                      {user.role === 'ADMIN' ? 'ALL' : ((user.branch_id && user.branch_id.length > 8) ? `${user.branch_id.substring(0, 8)}...` : (user.branch_id || 'ANY'))}
+                      {(user.role === 'ADMIN' || user.role === 'AUDITOR') ? 'ALL' : ((user.branch_id && user.branch_id.length > 8) ? `${user.branch_id.substring(0, 8)}...` : (user.branch_id || 'ANY'))}
                     </span>
                   </TableCell>
                   <TableCell className="px-8 py-5">

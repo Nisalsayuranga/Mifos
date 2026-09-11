@@ -84,6 +84,13 @@ const navGroups = [
   }
 ];
 
+const auditorNavItems = [
+  { name: 'Customers', href: '/clients', icon: Users },
+  { name: 'Pawnings', href: '/loans', icon: Wallet },
+  { name: 'Vault Stock', href: '/operations/eod?tab=stock', icon: Layers },
+  { name: 'Audit Logs', href: '/operations/audit-logs', icon: ShieldCheck },
+];
+
 export default function TopGlassNavbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -152,68 +159,93 @@ export default function TopGlassNavbar() {
           </div>
         </Link>
 
-        {/* Desktop Navigation Group Dropdowns */}
-        <div className="hidden lg:flex items-center gap-1.5" ref={dropdownRef}>
-          {navGroups.map((group) => {
-            const GroupIcon = group.icon;
-            const isGroupActive = group.items.some(item => pathname === item.href);
-            const isOpen = activeDropdown === group.label;
-
-            return (
-              <div key={group.label} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setActiveDropdown(isOpen ? null : group.label)}
-                  onMouseEnter={() => setActiveDropdown(group.label)}
+        {/* Auditor Specialized Navigation Bar */}
+        {user?.role === 'AUDITOR' ? (
+          <div className="hidden lg:flex items-center gap-2">
+            {auditorNavItems.map((item) => {
+              const isItemActive = pathname === item.href || (item.href.includes('tab=stock') && pathname.includes('eod'));
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
                   className={cn(
-                    "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer outline-none",
-                    isGroupActive || isOpen
-                      ? "bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm"
+                    "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer",
+                    isItemActive
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-md"
                       : "text-slate-300 hover:bg-white/10 hover:text-white border border-transparent"
                   )}
                 >
-                  <GroupIcon className={cn("w-4 h-4", isGroupActive ? "text-amber-400" : "text-slate-400")} />
-                  <span>{group.label}</span>
-                  <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200", isOpen && "rotate-180")} />
-                </button>
+                  <ItemIcon className={cn("w-4 h-4", isItemActive ? "text-amber-400" : "text-slate-400")} />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          /* Desktop Navigation Group Dropdowns */
+          <div className="hidden lg:flex items-center gap-1.5" ref={dropdownRef}>
+            {navGroups.map((group) => {
+              const GroupIcon = group.icon;
+              const isGroupActive = group.items.some(item => pathname === item.href);
+              const isOpen = activeDropdown === group.label;
 
-                {/* Dropdown Menu Popup */}
-                {isOpen && (
-                  <div 
-                    onMouseLeave={() => setActiveDropdown(null)}
-                    className="absolute top-full left-0 mt-2 w-64 bg-slate-950/95 backdrop-blur-2xl border border-amber-500/25 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+              return (
+                <div key={group.label} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setActiveDropdown(isOpen ? null : group.label)}
+                    onMouseEnter={() => setActiveDropdown(group.label)}
+                    className={cn(
+                      "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer outline-none",
+                      isGroupActive || isOpen
+                        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white border border-transparent"
+                    )}
                   >
-                    <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5 mb-1">
-                      {group.label} Menu
-                    </div>
-                    {group.items.map((item) => {
-                      if (item.adminOnly && user?.role !== 'ADMIN') return null;
-                      const isItemActive = pathname === item.href;
-                      const ItemIcon = item.icon;
+                    <GroupIcon className={cn("w-4 h-4", isGroupActive ? "text-amber-400" : "text-slate-400")} />
+                    <span>{group.label}</span>
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200", isOpen && "rotate-180")} />
+                  </button>
 
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          onClick={() => setActiveDropdown(null)}
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 mb-0.5",
-                            isItemActive
-                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                              : "text-slate-300 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <ItemIcon className={cn("w-4 h-4 shrink-0", isItemActive ? "text-amber-400" : "text-slate-400")} />
-                          <span className="truncate">{item.name}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  {/* Dropdown Menu Popup */}
+                  {isOpen && (
+                    <div 
+                      onMouseLeave={() => setActiveDropdown(null)}
+                      className="absolute top-full left-0 mt-2 w-64 bg-slate-950/95 backdrop-blur-2xl border border-amber-500/25 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5 mb-1">
+                        {group.label} Menu
+                      </div>
+                      {group.items.map((item) => {
+                        if (item.adminOnly && user?.role !== 'ADMIN') return null;
+                        const isItemActive = pathname === item.href;
+                        const ItemIcon = item.icon;
+
+                        return (
+                          <Link
+                            key={item.name}
+                            href={item.href}
+                            onClick={() => setActiveDropdown(null)}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 mb-0.5",
+                              isItemActive
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                : "text-slate-300 hover:bg-white/10 hover:text-white"
+                            )}
+                          >
+                            <ItemIcon className={cn("w-4 h-4 shrink-0", isItemActive ? "text-amber-400" : "text-slate-400")} />
+                            <span className="truncate">{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Right Section: Branch Badge, Profile & Logout */}
         <div className="flex items-center gap-3">
@@ -280,15 +312,14 @@ export default function TopGlassNavbar() {
             </div>
           </div>
 
-          {navGroups.map((group) => (
-            <div key={group.label} className="space-y-2">
+          {user?.role === 'AUDITOR' ? (
+            <div className="space-y-2">
               <div className="text-[11px] font-black text-amber-400 uppercase tracking-widest border-b border-white/10 pb-1">
-                {group.label}
+                Auditor Navigation Menu
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {group.items.map((item) => {
-                  if (item.adminOnly && user?.role !== 'ADMIN') return null;
-                  const isItemActive = pathname === item.href;
+                {auditorNavItems.map((item) => {
+                  const isItemActive = pathname === item.href || (item.href.includes('tab=stock') && pathname.includes('eod'));
                   const ItemIcon = item.icon;
 
                   return (
@@ -310,7 +341,39 @@ export default function TopGlassNavbar() {
                 })}
               </div>
             </div>
-          ))}
+          ) : (
+            navGroups.map((group) => (
+              <div key={group.label} className="space-y-2">
+                <div className="text-[11px] font-black text-amber-400 uppercase tracking-widest border-b border-white/10 pb-1">
+                  {group.label}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {group.items.map((item) => {
+                    if (item.adminOnly && user?.role !== 'ADMIN') return null;
+                    const isItemActive = pathname === item.href;
+                    const ItemIcon = item.icon;
+
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition-all min-h-[44px]",
+                          isItemActive
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-extrabold"
+                            : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        )}
+                      >
+                        <ItemIcon className={cn("w-4.5 h-4.5 shrink-0", isItemActive ? "text-amber-400" : "text-slate-400")} />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </header>
