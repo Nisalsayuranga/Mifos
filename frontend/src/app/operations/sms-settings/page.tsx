@@ -91,12 +91,33 @@ export default function SmsSettingsPage() {
 
   const handleBranchChange = (newBranchId: string) => {
     setSelectedBranchId(newBranchId);
+    const targetBranch = branches.find(b => b.id === newBranchId);
+
     fetch('/api/notifications/sms')
       .then(res => res.json())
       .then(data => {
-        populateFields(newBranchId, data.config);
+        const config = data.config || {};
+        if (config.branches) {
+          setBranchConfigs(config.branches);
+        }
+        populateFields(newBranchId, config);
+
+        // Smooth scroll to top editor card
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (newBranchId === 'GLOBAL') {
+          toast.info('Master Default Gateway Selected', {
+            description: 'Editing global fallback TextBee credentials.'
+          });
+        } else {
+          toast.info(`Editing device config for ${targetBranch?.name || newBranchId}`, {
+            description: `Enter the TextBee Device ID & API Key for this branch's SIM card.`
+          });
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        toast.error('Failed to load device config');
+      });
   };
 
   const handleSaveConfig = async () => {
@@ -439,9 +460,9 @@ export default function SmsSettingsPage() {
                     <TableCell className="pr-6 text-right">
                       <Button
                         onClick={() => handleBranchChange(b.id)}
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="h-8 px-3 text-xs font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-xl"
+                        className="h-8 px-3 text-xs font-black text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl shadow-xs cursor-pointer"
                       >
                         Configure Device
                       </Button>
