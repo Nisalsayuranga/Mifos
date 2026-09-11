@@ -1660,13 +1660,12 @@ function EndOfDayContent() {
         
       </div>
 
-      {/* Tabs Menu - Hidden as per request to move to sidebar */}
-      {/*
+      {/* Tabs Menu */}
       <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60 w-full md:w-fit">
         <button 
           onClick={() => setActiveTab('reconciliation')}
           className={cn(
-            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer",
             activeTab === 'reconciliation' ? "bg-white text-slate-900 shadow-md font-bold" : "text-slate-500 hover:text-slate-800"
           )}
         >
@@ -1675,14 +1674,13 @@ function EndOfDayContent() {
         <button 
           onClick={() => setActiveTab('stock')}
           className={cn(
-            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer",
             activeTab === 'stock' ? "bg-white text-slate-900 shadow-md font-bold" : "text-slate-500 hover:text-slate-800"
           )}
         >
           Pawn Stock Management
         </button>
       </div>
-      */}
 
       {/* ==========================================
           RECONCILIATION TAB VIEW
