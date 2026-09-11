@@ -10,11 +10,11 @@ export class TsplAdapter {
 
   /**
    * Initialize label configuration
-   * @param widthMm Label width in mm (default 45mm)
+   * @param widthMm Label width in mm (default 50mm)
    * @param heightMm Label height in mm (default 30mm)
    * @param gapMm Gap between labels in mm (default 2mm)
    */
-  init(widthMm = 45, heightMm = 30, gapMm = 2): Uint8Array {
+  init(widthMm = 50, heightMm = 30, gapMm = 2): Uint8Array {
     const commands: Uint8Array[] = [];
     commands.push(this.cmd(`SIZE ${widthMm} mm, ${heightMm} mm`));
     commands.push(this.cmd(`GAP ${gapMm} mm, 0 mm`));

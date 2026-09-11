@@ -90,3 +90,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(request: Request) {
+  try {
+    const session = await getAuthenticatedUser(request);
+    const body = await request.json();
+
+    const { action, resource, details, label_no, bill_no, branch_id } = body;
+
+    const userEmail = session?.user?.email || body.userEmail || 'system';
+    const role = session?.role || body.role || 'TELLER';
+    const branchId = branch_id || session?.branchId || body.branchId || 'HQ';
+
+    const payloadDetails = {
+      ...(details || {}),
+      label_no: label_no || body.labelNo || null,
+      bill_no: bill_no || body.billNo || resource || null,
+      printed_by: userEmail,
+      printed_at: new Date().toISOString()
+    };
+
+    await adminSupabase.from('audit_logs').insert([{
+      user_id: session?.user?.id || null,
+      user_email: userEmail,
+      role,
+      branch_id: branchId,
+      action: action || 'PRINT_PAWN_LABEL',
+      resource: resource || bill_no || label_no || 'LABEL',
+      details: payloadDetails,
+      created_at: new Date().toISOString()
+    }]);
+
+    return NextResponse.json({ success: true, message: 'Audit log recorded successfully' });
+  } catch (error: any) {
+    console.error('Audit Logs POST Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

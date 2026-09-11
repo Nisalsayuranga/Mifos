@@ -195,7 +195,27 @@ function EndOfDayContent() {
 
       const adapter = new TsplAdapter();
 
-      // Extract item details
+      // Extract item details & generate sequential label print number (e.g. LBL-0001)
+      const getNextLabelNo = () => {
+        try {
+          const last = parseInt(localStorage.getItem('mifos_last_label_seq') || '0', 10);
+          const next = last + 1;
+          localStorage.setItem('mifos_last_label_seq', next.toString());
+          const padded = String(next).padStart(4, '0');
+          return `LBL-${padded}`;
+        } catch (e) {
+          return `LBL-0001`;
+        }
+      };
+
+      const labelNo = getNextLabelNo();
+      let printedBy = 'Branch Teller';
+      let printedUserEmail = 'system';
+      if (currentUser) {
+        printedBy = currentUser.name || currentUser.email || currentUser.username || 'Teller';
+        printedUserEmail = currentUser.email || currentUser.username || printedBy;
+      }
+
       const billNoStr = (item.bill_no || '').toString().trim();
       const branchName = (item.branch_id || 'HQ').toString().trim();
       
@@ -207,7 +227,6 @@ function EndOfDayContent() {
         ? new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
         : '';
       const formattedWeight = `${parseFloat(item.weight || 0).toFixed(3)}g`;
-      const formattedPrice = `Rs. ${(parseFloat(item.price || 0) || 0).toLocaleString()}`;
 
       // Look up customer info for QR payload
       const customer = (stockCustomers || []).find((c: any) => {
@@ -218,8 +237,9 @@ function EndOfDayContent() {
         return c.bill_numbers.split(/[, ]+/).some((b: string) => b.trim().toUpperCase() === billNoStr.toUpperCase());
       });
 
-      // Rich QR Code Payload containing ALL Pawning & Customer details
+      // Rich QR Code Payload containing Label No, Pawning & Customer details
       const qrDetails: string[] = [
+        `NO: ${labelNo}`,
         `BILL: ${billNoStr}`,
         `BRANCH: ${branchName}`,
         `DATE: ${formattedDate}`
@@ -231,29 +251,72 @@ function EndOfDayContent() {
       }
       qrDetails.push(`ITEM: ${displayItem}`);
       qrDetails.push(`WT: ${formattedWeight}`);
-      qrDetails.push(`VAL: ${formattedPrice}`);
+      qrDetails.push(`PRINTED BY: ${printedBy}`);
 
       const qrPayload = qrDetails.join(' | ');
 
       const commands: Uint8Array[] = [
-        adapter.init(45, 30, 2),
-        // QR Code on Left (x=5, y=15, cellWidth=3: width=90 dots from x=5 to x=95)
-        adapter.qrcode(qrPayload, 5, 15, 3),
-        // Line 1: Header Branch & Bill No (x=100, y=15, font 2 - shifted 5mm left)
-        adapter.text(`${branchName} | ${billNoStr}`, 100, 15, "2", 1, 1),
-        // Line 2: Item Name (x=100, y=55, font 2)
-        adapter.text(displayItem.length > 20 ? displayItem.substring(0, 20) + '..' : displayItem, 100, 55, "2", 1, 1),
-        // Line 3: Weight & Value (x=100, y=95, font 2)
-        adapter.text(`${formattedWeight} | ${formattedPrice}`, 100, 95, "2", 1, 1),
-        // Line 4: Pawning Date (x=100, y=135, font 2)
-        adapter.text(`DATE: ${formattedDate}`, 100, 135, "2", 1, 1),
+        adapter.init(50, 30, 2),
+        // QR Code on Left (x=15, y=15, cellWidth=3)
+        adapter.qrcode(qrPayload, 15, 15, 3),
+        // Line 1: Header Branch & Bill No (x=145, y=15, font 2)
+        adapter.text(`${branchName} | ${billNoStr}`, 145, 15, "2", 1, 1),
+        // Line 2: Label Number NO: LBL-0001 (x=145, y=48, font 2)
+        adapter.text(`NO: ${labelNo}`, 145, 48, "2", 1, 1),
+        // Line 3: Item Name (x=145, y=81, font 2)
+        adapter.text(displayItem.length > 20 ? displayItem.substring(0, 20) + '..' : displayItem, 145, 81, "2", 1, 1),
+        // Line 4: Weight & Pawning Date (x=145, y=114, font 2)
+        adapter.text(`${formattedWeight} | ${formattedDate}`, 145, 114, "2", 1, 1),
         adapter.print(1, 1)
       ];
 
       const payload = adapter.concat(commands);
       await transport.write(payload);
 
-      toast.success(`Label printed for ${billNoStr}!`, { id: toastId });
+      // Record Print Event in Audit Logs
+      fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'PRINT_PAWN_LABEL',
+          resource: billNoStr,
+          label_no: labelNo,
+          bill_no: billNoStr,
+          branch_id: branchName,
+          userEmail: printedUserEmail,
+          details: {
+            label_no: labelNo,
+            bill_no: billNoStr,
+            printed_by: printedBy,
+            printed_by_email: printedUserEmail,
+            item_type: displayItem,
+            weight: formattedWeight,
+            pawning_date: formattedDate
+          }
+        })
+      }).catch(err => console.warn('Failed to post audit log:', err));
+
+      try {
+        const localLogs = JSON.parse(localStorage.getItem('local_audit_logs') || '[]');
+        localLogs.unshift({
+          id: Math.random().toString(36).substring(2, 9),
+          action: 'PRINT_PAWN_LABEL',
+          resource: `${billNoStr} (${labelNo})`,
+          user_email: printedUserEmail,
+          role: currentUser?.role || 'TELLER',
+          branch_id: branchName,
+          details: {
+            label_no: labelNo,
+            bill_no: billNoStr,
+            printed_by: printedBy,
+            printed_at: new Date().toISOString()
+          },
+          created_at: new Date().toISOString()
+        });
+        localStorage.setItem('local_audit_logs', JSON.stringify(localLogs.slice(0, 500)));
+      } catch (e) {}
+
+      toast.success(`Label ${labelNo} printed & logged by ${printedBy}!`, { id: toastId });
       setTimeout(() => transport.disconnect(), 1000);
 
     } catch (err: any) {
