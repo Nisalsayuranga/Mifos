@@ -762,7 +762,7 @@ export default function ClientsPage() {
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                     }`}
                   >
-                    🪪 NIC Front
+                    <span className="whitespace-nowrap flex items-center gap-1"><span>🪪</span> <span className="truncate">NIC Front</span></span>
                   </button>
                   <button
                     type="button"
@@ -773,7 +773,7 @@ export default function ClientsPage() {
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                     }`}
                   >
-                    🪪 NIC Back
+                    <span className="whitespace-nowrap flex items-center gap-1"><span>🪪</span> <span className="truncate">NIC Back</span></span>
                   </button>
                   <button
                     type="button"
@@ -784,7 +784,7 @@ export default function ClientsPage() {
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                     }`}
                   >
-                    ✍️ Signature
+                    <span className="whitespace-nowrap flex items-center gap-1"><span>✍️</span> <span className="truncate">Signature</span></span>
                   </button>
                 </div>
 
@@ -823,12 +823,12 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100/50">
-              <Button variant="ghost" className="font-bold text-slate-500 h-12 rounded-xl" onClick={() => { setIsOpen(false); setEditingClient(null); }}>Cancel</Button>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-4 sm:pt-6 border-t border-slate-100/50">
+              <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => { setIsOpen(false); setEditingClient(null); }}>Cancel</Button>
               <Button 
                 disabled={isSaving}
                 onClick={handleSave} 
-                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer"
+                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer w-full sm:w-auto"
               >
                 {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
                 {isSaving ? "Saving Record..." : "Register Customer"}
@@ -1012,108 +1012,111 @@ export default function ClientsPage() {
 
       {/* MODAL: CUSTOMER REGISTRY */}
       <Dialog open={showCustomerRegistryModal} onOpenChange={setShowCustomerRegistryModal}>
-        <DialogContent className="sm:max-w-[750px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[85vh] flex flex-col">
+        <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[750px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-2xl sm:rounded-[2.5rem] max-h-[85vh] flex flex-col">
           <div className="h-2 bg-blue-600 shrink-0" />
-          <div className="p-6 pb-2 shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="p-4 sm:p-6 pb-2 shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
-                <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 text-blue-600">
+              <DialogTitle className="text-xl sm:text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 text-blue-600 shrink-0">
                   <Users className="h-5 w-5" />
                 </div>
-                Customer Registry
+                <span>Customer Registry</span>
               </DialogTitle>
-              <DialogDescription className="font-medium text-slate-500 text-sm">
+              <DialogDescription className="font-medium text-slate-500 text-xs sm:text-sm">
                 Manage profile details and associated bill numbers for active vault customers.
               </DialogDescription>
             </DialogHeader>
             <Button 
               onClick={() => openAddCustomerModal("")}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-9 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-9 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md w-full sm:w-auto justify-center"
             >
               <UserPlus className="w-3.5 h-3.5" /> Add Profile
             </Button>
           </div>
 
           {/* Search bar inside Registry */}
-          <div className="px-6 py-2 shrink-0">
+          <div className="px-4 sm:px-6 py-2 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input 
                 placeholder="Search customers by name, phone or NIC..." 
-                className="pl-9 h-9 rounded-xl bg-slate-50 border-slate-200 font-medium"
+                className="pl-9 h-9 rounded-xl bg-slate-50 border-slate-200 font-medium text-xs"
                 value={customerSearchQuery}
                 onChange={(e) => setCustomerSearchQuery(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-2">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2">
             {(() => {
               const filtered = stockCustomers.filter(c => 
                 (c.name || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
                 (c.tp || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
                 (c.nic || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                (c.address || "").toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
                 (c.bill_numbers || "").toLowerCase().includes(customerSearchQuery.toLowerCase())
               );
 
+              if (loading) {
+                return <div className="py-12 text-center text-xs font-bold text-slate-400 animate-pulse">Loading active vault customer records...</div>;
+              }
+
               if (filtered.length === 0) {
-                return (
-                  <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400">
-                    <Users className="w-10 h-10 text-slate-300 mb-2" />
-                    <p className="font-bold text-xs uppercase tracking-wider">No customers registered</p>
-                  </div>
-                );
+                return <div className="py-12 text-center text-xs font-bold text-slate-400">No registered vault customers found.</div>;
               }
 
               return (
-                <div className="border border-slate-100 rounded-2xl overflow-hidden mb-4">
+                <div className="space-y-3 pb-6">
                   <Table>
                     <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableHead className="font-bold text-slate-500 text-xs">Customer</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-xs">Address</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-xs">NIC</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-xs">Linked Bills</TableHead>
-                        <th style={{ width: "80px" }} />
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Customer</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Contact</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Bills Associated</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filtered.map(c => (
-                        <TableRow key={c.id} className="hover:bg-slate-50/50">
-                          <TableCell className="py-3">
-                            <div className="font-black text-slate-900 text-xs">{c.name}</div>
-                            <div className="text-[10px] text-slate-500 font-bold mt-0.5">{c.tp}</div>
+                      {filtered.map(cust => (
+                        <TableRow key={cust.id} className="hover:bg-slate-50/80">
+                          <TableCell className="font-bold text-xs">
+                            <div className="text-slate-900">{cust.name}</div>
+                            {cust.nic && <div className="text-[10px] font-mono text-slate-400">{cust.nic}</div>}
                           </TableCell>
-                          <TableCell className="py-3 text-[11px] text-slate-600 font-semibold max-w-[200px] truncate">
-                            <div>{c.address}</div>
-                            {c.address_2 && <div className="text-slate-400 text-[10px]">{c.address_2}</div>}
+                          <TableCell className="text-xs">
+                            <div className="font-mono text-slate-700">{cust.tp || 'N/A'}</div>
+                            <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{cust.address || ''}</div>
                           </TableCell>
-                          <TableCell className="py-3 text-[11px] font-black text-slate-700">{c.nic || '—'}</TableCell>
-                          <TableCell className="py-3 max-w-[150px]">
-                            <div className="flex flex-wrap gap-1">
-                              {(c.bill_numbers || "").split(",").map((b: string) => b.trim()).filter(Boolean).map((bill: string) => (
-                                <span key={bill} className="bg-blue-50 text-blue-800 border border-blue-100 font-black px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide">
-                                  {bill}
-                                </span>
-                              ))}
-                              {(!c.bill_numbers || !c.bill_numbers.trim()) && <span className="text-slate-400 text-xs">—</span>}
-                            </div>
+                          <TableCell className="text-xs">
+                            {cust.bill_numbers ? (
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {cust.bill_numbers.split(',').map((b: string, i: number) => (
+                                  <span key={i} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[9px] font-mono font-bold">
+                                    {b.trim()}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-300 italic">No bills linked</span>
+                            )}
                           </TableCell>
-                          <TableCell className="py-3 text-right">
-                            <div className="flex items-center gap-1 justify-end">
-                              <Button 
-                                onClick={() => openEditCustomerModal(c)}
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 rounded-lg hover:bg-slate-100 text-slate-600"
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditCustomerModal(cust)}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 rounded-lg"
+                                title="Edit Customer Profile"
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </Button>
-                              <Button 
-                                onClick={() => handleDeleteCustomer(c.id)}
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 rounded-lg hover:bg-rose-50 text-rose-600"
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteCustomer(cust.id)}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600 rounded-lg"
+                                title="Delete Customer Profile"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
@@ -1128,23 +1131,23 @@ export default function ClientsPage() {
             })()}
           </div>
 
-          <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
-            <Button onClick={() => setShowCustomerRegistryModal(false)} className="rounded-xl font-bold">Close Registry</Button>
+          <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+            <Button onClick={() => setShowCustomerRegistryModal(false)} className="rounded-xl font-bold w-full sm:w-auto">Close Registry</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* MODAL: ADD/EDIT CUSTOMER */}
       <Dialog open={showAddCustomerModal} onOpenChange={setShowAddCustomerModal}>
-        <DialogContent className="sm:max-w-[480px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem] max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[480px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-2xl sm:rounded-[2.5rem] max-h-[90vh] flex flex-col">
           <div className="h-2 bg-blue-600 shrink-0" />
-          <div className="p-6 pb-2 shrink-0">
+          <div className="p-4 sm:p-6 pb-2 shrink-0">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
-                <div className="h-9 w-9 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 text-blue-600">
+              <DialogTitle className="text-lg sm:text-xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
+                <div className="h-9 w-9 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 text-blue-600 shrink-0">
                   <UserPlus className="h-4.5 w-4.5" />
                 </div>
-                {isEditingCustomer ? "Edit Customer Profile" : "Register Customer Profile"}
+                <span>{isEditingCustomer ? "Edit Customer Profile" : "Register Customer Profile"}</span>
               </DialogTitle>
               <DialogDescription className="font-medium text-slate-500 text-xs">
                 Associate customer contact details and addresses with active vault stock bills.
@@ -1152,7 +1155,7 @@ export default function ClientsPage() {
             </DialogHeader>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 space-y-4">
             <div className="grid gap-4 pb-4">
               
               {/* Customer Name */}
@@ -1163,7 +1166,7 @@ export default function ClientsPage() {
                     value={custName} 
                     onChange={e => handleNameChange(e.target.value)} 
                     placeholder="E.g. Saman Kumara" 
-                    className="h-10 border-slate-200 rounded-xl font-bold" 
+                    className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
                   />
                   {showSuggestions && nameSuggestions.length > 0 && (
                     <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] max-h-40 overflow-y-auto divide-y divide-slate-100">
@@ -1190,7 +1193,7 @@ export default function ClientsPage() {
                   value={custTp} 
                   onChange={e => setCustTp(e.target.value)} 
                   placeholder="E.g. 0771234567" 
-                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                  className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
                 />
               </div>
 
@@ -1200,8 +1203,8 @@ export default function ClientsPage() {
                 <Input 
                   value={custNic} 
                   onChange={e => setCustNic(e.target.value)} 
-                  placeholder="E.g. 199512345678" 
-                  className="h-10 border-slate-200 rounded-xl font-bold" 
+                  placeholder="E.g. 941234567V" 
+                  className="h-10 border-slate-200 rounded-xl font-bold text-xs" 
                 />
               </div>
 

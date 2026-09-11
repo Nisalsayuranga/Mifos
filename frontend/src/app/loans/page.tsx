@@ -825,14 +825,14 @@ export default function PawnesPage() {
           <div className="h-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500" />
           <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
             <DialogHeader className="border-b border-slate-100 pb-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
-                  <div className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600">
-                    <Package className="w-6 h-6" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <DialogTitle className="text-xl sm:text-2xl font-black tracking-tighter flex items-center gap-2.5 sm:gap-3 text-slate-900">
+                  <div className="p-2 sm:p-2.5 bg-amber-500/10 rounded-2xl text-amber-600 shrink-0">
+                    <Package className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
-                  {editingPawn ? 'Edit Pawn Ticket' : 'Originate New Pawn Ticket'}
+                  <span>{editingPawn ? 'Edit Pawn Ticket' : 'Originate New Pawn Ticket'}</span>
                 </DialogTitle>
-                <span className="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-xs font-mono font-bold">
+                <span className="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] sm:text-xs font-mono font-bold shrink-0">
                   Weight Unit: Milligrams (mg)
                 </span>
               </div>
@@ -1027,9 +1027,9 @@ export default function PawnesPage() {
                   </Button>
                 </div>
 
-                {/* Multi-Item Collateral List (Compact Table Row View) */}
+                {/* Multi-Item Collateral List (Responsive View) */}
                 <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                  <div className="grid grid-cols-12 gap-2 px-2 py-1 bg-slate-100/80 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">
+                  <div className="hidden sm:grid grid-cols-12 gap-2 px-2 py-1 bg-slate-100/80 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">
                     <span className="col-span-5">Item</span>
                     <span className="col-span-3">Purity</span>
                     <span className="col-span-3">Weight (mg)</span>
@@ -1039,9 +1039,72 @@ export default function PawnesPage() {
                   {itemsList.map((item, idx) => {
                     const isOther = item.itemType === 'OTHER';
                     return (
-                      <div key={idx} className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-2 transition-all">
-                        <div className="grid grid-cols-12 gap-2 items-center">
-                          {/* Item Dropdown */}
+                      <div key={idx} className="p-2.5 sm:p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-2 transition-all">
+                        {/* Mobile View (< sm) */}
+                        <div className="flex sm:hidden flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <Select
+                                value={item.itemType || 'CH'}
+                                onValueChange={v => handleUpdateItem(idx, 'itemType', v)}
+                              >
+                                <SelectTrigger className="h-9 bg-white border-slate-200 text-xs font-bold w-full">
+                                  <SelectValue placeholder="Select Item" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-200">
+                                  {ITEM_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.code} value={opt.code} className="text-xs font-medium">
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {itemsList.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveItem(idx)}
+                                className="h-9 w-9 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0"
+                                title="Remove Item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Select
+                                value={item.purity || '22K'}
+                                onValueChange={v => handleUpdateItem(idx, 'purity', v)}
+                              >
+                                <SelectTrigger className="h-9 bg-white border-slate-200 text-xs font-bold w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-200">
+                                  <SelectItem value="24K" className="text-xs font-bold">24K (99.9%)</SelectItem>
+                                  <SelectItem value="22K" className="text-xs font-bold">22K (91.6%)</SelectItem>
+                                  <SelectItem value="20K" className="text-xs font-bold">20K (83.3%)</SelectItem>
+                                  <SelectItem value="18K" className="text-xs font-bold">18K (75.0%)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="relative flex items-center">
+                              <Input
+                                type="number"
+                                value={item.weightMg}
+                                onChange={e => handleUpdateItem(idx, 'weightMg', e.target.value)}
+                                placeholder="12500"
+                                className="h-9 bg-white font-mono font-bold text-xs pr-7 w-full"
+                              />
+                              <span className="absolute right-2 text-[10px] font-black text-slate-400 pointer-events-none">mg</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Desktop View (>= sm) */}
+                        <div className="hidden sm:grid grid-cols-12 gap-2 items-center">
                           <div className="col-span-5">
                             <Select
                               value={item.itemType || 'CH'}
@@ -1059,8 +1122,6 @@ export default function PawnesPage() {
                               </SelectContent>
                             </Select>
                           </div>
-
-                          {/* Purity Dropdown */}
                           <div className="col-span-3">
                             <Select
                               value={item.purity || '22K'}
@@ -1077,8 +1138,6 @@ export default function PawnesPage() {
                               </SelectContent>
                             </Select>
                           </div>
-
-                          {/* Weight (mg) Input */}
                           <div className="col-span-3 relative flex items-center">
                             <Input
                               type="number"
@@ -1089,8 +1148,6 @@ export default function PawnesPage() {
                             />
                             <span className="absolute right-2 text-[10px] font-black text-slate-400 pointer-events-none">mg</span>
                           </div>
-
-                          {/* Delete Button */}
                           <div className="col-span-1 flex justify-center">
                             {itemsList.length > 1 ? (
                               <Button
@@ -1129,9 +1186,9 @@ export default function PawnesPage() {
                 </div>
 
                 {/* Aggregate Summary */}
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between text-xs">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between text-xs flex-wrap gap-1">
                   <div className="flex items-center gap-2 text-amber-900 font-bold">
-                    <Scale className="w-4 h-4 text-amber-600" />
+                    <Scale className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Collateral Items: {itemsList.length}</span>
                   </div>
                   <span className="font-mono font-black text-amber-900 text-xs">
@@ -1140,7 +1197,7 @@ export default function PawnesPage() {
                 </div>
 
                 {/* Financial Values */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="grid gap-1">
                     <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Appraised Value (Rs.)</Label>
                     <Input value={appraisal} onChange={e => setAppraisal(e.target.value)} type="number" placeholder="100000" className="h-11 bg-white rounded-xl text-xs font-bold" />
@@ -1156,12 +1213,12 @@ export default function PawnesPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <Button variant="ghost" className="font-bold text-slate-500 h-12 rounded-xl" onClick={() => setIsOpen(false)}>Cancel</Button>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => setIsOpen(false)}>Cancel</Button>
               <Button
                 disabled={isSaving}
                 onClick={handleSave}
-                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-12 rounded-xl shadow-lg shadow-primary/20 gap-2"
+                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 w-full sm:w-auto"
               >
                 {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
                 {isSaving ? 'Saving...' : (editingPawn ? 'Update Ticket' : 'Finalize & Disburse')}
