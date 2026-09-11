@@ -821,10 +821,12 @@ export default function PawnesPage() {
 
       {/* Dialog */}
       <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
-        <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 rounded-2xl sm:rounded-[2.5rem]">
-          <div className="h-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500" />
-          <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
-            <DialogHeader className="border-b border-slate-100 pb-4">
+        <DialogContent className="w-[95vw] sm:w-[92vw] lg:max-w-5xl max-h-[90vh] bg-white border border-slate-200 shadow-2xl p-0 rounded-2xl sm:rounded-[2.5rem] flex flex-col overflow-hidden">
+          <div className="h-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 shrink-0" />
+          
+          {/* Fixed Header */}
+          <div className="p-4 sm:p-6 pb-3 border-b border-slate-100 shrink-0 bg-white">
+            <DialogHeader>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <DialogTitle className="text-xl sm:text-2xl font-black tracking-tighter flex items-center gap-2.5 sm:gap-3 text-slate-900">
                   <div className="p-2 sm:p-2.5 bg-amber-500/10 rounded-2xl text-amber-600 shrink-0">
@@ -840,9 +842,12 @@ export default function PawnesPage() {
                 {editingPawn ? 'Update pawn collateral details below.' : 'Record collateral item details, calculate valuation, and process principal disbursal.'}
               </DialogDescription>
             </DialogHeader>
+          </div>
 
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
             {/* 2-COLUMN GRID LAYOUT */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
 
               {/* LEFT COLUMN: Customer & Ticket Details */}
               <div className="space-y-5">
@@ -1211,19 +1216,19 @@ export default function PawnesPage() {
               </div>
 
             </div>
+          </div>
 
-            {/* Footer */}
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-4 border-t border-slate-100">
-              <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => setIsOpen(false)}>Cancel</Button>
-              <Button
-                disabled={isSaving}
-                onClick={handleSave}
-                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 w-full sm:w-auto"
-              >
-                {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
-                {isSaving ? 'Saving...' : (editingPawn ? 'Update Ticket' : 'Finalize & Disburse')}
-              </Button>
-            </div>
+          {/* Fixed Footer */}
+          <div className="p-4 sm:p-6 pt-3 border-t border-slate-100 bg-slate-50/80 shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
+            <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => setIsOpen(false)}>Cancel</Button>
+            <Button
+              disabled={isSaving}
+              onClick={handleSave}
+              className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 w-full sm:w-auto"
+            >
+              {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
+              {isSaving ? 'Saving...' : (editingPawn ? 'Update Ticket' : 'Finalize & Disburse')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -706,45 +706,50 @@ export default function ClientsPage() {
 
       {/* New Customer Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="w-[96vw] max-w-[96vw] md:max-w-4xl max-h-[95vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-2xl sm:rounded-[2.5rem]">
-          <div className="h-2 bg-primary animate-pulse" />
-          <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+        <DialogContent className="w-[95vw] sm:w-[92vw] lg:max-w-4xl max-h-[90vh] bg-white border border-slate-200 shadow-2xl p-0 rounded-2xl sm:rounded-[2.5rem] flex flex-col overflow-hidden">
+          <div className="h-2 bg-primary animate-pulse shrink-0" />
+          
+          {/* Fixed Header */}
+          <div className="p-4 sm:p-6 pb-3 border-b border-slate-100 shrink-0 bg-white">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3">
-                 {editingClient ? <UserCog className="w-6 h-6 text-primary" /> : <UserPlus className="w-6 h-6 text-primary" />}
-                 {editingClient ? "Edit Customer Record" : "Register New Customer"}
+              <DialogTitle className="text-xl sm:text-2xl font-black tracking-tighter flex items-center gap-2.5 sm:gap-3">
+                 {editingClient ? <UserCog className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> : <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />}
+                 <span>{editingClient ? "Edit Customer Record" : "Register New Customer"}</span>
               </DialogTitle>
-              <DialogDescription className="font-medium text-slate-500">
+              <DialogDescription className="font-medium text-slate-500 text-xs sm:text-sm mt-1">
                 {editingClient ? "Update current customer KYC and profile." : "Enter customer details and capture webcam images for KYC verification."}
               </DialogDescription>
             </DialogHeader>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
               {/* Left Column: Form Inputs */}
               <div className="space-y-4">
-                <div className="grid gap-2">
+                <div className="grid gap-1.5">
                   <Label htmlFor="nic" className="font-black text-[10px] uppercase tracking-widest text-slate-400">NIC Number (Primary Key)</Label>
-                  <Input value={nic} onChange={e=>setNic(e.target.value)} id="nic" placeholder="e.g. 941234567V or 199412345678" className="h-12 bg-white/50 rounded-xl font-mono font-bold text-slate-800" />
+                  <Input value={nic} onChange={e=>setNic(e.target.value)} id="nic" placeholder="e.g. 941234567V or 199412345678" className="h-11 bg-white/50 rounded-xl font-mono font-bold text-slate-800 text-xs sm:text-sm" />
                 </div>
                 
-                <div className="grid gap-2">
+                <div className="grid gap-1.5">
                   <Label htmlFor="firstName" className="font-black text-[10px] uppercase tracking-widest text-slate-400">Name with Initials</Label>
-                  <Input value={firstName} onChange={e=>setFirstName(e.target.value)} id="firstName" placeholder="e.g. A.B.C. Perera" className="h-12 bg-white/50 rounded-xl font-bold text-slate-800" />
+                  <Input value={firstName} onChange={e=>setFirstName(e.target.value)} id="firstName" placeholder="e.g. A.B.C. Perera" className="h-11 bg-white/50 rounded-xl font-bold text-slate-800 text-xs sm:text-sm" />
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-1.5">
                   <Label htmlFor="phone" className="font-black text-[10px] uppercase tracking-widest text-slate-400">TP (Phone Number)</Label>
-                  <Input value={phone} onChange={e=>setPhone(e.target.value)} id="phone" placeholder="e.g. 077 123 4567" className="h-12 bg-white/50 rounded-xl font-mono font-bold text-slate-800" />
+                  <Input value={phone} onChange={e=>setPhone(e.target.value)} id="phone" placeholder="e.g. 077 123 4567" className="h-11 bg-white/50 rounded-xl font-mono font-bold text-slate-800 text-xs sm:text-sm" />
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-1.5">
                   <Label htmlFor="address" className="font-black text-[10px] uppercase tracking-widest text-slate-400">Address</Label>
                   <textarea 
                     value={address} 
                     onChange={e=>setAddress(e.target.value)} 
                     id="address" 
                     placeholder="Enter customer permanent address..." 
-                    className="w-full h-24 p-3 bg-white/50 border border-slate-200 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none" 
+                    className="w-full h-20 sm:h-24 p-3 bg-white/50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none" 
                   />
                 </div>
               </div>
@@ -793,7 +798,7 @@ export default function ClientsPage() {
                   {activeKycTab === 'nic_front' && (
                     <WebcamCapture 
                       key="nic_front_capture"
-                      label="NIC Front Side Webcam Scan" 
+                      label="NIC Front Side Scan" 
                       onCapture={(base64) => setNicFrontImage(base64)} 
                       initialImage={nicFrontImage} 
                       autoStart={true}
@@ -803,7 +808,7 @@ export default function ClientsPage() {
                   {activeKycTab === 'nic_back' && (
                     <WebcamCapture 
                       key="nic_back_capture"
-                      label="NIC Back Side Webcam Scan" 
+                      label="NIC Back Side Scan" 
                       onCapture={(base64) => setNicBackImage(base64)} 
                       initialImage={nicBackImage} 
                       autoStart={true}
@@ -813,7 +818,7 @@ export default function ClientsPage() {
                   {activeKycTab === 'signature' && (
                     <WebcamCapture 
                       key="signature_capture"
-                      label="Signature Web Camera Scan" 
+                      label="Signature Camera Scan" 
                       onCapture={(base64) => setSignatureImage(base64)} 
                       initialImage={signatureImage} 
                       autoStart={true}
@@ -822,18 +827,19 @@ export default function ClientsPage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-4 sm:pt-6 border-t border-slate-100/50">
-              <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => { setIsOpen(false); setEditingClient(null); }}>Cancel</Button>
-              <Button 
-                disabled={isSaving}
-                onClick={handleSave} 
-                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer w-full sm:w-auto"
-              >
-                {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
-                {isSaving ? "Saving Record..." : "Register Customer"}
-              </Button>
-            </div>
+          {/* Fixed Footer */}
+          <div className="p-4 sm:p-6 pt-3 border-t border-slate-100/80 bg-slate-50/80 shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
+            <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => { setIsOpen(false); setEditingClient(null); }}>Cancel</Button>
+            <Button 
+              disabled={isSaving}
+              onClick={handleSave} 
+              className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer w-full sm:w-auto"
+            >
+              {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
+              {isSaving ? "Saving Record..." : "Register Customer"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
