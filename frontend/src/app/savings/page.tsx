@@ -69,14 +69,14 @@ export default function SavingsAccountsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-slate-200 gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-[#d6d6d6] gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Client Accounts</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
+          <h1 className="text-3xl font-black text-[#202020] tracking-tight">Client Accounts</h1>
+          <p className="text-sm text-slate-600 font-semibold mt-1">
             Manage checking, savings, and enterprise balances.
           </p>
         </div>
-        <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-5 gap-2 w-full md:w-auto">
+        <Button onClick={() => setIsOpen(true)} className="bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] font-black h-11 px-6 gap-2 w-full md:w-auto shadow-md border border-[#ffd100] rounded-xl">
           <Plus className="w-4 h-4" /> Open New Account
         </Button>
       </div>
@@ -84,7 +84,7 @@ export default function SavingsAccountsPage() {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Originate Account</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-[#202020]">Originate Account</DialogTitle>
             <DialogDescription>Input the KYC-approved client details to generate a new ledger.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -110,32 +110,32 @@ export default function SavingsAccountsPage() {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateAccount} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">Authorize & Create</Button>
+            <Button onClick={handleCreateAccount} className="bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] font-black border border-[#ffd100]">Authorize & Create</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Ledgers</p>
-          <p className="text-3xl font-black text-slate-800">{accounts.length}</p>
+        <div className="bg-white rounded-2xl p-5 border border-[#d6d6d6] shadow-sm">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Ledgers</p>
+          <p className="text-3xl font-black text-[#202020]">{accounts.length}</p>
         </div>
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Consolidated Wealth</p>
-          <p className="text-3xl font-black text-emerald-600">
+        <div className="bg-white rounded-2xl p-5 border border-[#d6d6d6] shadow-sm">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Consolidated Wealth</p>
+          <p className="text-3xl font-black text-emerald-700">
             Rs. {accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0).toLocaleString()}
           </p>
         </div>
-        <div className="bg-slate-900 rounded-xl p-5 shadow-xl shadow-slate-200/50">
-          <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Active Mandates</p>
+        <div className="bg-[#202020] rounded-2xl p-5 shadow-lg border border-white/10">
+          <p className="text-xs font-bold text-[#ffd100] uppercase tracking-widest mb-1">Active Mandates</p>
           <p className="text-3xl font-black text-white">
             {accounts.filter((a) => a.status === "Active").length}
           </p>
         </div>
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Avg. Liquidity</p>
-          <p className="text-3xl font-black text-slate-800">
+        <div className="bg-white rounded-2xl p-5 border border-[#d6d6d6] shadow-sm">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Avg. Liquidity</p>
+          <p className="text-3xl font-black text-[#202020]">
             Rs. {(accounts.length ? Math.round(accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0) / accounts.length) : 0).toLocaleString()}
           </p>
         </div>

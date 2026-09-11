@@ -77,37 +77,37 @@ export default function CctvRecordingsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-2 sm:p-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-[#d6d6d6] shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
-              <PlaySquare className="w-8 h-8" />
+            <div className="p-3 bg-[#ffd100]/20 text-[#202020] rounded-2xl border border-[#ffd100]/40">
+              <PlaySquare className="w-8 h-8 text-[#202020]" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900">Transaction Evidence Clips</h1>
-              <p className="text-sm font-semibold text-slate-500">20-second MP4 CCTV clips linked to Pawn Ticket Numbers (10s before + 10s after trigger)</p>
+              <h1 className="text-2xl font-black tracking-tight text-[#202020]">Transaction Evidence Clips</h1>
+              <p className="text-sm font-semibold text-slate-600">20-second MP4 CCTV clips linked to Pawn Ticket Numbers (10s before + 10s after trigger)</p>
             </div>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
               <Input 
                 value={searchPawn}
                 onChange={e => setSearchPawn(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && fetchRecordings()}
                 placeholder="Search Pawn Ticket ID..." 
-                className="pl-9 font-semibold rounded-xl text-xs"
+                className="pl-9 font-semibold rounded-xl text-xs border-[#d6d6d6] bg-white"
               />
             </div>
-            <Button onClick={fetchRecordings} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs">
+            <Button onClick={fetchRecordings} className="bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] rounded-xl font-black text-xs border border-[#ffd100] shadow-sm">
               Search
             </Button>
           </div>
         </div>
 
         {/* Evidence List */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-200/80">
-            <CardTitle className="text-base font-bold text-slate-800">Recorded Evidence ({recordings.length})</CardTitle>
+        <Card className="border-[#d6d6d6] shadow-sm rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="bg-[#202020] text-white border-b border-[#333533] p-6">
+            <CardTitle className="text-base font-bold text-[#ffd100]">Recorded Evidence ({recordings.length})</CardTitle>
             <CardDescription className="text-xs font-semibold text-slate-500">
               Clips automatically extracted by branch CCTV agents and uploaded securely
             </CardDescription>

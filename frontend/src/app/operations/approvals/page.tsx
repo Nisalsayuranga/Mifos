@@ -129,48 +129,48 @@ export default function ApprovalsPage() {
     <div className="space-y-8 max-w-7xl mx-auto pb-20 animate-in slide-in-from-bottom-4 duration-700">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-slate-200 shadow-xl gap-6">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">
+          <h1 className="text-4xl font-black text-[#202020] tracking-tighter leading-none mb-2">
             Disbursal <span className="text-gradient">Approvals</span>
           </h1>
-          <p className="text-slate-500 font-medium tracking-tight">Review pending pawns, verify asset appraisals, and approve general ledger postings.</p>
+          <p className="text-slate-600 font-semibold tracking-tight">Review pending pawns, verify asset appraisals, and approve general ledger postings.</p>
         </div>
-        <Button onClick={loadUserAndPending} variant="outline" className="gap-2 font-bold bg-white/50 border-white/40 glass">
+        <Button onClick={loadUserAndPending} variant="outline" className="gap-2 font-bold bg-white border-[#d6d6d6] text-[#202020] hover:bg-slate-100 shadow-xs">
           <RefreshCcw className="h-4 w-4" /> Refresh Inbox
         </Button>
       </div>
 
       {/* Main Content */}
       {pendingPawns.length === 0 ? (
-        <Card className="glass border-white/40 shadow-2xl rounded-[2rem] overflow-hidden py-24 text-center">
+        <Card className="bg-white border border-[#d6d6d6] shadow-sm rounded-3xl overflow-hidden py-24 text-center">
           <CardContent className="space-y-6 flex flex-col items-center">
-            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 shadow-xl shadow-emerald-50/50 border border-emerald-100">
-              <Inbox className="w-10 h-10" />
+            <div className="w-20 h-20 bg-[#ffd100]/20 rounded-full flex items-center justify-center text-[#202020] shadow-md border border-[#ffd100]/40">
+              <Inbox className="w-10 h-10 text-[#202020]" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-black text-slate-800">Inbox Zero!</h2>
-              <p className="text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
+              <h2 className="text-2xl font-black text-[#202020]">Inbox Zero!</h2>
+              <p className="text-slate-600 font-medium max-w-md mx-auto leading-relaxed">
                 All originated pawn tickets are fully processed, authorized, and reconciled in the general ledger.
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="glass border-white/40 rounded-[2.5rem] shadow-2xl overflow-hidden bg-white/40">
+        <div className="bg-white border border-[#d6d6d6] rounded-3xl shadow-sm overflow-hidden">
           <Table>
-            <TableHeader className="bg-slate-50/50 border-b border-slate-100">
-              <TableRow>
-                <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Originator Details</TableHead>
-                <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer ID</TableHead>
-                <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
-                <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Appraisal</TableHead>
-                <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Requested Cash</TableHead>
-                <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-                <TableHead className="px-8 py-5" />
+            <TableHeader className="bg-[#333533] text-white">
+              <TableRow className="border-b border-[#333533] hover:bg-transparent">
+                <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-[#ffd100]">Originator Details</TableHead>
+                <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-slate-200">Customer ID</TableHead>
+                <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-slate-200">Item Description</TableHead>
+                <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-slate-200 text-right">Appraisal</TableHead>
+                <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-slate-200 text-right">Requested Cash</TableHead>
+                <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-slate-200">Status</TableHead>
+                <TableHead className="px-8 py-4" />
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-slate-50">
+            <TableBody className="divide-y divide-slate-100">
               {pendingPawns.map(pawn => (
                 <TableRow key={pawn.id} className="group hover:bg-amber-50/20 transition-all duration-300">
                   <TableCell className="px-8 py-5">

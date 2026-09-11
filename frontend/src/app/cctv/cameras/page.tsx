@@ -63,31 +63,31 @@ export default function CctvCamerasPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-2 sm:p-4">
       {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-[#d6d6d6] shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
-              <Camera className="w-8 h-8" />
+            <div className="p-3 bg-[#ffd100]/20 text-[#202020] rounded-2xl border border-[#ffd100]/40">
+              <Camera className="w-8 h-8 text-[#202020]" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900">Branch Camera Registry</h1>
-              <p className="text-sm font-semibold text-slate-500">Manage EZVIZ CCTV cameras registered across branch counters</p>
+              <h1 className="text-2xl font-black tracking-tight text-[#202020]">Branch Camera Registry</h1>
+              <p className="text-sm font-semibold text-slate-600">Manage EZVIZ CCTV cameras registered across branch counters</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button onClick={fetchCameras} variant="outline" size="sm" className="rounded-xl font-bold">
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh Status
+            <Button onClick={fetchCameras} variant="outline" size="sm" className="rounded-xl font-bold border-[#d6d6d6] bg-white hover:bg-slate-100 text-[#202020]">
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin text-[#ffd100]' : ''}`} /> Refresh Status
             </Button>
-            <Button onClick={() => setShowAddModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">
+            <Button onClick={() => setShowAddModal(true)} size="sm" className="bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] rounded-xl font-black border border-[#ffd100] shadow-sm">
               <Plus className="w-4 h-4 mr-2" /> Register New Camera
             </Button>
           </div>
         </div>
 
         {/* Camera List Table */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-200/80">
-            <CardTitle className="text-base font-bold text-slate-800">Active Cameras ({cameras.length})</CardTitle>
-            <CardDescription className="text-xs font-semibold text-slate-500">
+        <Card className="border-[#d6d6d6] shadow-sm rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="bg-[#202020] text-white border-b border-[#333533] p-6">
+            <CardTitle className="text-base font-bold text-[#ffd100]">Active Cameras ({cameras.length})</CardTitle>
+            <CardDescription className="text-xs font-semibold text-slate-300">
               CCTV agents report heartbeats every 30 seconds to confirm ONVIF/RTSP connectivity
             </CardDescription>
           </CardHeader>
@@ -99,9 +99,9 @@ export default function CctvCamerasPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs text-slate-700">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase font-black tracking-wider text-[10px] border-b border-slate-200">
+                  <thead className="bg-[#333533] text-slate-200 uppercase font-black tracking-wider text-[10px] border-b border-[#333533]">
                     <tr>
-                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-[#ffd100]">Status</th>
                       <th className="px-6 py-4">Camera Name</th>
                       <th className="px-6 py-4">Branch</th>
                       <th className="px-6 py-4">Counter</th>

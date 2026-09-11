@@ -208,29 +208,29 @@ export default function StaffPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-slate-200 shadow-xl gap-6">
         <div>
-          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 mb-3 px-3 py-0.5 font-black uppercase tracking-widest text-[10px]">
-            <ShieldCheck className="w-3 h-3 mr-1" /> Admin Only
+          <Badge className="bg-[#333533] text-[#ffd100] border-transparent mb-3 px-3 py-1 font-black uppercase tracking-widest text-[10px]">
+            <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-[#ffd100]" /> Admin Only
           </Badge>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">
+          <h1 className="text-4xl font-black text-[#202020] tracking-tighter leading-none mb-2">
             Staff <span className="text-gradient">Directory</span>
           </h1>
-          <p className="text-slate-500 font-medium">Manage branch accounts, passwords and access levels.</p>
+          <p className="text-slate-600 font-semibold">Manage branch accounts, passwords and access levels.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
             onClick={loadStaff}
             disabled={loading}
-            className="h-12 px-5 border-white/40 glass font-black text-[10px] uppercase tracking-widest rounded-xl gap-2"
+            className="h-12 px-5 border-[#d6d6d6] bg-white text-[#202020] hover:bg-slate-100 font-black text-[10px] uppercase tracking-widest rounded-xl gap-2 shadow-xs"
           >
-            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin text-primary' : ''}`} />
+            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin text-[#ffd100]' : ''}`} />
             Refresh
           </Button>
           <Button
             onClick={openAdd}
-            className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 rounded-2xl"
+            className="gap-2 bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] h-14 px-8 font-black uppercase tracking-widest text-xs shadow-lg shadow-black/10 rounded-2xl border border-[#ffd100]"
           >
             <UserPlus className="h-4 w-4" /> Add User
           </Button>

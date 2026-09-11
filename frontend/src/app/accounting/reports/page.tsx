@@ -104,14 +104,14 @@ export default function FinancialReportsPage() {
           <Button
             onClick={loadFinancials}
             variant="outline"
-            className="h-12 px-5 bg-white/70 border-white/40 text-slate-700 font-bold rounded-2xl shadow-lg"
+            className="h-12 px-5 bg-white border-[#d6d6d6] text-[#202020] hover:bg-slate-100 font-bold rounded-2xl shadow-xs"
           >
             <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
 
           <Button
             onClick={handlePrint}
-            className="h-12 px-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl flex items-center gap-2"
+            className="h-12 px-6 bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg border border-[#ffd100] flex items-center gap-2"
           >
             <Printer className="w-4 h-4" /> Print Reports
           </Button>

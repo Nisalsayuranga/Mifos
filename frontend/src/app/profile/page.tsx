@@ -283,47 +283,47 @@ export default function ProfilePage() {
       <Toaster position="top-right" richColors />
       
       {/* Header with Glassmorphism */}
-      <div className="relative overflow-hidden rounded-[2.5rem] p-8 border border-white/20 bg-white/40 backdrop-blur-xl shadow-2xl group">
-        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-1000" />
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-1000" />
+      <div className="relative overflow-hidden rounded-[2.5rem] p-8 border border-[#d6d6d6] bg-white shadow-xl group">
+        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-[#ffd100]/10 rounded-full blur-3xl group-hover:bg-[#ffd100]/20 transition-all duration-1000" />
+        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-[#333533]/5 rounded-full blur-3xl group-hover:bg-[#333533]/10 transition-all duration-1000" />
         
         <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
             {/* Avatar Section */}
             <div className="relative">
-              <div className="h-36 w-36 rounded-[3rem] bg-slate-900 border-4 border-white shadow-2xl overflow-hidden flex items-center justify-center transition-transform hover:scale-105 duration-500 ring-4 ring-primary/5">
+              <div className="h-36 w-36 rounded-[3rem] bg-[#202020] border-4 border-white shadow-2xl overflow-hidden flex items-center justify-center transition-transform hover:scale-105 duration-500 ring-4 ring-[#ffd100]/30">
                 {user?.avatar_url ? (
                   <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-5xl font-black text-white tracking-tighter">{initials}</span>
+                  <span className="text-5xl font-black text-[#ffd100] tracking-tighter">{initials}</span>
                 )}
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
-                <h1 className="text-5xl font-black text-slate-900 tracking-tighter leading-none">
+                <h1 className="text-5xl font-black text-[#202020] tracking-tighter leading-none">
                   {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : 'Your Profile'}
                 </h1>
                 <Badge className={cn(
                   "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-0",
-                  user?.role === 'ADMIN' ? "bg-purple-100 text-purple-700 shadow-sm" : "bg-blue-100 text-blue-700 shadow-sm"
+                  user?.role === 'ADMIN' ? "bg-[#333533] text-[#ffd100] shadow-sm" : "bg-[#ffd100] text-[#202020] shadow-sm"
                 )}>
                   {user?.role || 'Staff Member'}
                 </Badge>
               </div>
               
-              <div className="flex flex-col gap-2 text-slate-500 font-bold text-sm">
+              <div className="flex flex-col gap-2 text-slate-600 font-bold text-sm">
                 <p className="flex items-center gap-2 justify-center md:justify-start">
-                  <Mail className="h-4 w-4 text-primary" />
+                  <Mail className="h-4 w-4 text-[#ffd100]" />
                   {user?.email}
                 </p>
                 <div className="flex items-center gap-4 justify-center md:justify-start">
                   <p className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-primary" />
+                    <Building2 className="h-4 w-4 text-[#ffd100]" />
                     {user?.branch_name || 'Main Branch'}
                   </p>
-                  <p className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-400">ID: {user?.id?.slice(0, 8)}...</p>
+                  <p className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-500">ID: {user?.id?.slice(0, 8)}...</p>
                 </div>
               </div>
             </div>
@@ -331,7 +331,7 @@ export default function ProfilePage() {
 
           <Button 
             onClick={() => setIsEditMode(true)}
-            className="rounded-[1.5rem] px-8 h-14 gap-3 bg-slate-900 hover:bg-slate-800 text-white font-black shadow-2xl transition-all active:scale-95 group"
+            className="rounded-[1.5rem] px-8 h-14 gap-3 bg-[#ffd100] hover:bg-[#ffee32] text-[#202020] font-black shadow-lg transition-all active:scale-95 group border border-[#ffd100]"
           >
             <Pencil className="h-5 w-5 group-hover:rotate-12 transition-transform" /> 
             Edit Details
