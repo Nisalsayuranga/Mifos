@@ -240,7 +240,7 @@ export default function StaffPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Total Users',  value: staff.length,                                              color: 'text-slate-900' },
-          { label: 'Branches',     value: staff.filter(s => s.role === 'TELLER').length,             color: 'text-emerald-600' },
+          { label: 'Branches',     value: branches.length,                                           color: 'text-emerald-600' },
           { label: 'Admins',       value: staff.filter(s => s.role === 'ADMIN').length,              color: 'text-indigo-600' },
           { label: 'Active Today', value: staff.filter(s => s.lastSignIn && new Date(s.lastSignIn) > new Date(Date.now() - 86400000)).length, color: 'text-primary' },
         ].map(s => (
@@ -452,11 +452,20 @@ export default function StaffPage() {
                     </div>
                   </TableCell>
                   <TableCell className="px-8 py-5 font-bold text-slate-700">
-                    {user.branch_name || '—'}
+                    {user.role === 'ADMIN' ? (
+                      <span className="text-indigo-600 font-bold flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5" /> All Branches (Admin)
+                      </span>
+                    ) : (
+                      <div className="flex flex-col">
+                        <span className="text-slate-900 font-bold">{user.branch_name || 'Rotational Branch'}</span>
+                        <span className="text-[10px] text-slate-400 font-medium">Shift Rotational</span>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="px-8 py-5">
                     <span className="font-black text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-lg tracking-widest" title={user.branch_id}>
-                      {(user.branch_id && user.branch_id.length > 8) ? `${user.branch_id.substring(0, 8)}...` : (user.branch_id || '—')}
+                      {user.role === 'ADMIN' ? 'ALL' : ((user.branch_id && user.branch_id.length > 8) ? `${user.branch_id.substring(0, 8)}...` : (user.branch_id || 'ANY'))}
                     </span>
                   </TableCell>
                   <TableCell className="px-8 py-5">
