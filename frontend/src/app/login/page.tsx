@@ -85,7 +85,13 @@ export default function LoginPage() {
 
     try {
       let loginEmail = resetEmail.trim();
-      if (!loginEmail.includes('@')) loginEmail = `${loginEmail.toLowerCase()}@rupasinghe.com`;
+      if (!loginEmail.includes('@')) {
+        if (loginEmail.toLowerCase() === 'admin') {
+          loginEmail = 'admin@gmail.com';
+        } else {
+          loginEmail = `${loginEmail.toLowerCase()}@gmail.com`;
+        }
+      }
 
       const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
         redirectTo: `${window.location.origin}/login`,
@@ -146,7 +152,13 @@ export default function LoginPage() {
     setError(''); setLoading(true);
     try {
       let loginEmail = email.trim();
-      if (!loginEmail.includes('@')) loginEmail = `${loginEmail.toLowerCase()}@rupasinghe.com`;
+      if (!loginEmail.includes('@')) {
+        if (loginEmail.toLowerCase() === 'admin') {
+          loginEmail = 'admin@gmail.com';
+        } else {
+          loginEmail = `${loginEmail.toLowerCase()}@gmail.com`;
+        }
+      }
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
       if (signInError || !data.user) throw new Error(signInError?.message || 'Invalid credentials');
