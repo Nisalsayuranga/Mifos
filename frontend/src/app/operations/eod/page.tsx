@@ -33,7 +33,9 @@ import {
   Edit,
   Calculator,
   Filter,
-  RotateCcw
+  RotateCcw,
+  QrCode,
+  Tag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +47,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { supabase, oldSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { WebBluetoothTransport } from "@/lib/bluetooth/WebBluetoothTransport";
+import { TsplAdapter } from "@/lib/bluetooth/TsplAdapter";
 
 // Stock item abbreviations
 const ITEM_TYPES = [
@@ -165,6 +169,95 @@ export default function EndOfDayPage() {
   const [isUsingSupabase, setIsUsingSupabase] = useState(false);
   const [stockFilter, setStockFilter] = useState<'Active' | 'Withdrawn' | 'OldData'>('Active');
   const [searchQuery, setSearchQuery] = useState("");
+  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null);
+
+  // Handle Bluetooth Sticker Label Printing
+  const handlePrintLabel = async (item: any) => {
+    const itemKey = item.id || item.bill_no;
+    if (printingLabelId) return;
+    setPrintingLabelId(itemKey);
+    const toastId = toast.loading(`Connecting to Bluetooth Printer for ${item.bill_no}...`);
+
+    try {
+      const transport = new WebBluetoothTransport();
+      const connected = await transport.connect();
+      if (!connected) throw new Error('Could not connect to Bluetooth printer.');
+
+      toast.loading(`Printing beautiful label for ${item.bill_no}...`, { id: toastId });
+
+      const adapter = new TsplAdapter();
+
+      // Extract item details
+      const billNoStr = (item.bill_no || '').toString().trim();
+      const branchName = (item.branch_id || 'HQ').toString().trim();
+      
+      const rawTypes = compressItemTypeString(item.item_type || "");
+      const formattedItemNames = rawTypes ? rawTypes.split(", ").map((code: string) => getItemName(code)).join(" + ") : "";
+      const displayItem = formattedItemNames || item.item_type || 'Item';
+      
+      const formattedDate = item.date 
+        ? new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+        : '';
+      const formattedWeight = `${parseFloat(item.weight || 0).toFixed(3)}g`;
+      const formattedPrice = `Rs. ${(parseFloat(item.price || 0) || 0).toLocaleString()}`;
+
+      // Look up customer info for QR payload
+      const customer = (stockCustomers || []).find((c: any) => {
+        if (!c.bill_numbers) return false;
+        return c.bill_numbers.split(/[, ]+/).some((b: string) => b.trim().toUpperCase() === billNoStr.toUpperCase());
+      }) || (oldStockCustomers || []).find((c: any) => {
+        if (!c.bill_numbers) return false;
+        return c.bill_numbers.split(/[, ]+/).some((b: string) => b.trim().toUpperCase() === billNoStr.toUpperCase());
+      });
+
+      // Rich QR Code Payload containing ALL Pawning & Customer details
+      const qrDetails: string[] = [
+        `BILL: ${billNoStr}`,
+        `BRANCH: ${branchName}`,
+        `DATE: ${formattedDate}`
+      ];
+      if (customer) {
+        if (customer.name) qrDetails.push(`NAME: ${customer.name}`);
+        if (customer.nic) qrDetails.push(`NIC: ${customer.nic}`);
+        if (customer.tp) qrDetails.push(`TEL: ${customer.tp}`);
+      }
+      qrDetails.push(`ITEM: ${displayItem}`);
+      qrDetails.push(`WT: ${formattedWeight}`);
+      qrDetails.push(`VAL: ${formattedPrice}`);
+
+      const qrPayload = qrDetails.join(' | ');
+
+      const commands: Uint8Array[] = [
+        adapter.init(45, 30, 2),
+        // QR Code on Left (x=5, y=15, cellWidth=3: width=90 dots from x=5 to x=95)
+        adapter.qrcode(qrPayload, 5, 15, 3),
+        // Line 1: Header Branch & Bill No (x=100, y=15, font 2 - shifted 5mm left)
+        adapter.text(`${branchName} | ${billNoStr}`, 100, 15, "2", 1, 1),
+        // Line 2: Item Name (x=100, y=55, font 2)
+        adapter.text(displayItem.length > 20 ? displayItem.substring(0, 20) + '..' : displayItem, 100, 55, "2", 1, 1),
+        // Line 3: Weight & Value (x=100, y=95, font 2)
+        adapter.text(`${formattedWeight} | ${formattedPrice}`, 100, 95, "2", 1, 1),
+        // Line 4: Pawning Date (x=100, y=135, font 2)
+        adapter.text(`DATE: ${formattedDate}`, 100, 135, "2", 1, 1),
+        adapter.print(1, 1)
+      ];
+
+      const payload = adapter.concat(commands);
+      await transport.write(payload);
+
+      toast.success(`Label printed for ${billNoStr}!`, { id: toastId });
+      setTimeout(() => transport.disconnect(), 1000);
+
+    } catch (err: any) {
+      if (err.name === 'NotFoundError' || err.message?.includes('cancel')) {
+        toast.error('Bluetooth connection cancelled.', { id: toastId });
+      } else {
+        toast.error('Bluetooth Print Failed', { description: err.message, id: toastId });
+      }
+    } finally {
+      setPrintingLabelId(null);
+    }
+  };
 
   // Old DB Stock State
   const [oldStockItems, setOldStockItems] = useState<any[]>([]);
@@ -2034,6 +2127,21 @@ export default function EndOfDayPage() {
                                 Restore
                               </Button>
                               <Button 
+                                onClick={() => handlePrintLabel(item)}
+                                disabled={printingLabelId === (item.id || item.bill_no)}
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-200 hover:bg-blue-50 text-blue-700 font-black text-[9px] uppercase tracking-widest h-8 px-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Print Bluetooth Sticker Label"
+                              >
+                                {printingLabelId === (item.id || item.bill_no) ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <QrCode className="w-3.5 h-3.5 text-blue-600" />
+                                )}
+                                Print Label
+                              </Button>
+                              <Button 
                                 onClick={() => openEditWithdrawalModal(item)}
                                 size="sm"
                                 variant="outline"
@@ -2054,6 +2162,21 @@ export default function EndOfDayPage() {
                           </>
                         ) : (
                           <TableCell className="px-6 py-4 text-right flex items-center justify-end gap-1.5">
+                            <Button 
+                              onClick={() => handlePrintLabel(item)}
+                              disabled={printingLabelId === (item.id || item.bill_no)}
+                              size="sm"
+                              variant="outline"
+                              className="border-blue-200 hover:bg-blue-50 text-blue-700 font-black text-[9px] uppercase tracking-widest h-8 px-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                              title="Print Bluetooth Sticker Label"
+                            >
+                              {printingLabelId === (item.id || item.bill_no) ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <QrCode className="w-3.5 h-3.5 text-blue-600" />
+                              )}
+                              Print Label
+                            </Button>
                             <Button 
                               onClick={() => openEditActiveModal(item)}
                               size="sm"
