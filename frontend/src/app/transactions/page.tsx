@@ -194,7 +194,7 @@ export default function TransactionsPage() {
 
             <div className="grid gap-5">
               <div className="grid gap-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Target Destination Branch</Label>
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Destination Branch</Label>
                 <Select onValueChange={(val) => val && setTargetBranchId(val)} value={targetBranchId}>
                   <SelectTrigger className="h-12 bg-white/50 rounded-xl font-bold text-sm">
                     <SelectValue placeholder="Select receiver branch..." />
@@ -209,11 +209,11 @@ export default function TransactionsPage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label className="font-medium text-slate-700">Transfer Capital Amount (Rs.)</Label>
+                <Label className="font-medium text-slate-700">Amount (Rs.)</Label>
                 <Input value={amount} onChange={e=>setAmount(e.target.value)} type="number" placeholder="500000" className="border-slate-300" />
               </div>
               <div className="grid gap-2">
-                <Label className="font-medium text-slate-700">Audit Reference Log</Label>
+                <Label className="font-medium text-slate-700">Audit Reference</Label>
                 <Input value={description} onChange={e=>setDescription(e.target.value)} placeholder="E.g. Daily Vault Balancing" />
               </div>
             </div>

@@ -36,20 +36,19 @@ const navGroups = [
     label: "Overview",
     icon: LayoutDashboard,
     items: [
-      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-      { name: 'Executive Growth', href: '/dashboard/executive', icon: TrendingUp },
+      { name: 'Executive Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Portfolio Growth', href: '/dashboard/executive', icon: TrendingUp },
     ]
   },
   {
-    label: "Finance",
+    label: "Gold Pawning & Finance",
     icon: Wallet,
     items: [
-      { name: 'Customers KYC', href: '/clients', icon: Users },
-      { name: 'Pawns & Loans', href: '/loans', icon: Wallet },
-      { name: 'Savings & Accounts', href: '/savings', icon: PiggyBank },
+      { name: 'Customer KYC Profiles', href: '/clients', icon: Users },
+      { name: 'Pawning & Collateral Loans', href: '/loans', icon: Wallet },
       { name: 'Journal Records', href: '/accounting/ledger?tab=journal', icon: FileText },
-      { name: 'Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
-      { name: '11-Branch Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
+      { name: 'General Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
+      { name: 'Branch Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
       { name: 'Financial Statements', href: '/accounting/reports', icon: BarChart3 },
     ]
   },
@@ -57,8 +56,7 @@ const navGroups = [
     label: "Transactions",
     icon: ArrowRightLeft,
     items: [
-      { name: 'Transaction History', href: '/transactions', icon: ArrowRightLeft },
-      { name: 'Money Transfers', href: '/transactions/transfers', icon: History },
+      { name: 'Transaction Audit History', href: '/transactions', icon: ArrowRightLeft },
     ]
   },
   {
@@ -67,9 +65,9 @@ const navGroups = [
     items: [
       { name: 'Camera Registry', href: '/cctv/cameras', icon: Camera },
       { name: 'Evidence Playback', href: '/cctv/recordings', icon: PlaySquare },
-      { name: 'Live View & PTZ', href: '/cctv/live', icon: Eye },
+      { name: 'Live View Streams', href: '/cctv/live', icon: Eye },
       { name: 'CCTV Audit Logs', href: '/cctv/audit-logs', icon: FileText },
-      { name: 'CCTV Settings', href: '/cctv/settings', icon: Settings, adminOnly: true },
+      { name: 'Surveillance Settings', href: '/cctv/settings', icon: Settings, adminOnly: true },
     ]
   },
   {
@@ -77,8 +75,8 @@ const navGroups = [
     icon: ShieldCheck,
     items: [
       { name: 'User & Staff Management', href: '/employees', icon: Users, adminOnly: true },
-      { name: 'Free SMS Gateway', href: '/operations/sms-settings', icon: Smartphone, adminOnly: true },
-      { name: 'Approvals', href: '/operations/approvals', icon: CheckSquare },
+      { name: 'SMS Gateway Config', href: '/operations/sms-settings', icon: Smartphone, adminOnly: true },
+      { name: 'Dual Approvals', href: '/operations/approvals', icon: CheckSquare },
       { name: 'End-of-Day (EOD)', href: '/operations/eod', icon: ShieldCheck },
       { name: 'Security Audit Logs', href: '/operations/audit-logs', icon: ShieldCheck },
       { name: 'Portfolio Reports', href: '/reports', icon: BarChart3 },

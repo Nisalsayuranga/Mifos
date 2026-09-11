@@ -617,13 +617,13 @@ export default function ClientsPage() {
             .update(payload)
             .eq('id', selectedCustomer.id);
           if (error) throw error;
-          toast.success("Customer profile updated in Supabase!");
+          toast.success("Customer profile updated successfully!");
         } else {
           const { error } = await supabase
             .from('stock_customers')
             .insert([payload]);
           if (error) throw error;
-          toast.success("Customer profile created in Supabase!");
+          toast.success("Customer profile created successfully!");
         }
       } else {
         const local = localStorage.getItem('local_stock_customers');
@@ -633,7 +633,7 @@ export default function ClientsPage() {
         }
         if (isEditingCustomer && selectedCustomer) {
           list = list.map(c => c.id === selectedCustomer.id ? { ...c, ...payload } : c);
-          toast.success("Customer profile updated (Local Storage)!");
+          toast.success("Customer profile updated successfully!");
         } else {
           const newCust = {
             id: Math.random().toString(36).substring(2, 9),
@@ -641,7 +641,7 @@ export default function ClientsPage() {
             created_at: new Date().toISOString()
           };
           list = [newCust, ...list];
-          toast.success("Customer profile created (Local Storage)!");
+          toast.success("Customer profile created successfully!");
         }
         localStorage.setItem('local_stock_customers', JSON.stringify(list));
       }

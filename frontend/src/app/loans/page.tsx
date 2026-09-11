@@ -1161,8 +1161,8 @@ export default function PawnesPage() {
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill #</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer NIC & Name</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised (LKR)</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed (LKR)</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Date</TableHead>
               <TableHead className="px-4 py-3 text-right font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>

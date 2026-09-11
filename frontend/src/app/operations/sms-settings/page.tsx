@@ -325,20 +325,6 @@ export default function SmsSettingsPage() {
             </div>
           </div>
 
-          {/* Quick Setup Instructions */}
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2 text-xs text-amber-900 font-medium">
-            <div className="flex items-center gap-2 font-bold text-amber-800">
-              <Radio className="w-4 h-4 animate-pulse" />
-              <span>How Branch TextBee Setup Works:</span>
-            </div>
-            <ol className="list-decimal list-inside space-y-1 text-[11.5px] text-slate-700">
-              <li>Install the <b>TextBee app</b> on each branch's Android tablet / mobile phone.</li>
-              <li>Log in using that branch's email profile & insert the branch local SIM card.</li>
-              <li>Copy the <b>Device ID</b> and <b>API Key</b> from that tablet into the branch tab above and click <b>Save</b>.</li>
-              <li>When tellers in that branch originate a loan, SMS receipts automatically send from that branch's tablet SIM!</li>
-            </ol>
-          </div>
-
           {isAdmin && (
             <div className="flex justify-end pt-2">
               <Button
