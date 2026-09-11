@@ -265,8 +265,10 @@ function EndOfDayContent() {
         adapter.text(`NO: ${labelNo}`, 145, 48, "2", 1, 1),
         // Line 3: Item Name (x=145, y=81, font 2)
         adapter.text(displayItem.length > 20 ? displayItem.substring(0, 20) + '..' : displayItem, 145, 81, "2", 1, 1),
-        // Line 4: Weight & Pawning Date (x=145, y=114, font 2)
-        adapter.text(`${formattedWeight} | ${formattedDate}`, 145, 114, "2", 1, 1),
+        // Line 4: Weight (x=145, y=114, font 2)
+        adapter.text(`Weight: ${formattedWeight}`, 145, 114, "2", 1, 1),
+        // Line 5: Pawning Date under Weight (x=145, y=147, font 2)
+        adapter.text(`DATE: ${formattedDate}`, 145, 147, "2", 1, 1),
         adapter.print(1, 1)
       ];
 

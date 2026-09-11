@@ -13,7 +13,11 @@ export class WebBluetoothTransport implements PrinterTransport {
     '49535343-fe7d-4ae5-8fa9-9fafd205e455', 
     'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
     '0000fee7-0000-1000-8000-00805f9b34fb',
-    '0000ff00-0000-1000-8000-00805f9b34fb'
+    '0000ff00-0000-1000-8000-00805f9b34fb',
+    '0000e0ff-0000-1000-8000-00805f9b34fb',
+    '0000ae01-0000-1000-8000-00805f9b34fb',
+    '0000180a-0000-1000-8000-00805f9b34fb',
+    '00001101-0000-1000-8000-00805f9b34fb'
   ];
   private PRINTER_CHARACTERISTIC_UUIDS = [
     '00002af1-0000-1000-8000-00805f9b34fb', 
@@ -22,7 +26,9 @@ export class WebBluetoothTransport implements PrinterTransport {
     '0000fec7-0000-1000-8000-00805f9b34fb',
     '0000fec8-0000-1000-8000-00805f9b34fb',
     '0000ff01-0000-1000-8000-00805f9b34fb',
-    '0000ff02-0000-1000-8000-00805f9b34fb'
+    '0000ff02-0000-1000-8000-00805f9b34fb',
+    '00002a24-0000-1000-8000-00805f9b34fb',
+    '0000ae02-0000-1000-8000-00805f9b34fb'
   ];
 
   isAvailable(): boolean {
@@ -45,7 +51,28 @@ export class WebBluetoothTransport implements PrinterTransport {
       const server = await this.device.gatt?.connect();
       if (!server) throw new Error('Could not connect to GATT Server');
 
-      // Find the writable characteristic
+      // Dynamic GATT discovery: iterate over all primary services and characteristics to find a writable one
+      try {
+        const services = await server.getPrimaryServices();
+        for (const service of services) {
+          try {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                this.characteristic = char;
+                console.log(`[WebBluetoothTransport] Connected to writable characteristic: ${char.uuid} on service: ${service.uuid}`);
+                return true;
+              }
+            }
+          } catch (e) {
+            // Ignore error for non-inspectable services
+          }
+        }
+      } catch (e) {
+        console.warn('[WebBluetoothTransport] Dynamic service scan failed, trying static fallback list:', e);
+      }
+
+      // Static UUID Fallback list if dynamic scan is restricted by browser security policies
       for (const serviceUuid of this.PRINTER_SERVICE_UUIDS) {
         try {
           const service = await server.getPrimaryService(serviceUuid);
@@ -56,12 +83,12 @@ export class WebBluetoothTransport implements PrinterTransport {
                 this.characteristic = characteristic;
                 return true;
               }
-            } catch (e) { /* Ignore and try next characteristic */ }
+            } catch (e) { /* Ignore */ }
           }
-        } catch (e) { /* Ignore and try next service */ }
+        } catch (e) { /* Ignore */ }
       }
 
-      throw new Error('Could not find writable printer characteristic.');
+      throw new Error('Could not find writable printer characteristic. Please ensure the printer is turned on and paired via Bluetooth.');
 
     } catch (error) {
       console.error('[WebBluetoothTransport] Connection error:', error);
