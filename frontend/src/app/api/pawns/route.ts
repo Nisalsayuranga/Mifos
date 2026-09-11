@@ -231,16 +231,20 @@ export async function POST(request: Request) {
         const itemMg = parseFloat(item.weightMg || item.weight_mg) || 0;
         const itemAppraised = parseFloat(item.appraisedValue || item.appraised_value) || (finalAppraised / items.length);
         const subBillNo = items.length > 1 ? `${baseBill}-${idx + 1}` : baseBill;
+        const rawType = item.itemType || item.item_type || itemType || 'Gold';
+        const customText = item.customType || item.description || '';
+        const itemTypeLabel = (rawType === 'OTHER' || rawType === 'Other') ? (customText || 'Other Gold Item') : rawType;
+        const itemDescText = customText || itemTypeLabel;
 
         return {
           id: crypto.randomUUID(),
           pawn_id: pawnId,
-          item_type: item.itemType || item.item_type || itemType || 'Gold',
+          item_type: itemTypeLabel,
           purity: item.purity || '22K',
           weight_grams: itemMg / 1000,
           weight_mg: itemMg,
           appraised_value: itemAppraised,
-          description: `${item.description || item.itemType || 'Gold Item'} (${subBillNo})`
+          description: `${itemDescText} (${subBillNo})`
         };
       });
       await adminSupabase.from('pawn_items').insert(pawnItemsPayload);
@@ -251,12 +255,15 @@ export async function POST(request: Request) {
           const itemMg = parseFloat(item.weightMg || item.weight_mg) || 0;
           const itemAppraised = parseFloat(item.appraisedValue || item.appraised_value) || (finalAppraised / items.length);
           const subBillNo = items.length > 1 ? `${baseBill}-${idx + 1}` : baseBill;
+          const rawType = item.itemType || item.item_type || itemType || 'Gold Collateral';
+          const customText = item.customType || item.description || '';
+          const itemDescText = (rawType === 'OTHER' || rawType === 'Other') ? (customText || 'Other Gold Collateral') : customText || rawType;
 
           return {
             id: crypto.randomUUID(),
             bill_no: subBillNo,
             branch_id: targetBranchId,
-            item_type: `${item.description || item.itemType || 'Pawned Gold Collateral'} (${item.purity || '22K'})`,
+            item_type: `${itemDescText} (${item.purity || '22K'})`,
             weight: itemMg / 1000,
             price: itemAppraised,
             status: 'Active',

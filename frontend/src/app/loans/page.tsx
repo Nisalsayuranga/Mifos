@@ -56,7 +56,26 @@ export default function PawnesPage() {
 
   // Form state
   const BILL_PREFIXES = ['1R', '3M', '3R', '6R', '12R', '6M', 'A'];
-  const ITEM_TYPES = ['PP', 'PR', 'NL', 'EAR', 'CH', 'BRC', 'BKT'];
+  const ITEM_OPTIONS = [
+    { code: 'CH', label: 'Chain (මාලය)' },
+    { code: 'PP', label: 'Pendant (පෙන්ඩන්ට්)' },
+    { code: 'PR', label: 'Ring (මුදුව)' },
+    { code: 'NL', label: 'Necklace (නෙක්ලස්)' },
+    { code: 'EAR', label: 'Earrings (කරාබු)' },
+    { code: 'BRC', label: 'Bracelet (බ්‍රේස්ලට්)' },
+    { code: 'BKT', label: 'Bangles (වළලු)' },
+    { code: 'COIN', label: 'Gold Coin / Bar (කාසිය)' },
+    { code: 'OTHER', label: 'Other (වෙනත් - Custom)' }
+  ];
+
+  const handlePrefixChange = (pref: string) => {
+    setBillPrefix(pref);
+    if (pref === '1R') setPeriodMonths('1');
+    else if (pref === '3M' || pref === '3R') setPeriodMonths('3');
+    else if (pref === '6M' || pref === '6R') setPeriodMonths('6');
+    else if (pref === '12R' || pref === 'A') setPeriodMonths('12');
+    else setPeriodMonths('1');
+  };
 
   const [billPrefix, setBillPrefix]     = useState('1R');
   const [billNo, setBillNo]             = useState('');
@@ -73,17 +92,17 @@ export default function PawnesPage() {
   // Dedicated Grams & Milligrams Weight & Period State
   const [weightGrams, setWeightGrams]   = useState('');
   const [weightMg, setWeightMg]         = useState('');
-  const [periodMonths, setPeriodMonths] = useState('3');
+  const [periodMonths, setPeriodMonths] = useState('1');
 
   // Multi-Item Pawn State (Milligrams mg standard)
   const [itemsList, setItemsList] = useState<any[]>([
-    { itemType: 'CH', purity: '22K', description: '', weightMg: '', appraisedValue: '' }
+    { itemType: 'CH', purity: '22K', description: '', customType: '', weightMg: '', appraisedValue: '' }
   ]);
 
   const handleAddItem = () => {
     setItemsList(prev => [
       ...prev,
-      { itemType: 'CH', purity: '22K', description: '', weightMg: '', appraisedValue: '' }
+      { itemType: 'CH', purity: '22K', description: '', customType: '', weightMg: '', appraisedValue: '' }
     ]);
   };
 
@@ -427,7 +446,14 @@ export default function PawnesPage() {
         }
       }
 
-      const itemDesc = description.trim() || `${goldPurity} Gold Collateral (${itemType})`;
+      const itemDescSummary = itemsList.map(i => {
+        const itemLabel = i.itemType === 'OTHER' 
+          ? (i.customType || i.description || 'Other Item') 
+          : (ITEM_OPTIONS.find(o => o.code === i.itemType)?.label || i.itemType);
+        return `${itemLabel}${i.weightMg ? ` (${i.weightMg}mg)` : ''}`;
+      }).filter(Boolean).join(', ');
+
+      const itemDesc = description.trim() || itemDescSummary || `${goldPurity} Gold Collateral (${itemType})`;
       const fullDescription = finalBillNo ? `${finalBillNo} | ${itemDesc}` : itemDesc;
 
       const token = localStorage.getItem('auth_token');
@@ -948,19 +974,18 @@ export default function PawnesPage() {
                 {/* Bill Prefix & Bill Number Block */}
                 <div className="grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                   <div className="flex flex-col gap-1.5">
-                    <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Type / Prefix</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Type / Prefix</Label>
+                      <Badge className="bg-amber-500/10 text-amber-800 border border-amber-500/20 font-black text-[10px] uppercase tracking-wider px-2.5 py-0.5">
+                        Tenor: {periodMonths} {parseInt(periodMonths) === 1 ? 'Month' : 'Months'} (Auto)
+                      </Badge>
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {BILL_PREFIXES.map(pref => (
                         <button
                           key={pref}
                           type="button"
-                          onClick={() => {
-                            setBillPrefix(pref);
-                            if (pref === '1R') setPeriodMonths('1');
-                            else if (pref === '3M' || pref === '3R') setPeriodMonths('3');
-                            else if (pref === '6M' || pref === '6R') setPeriodMonths('6');
-                            else if (pref === '12R') setPeriodMonths('12');
-                          }}
+                          onClick={() => handlePrefixChange(pref)}
                           className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all border ${
                             billPrefix === pref
                               ? 'bg-primary text-white border-primary shadow-md scale-105'
@@ -989,93 +1014,115 @@ export default function PawnesPage() {
                   </div>
                 </div>
 
-                {/* Tenor Period */}
-                <div className="grid gap-1.5">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Tenor Period</Label>
-                  <Select value={periodMonths} onValueChange={(v) => setPeriodMonths(v || '3')}>
-                    <SelectTrigger className="h-10 bg-white border border-slate-200 rounded-xl text-xs font-bold font-mono">
-                      <SelectValue placeholder="3 Months" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-slate-200">
-                      <SelectItem value="1" className="text-xs font-mono font-bold">1 Month (1R)</SelectItem>
-                      <SelectItem value="3" className="text-xs font-mono font-bold">3 Months (3M / 3R)</SelectItem>
-                      <SelectItem value="6" className="text-xs font-mono font-bold">6 Months (6M / 6R)</SelectItem>
-                      <SelectItem value="12" className="text-xs font-mono font-bold">12 Months (12R)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
               </div>
 
               {/* RIGHT COLUMN: Multi-Item Collateral & Valuation */}
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
                     2. Collateral Items & Valuation (Milligrams - mg)
                   </h3>
                   <Button type="button" size="sm" onClick={handleAddItem} className="h-7 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-lg gap-1">
-                    <Plus className="w-3 h-3" /> Add Collateral Item (+)
+                    <Plus className="w-3 h-3" /> Add Item (+)
                   </Button>
                 </div>
 
-                {/* Multi-Item Collateral List */}
-                <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                {/* Multi-Item Collateral List (Compact Table Row View) */}
+                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-12 gap-2 px-2 py-1 bg-slate-100/80 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">
+                    <span className="col-span-5">Item</span>
+                    <span className="col-span-3">Purity</span>
+                    <span className="col-span-3">Weight (mg)</span>
+                    <span className="col-span-1 text-center">Action</span>
+                  </div>
+
                   {itemsList.map((item, idx) => {
-                    const subTag = billNo ? `${billPrefix} ${billNo.trim()}-${idx + 1}` : `ITEM #${idx + 1}`;
+                    const isOther = item.itemType === 'OTHER';
                     return (
-                      <div key={idx} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 relative group">
-                        <div className="flex items-center justify-between">
-                          <span className="px-2.5 py-0.5 bg-amber-500/10 text-amber-800 font-mono font-black text-[10px] rounded-lg border border-amber-500/20">
-                            Sub-Bill: {subTag}
-                          </span>
-                          {itemsList.length > 1 && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(idx)} className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-[9px] font-black text-slate-500 uppercase">Category</Label>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {ITEM_TYPES.map(cat => (
-                                <button key={cat} type="button" onClick={() => handleUpdateItem(idx, 'itemType', cat)} className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border ${item.itemType === cat ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200'}`}>
-                                  {cat}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div>
-                            <Label className="text-[9px] font-black text-slate-500 uppercase">Purity</Label>
-                            <Select value={item.purity || '22K'} onValueChange={v => handleUpdateItem(idx, 'purity', v)}>
-                              <SelectTrigger className="h-8 bg-white border-slate-200 text-xs font-bold">
-                                <SelectValue />
+                      <div key={idx} className="p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-2 transition-all">
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          {/* Item Dropdown */}
+                          <div className="col-span-5">
+                            <Select
+                              value={item.itemType || 'CH'}
+                              onValueChange={v => handleUpdateItem(idx, 'itemType', v)}
+                            >
+                              <SelectTrigger className="h-9 bg-white border-slate-200 text-xs font-bold w-full">
+                                <SelectValue placeholder="Select Item" />
                               </SelectTrigger>
                               <SelectContent className="bg-white border-slate-200">
-                                <SelectItem value="24K" className="text-xs">24K (99.9%)</SelectItem>
-                                <SelectItem value="22K" className="text-xs">22K (91.6%)</SelectItem>
-                                <SelectItem value="20K" className="text-xs">20K (83.3%)</SelectItem>
-                                <SelectItem value="18K" className="text-xs">18K (75.0%)</SelectItem>
+                                {ITEM_OPTIONS.map(opt => (
+                                  <SelectItem key={opt.code} value={opt.code} className="text-xs font-medium">
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
+
+                          {/* Purity Dropdown */}
+                          <div className="col-span-3">
+                            <Select
+                              value={item.purity || '22K'}
+                              onValueChange={v => handleUpdateItem(idx, 'purity', v)}
+                            >
+                              <SelectTrigger className="h-9 bg-white border-slate-200 text-xs font-bold w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white border-slate-200">
+                                <SelectItem value="24K" className="text-xs font-bold">24K (99.9%)</SelectItem>
+                                <SelectItem value="22K" className="text-xs font-bold">22K (91.6%)</SelectItem>
+                                <SelectItem value="20K" className="text-xs font-bold">20K (83.3%)</SelectItem>
+                                <SelectItem value="18K" className="text-xs font-bold">18K (75.0%)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Weight (mg) Input */}
+                          <div className="col-span-3 relative flex items-center">
+                            <Input
+                              type="number"
+                              value={item.weightMg}
+                              onChange={e => handleUpdateItem(idx, 'weightMg', e.target.value)}
+                              placeholder="12500"
+                              className="h-9 bg-white font-mono font-bold text-xs pr-7 w-full"
+                            />
+                            <span className="absolute right-2 text-[10px] font-black text-slate-400 pointer-events-none">mg</span>
+                          </div>
+
+                          {/* Delete Button */}
+                          <div className="col-span-1 flex justify-center">
+                            {itemsList.length > 1 ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveItem(idx)}
+                                className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                                title="Remove Item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <div className="w-8" />
+                            )}
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-[9px] font-black text-slate-500 uppercase">Item Description</Label>
-                            <Input value={item.description} onChange={e => handleUpdateItem(idx, 'description', e.target.value)} placeholder="E.g., Gold Chain" className="h-9 bg-white text-xs" />
+                        {/* Custom Text Field for OTHER */}
+                        {isOther && (
+                          <div className="pt-1">
+                            <Input
+                              value={item.customType || item.description || ''}
+                              onChange={e => {
+                                handleUpdateItem(idx, 'customType', e.target.value);
+                                handleUpdateItem(idx, 'description', e.target.value);
+                              }}
+                              placeholder="Enter custom item description (e.g., Gold Waist Chain / අරනූල්)..."
+                              className="h-8 bg-amber-50/50 border-amber-200 text-xs font-semibold text-amber-950 placeholder:text-amber-700/50"
+                            />
                           </div>
-                          <div>
-                            <Label className="text-[9px] font-black text-slate-500 uppercase">Weight in Milligrams (mg)</Label>
-                            <div className="relative flex items-center">
-                              <Input type="number" value={item.weightMg} onChange={e => handleUpdateItem(idx, 'weightMg', e.target.value)} placeholder="E.g., 12500" className="h-9 bg-white font-mono font-bold text-xs pr-8" />
-                              <span className="absolute right-2 text-[10px] font-black text-slate-400 pointer-events-none">mg</span>
-                            </div>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
