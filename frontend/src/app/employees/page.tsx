@@ -37,6 +37,7 @@ export default function StaffPage() {
   const [branchId, setBranchId]     = useState('');
   const [branchName, setBranchName] = useState('');
   const [role, setRole]             = useState('TELLER');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadStaff = async () => {
     setLoading(true);

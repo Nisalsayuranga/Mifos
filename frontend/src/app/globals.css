@@ -47,31 +47,31 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Brand Colors */
-  --brand-purple: #4c1d95;
-  --brand-purple-light: #7c3aed;
-  --brand-purple-dark: #2e1065;
+  /* Brand Gold/Amber Colors */
+  --brand-gold: #f59e0b;
+  --brand-gold-light: #fbbf24;
+  --brand-gold-dark: #b45309;
 }
 
 :root {
-  --background: hsl(210, 40%, 98%);
+  --background: hsl(210, 20%, 98%);
   --foreground: hsl(222, 47%, 11%);
-  --card: hsla(0, 0%, 100%, 0.7);
+  --card: hsla(0, 0%, 100%, 0.8);
   --card-foreground: hsl(222, 47%, 11%);
   --popover: hsl(0, 0%, 100%);
   --popover-foreground: hsl(222, 47%, 11%);
-  --primary: hsl(258, 76%, 45%);
-  --primary-foreground: hsl(210, 40%, 98%);
+  --primary: hsl(38, 92%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(210, 40%, 96.1%);
   --secondary-foreground: hsl(222, 47%, 11.2%);
   --muted: hsl(210, 40%, 96.1%);
   --muted-foreground: hsl(215.4, 16.3%, 46.9%);
-  --accent: hsl(210, 40%, 96.1%);
-  --accent-foreground: hsl(222, 47%, 11.2%);
+  --accent: hsl(38, 92%, 95%);
+  --accent-foreground: hsl(38, 92%, 30%);
   --destructive: hsl(0, 84.2%, 60.2%);
   --border: hsl(214.3, 31.8%, 91.4%);
   --input: hsl(214.3, 31.8%, 91.4%);
-  --ring: hsla(258, 76%, 45%, 0.3);
+  --ring: hsla(38, 92%, 50%, 0.35);
   --radius: 1rem;
 }
 
@@ -80,7 +80,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20;
+    @apply bg-background text-foreground antialiased selection:bg-amber-500/20;
   }
   html {
     @apply font-sans scroll-smooth;
@@ -89,19 +89,19 @@
 
 @layer utilities {
   .glass {
-    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+    @apply bg-white/80 backdrop-blur-xl border border-white/40 shadow-[0_8px_32px_0_rgba(245,158,11,0.06)];
   }
   
   .glass-dark {
-    @apply bg-slate-950/80 backdrop-blur-xl border border-white/10 shadow-2xl;
+    @apply bg-slate-950/90 backdrop-blur-xl border border-amber-500/20 shadow-2xl;
   }
 
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700;
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/5 active:scale-[0.98];
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/10 active:scale-[0.98];
   }
 
   /* Hides the scrollbar visually while keeping scroll functionality */

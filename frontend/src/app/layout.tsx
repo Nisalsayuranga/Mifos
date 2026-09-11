@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import AuthGuard from '@/components/AuthGuard';
 import AppShell from '@/components/AppShell';
@@ -8,6 +8,13 @@ const interFont = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 export const metadata: Metadata = {
   title: 'Rupasinghe Pawning | Branch Intelligence',
   description: 'Core pawning and branch transaction platform',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

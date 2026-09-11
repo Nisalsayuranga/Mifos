@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
+import { sendFreeSms, buildPawnReceiptSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
 const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
 const HARDCODED_FALLBACK_USER_ID = '1423f690-f46a-455d-bc25-a778d2bd9e47';
+const HIGH_VALUE_APPROVAL_THRESHOLD = 100000; // Rs. 100,000 dual approval threshold
 
 export async function GET(request: Request) {
   try {
@@ -192,6 +194,9 @@ export async function POST(request: Request) {
     const finalInterestRate = parseFloat(interestRate) || 3.50;
     const finalPeriodMonths = parseInt(periodMonths, 10) || 3;
 
+    // Determine initial pawn status (High-ValuePawns > Rs. 100,000 require Manager Approval)
+    const initialStatus = finalDisbursed > HIGH_VALUE_APPROVAL_THRESHOLD ? 'PENDING_APPROVAL' : 'ACTIVE';
+
     // 2. Insert pawn ticket into DB
     const pawnPayload: any = {
       id: pawnId,
@@ -201,7 +206,7 @@ export async function POST(request: Request) {
       disbursed_amount: finalDisbursed,
       branch_id: targetBranchId,
       created_by_user_id: targetUserId,
-      status: 'ACTIVE',
+      status: initialStatus,
       created_at: new Date().toISOString(),
       bill_no: billNo || null,
       weight_grams: finalWeightGrams,
@@ -218,36 +223,68 @@ export async function POST(request: Request) {
 
     if (pawnErr) throw pawnErr;
 
-    // 3. Insert pawn collateral items into pawn_items table if provided
-    if (Array.isArray(items) && items.length > 0) {
-      const pawnItemsPayload = items.map((item: any) => ({
-        id: crypto.randomUUID(),
-        pawn_id: pawnId,
-        item_type: item.item_type || itemType || 'Gold',
-        purity: item.purity || '22K',
-        weight_grams: parseFloat(item.weight_grams) || 0,
-        weight_mg: parseFloat(item.weight_mg) || 0,
-        appraised_value: parseFloat(item.appraised_value) || 0,
-        description: item.description || ''
-      }));
-      await adminSupabase.from('pawn_items').insert(pawnItemsPayload);
-    }
+    // 3. Insert pawn collateral items into pawn_items and stock_items with sub-bill numbers (+)
+    const baseBill = billNo || pawnId.substring(0, 8).toUpperCase();
 
-    // 4. Create matching vault stock item
-    try {
-      await adminSupabase.from('stock_items').insert([{
-        id: crypto.randomUUID(),
-        bill_no: billNo || pawnId.substring(0, 8),
-        branch_id: targetBranchId,
-        item_type: description || 'Pawned Gold Collateral',
-        weight: finalWeightGrams + (finalWeightMg / 1000),
-        price: finalAppraised,
-        status: 'Active',
-        date: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString()
-      }]);
-    } catch (stockErr) {
-      console.warn("Could not insert matching vault stock item, but proceeding:", stockErr);
+    if (Array.isArray(items) && items.length > 0) {
+      const pawnItemsPayload = items.map((item: any, idx: number) => {
+        const itemMg = parseFloat(item.weightMg || item.weight_mg) || 0;
+        const itemAppraised = parseFloat(item.appraisedValue || item.appraised_value) || (finalAppraised / items.length);
+        const subBillNo = items.length > 1 ? `${baseBill}-${idx + 1}` : baseBill;
+
+        return {
+          id: crypto.randomUUID(),
+          pawn_id: pawnId,
+          item_type: item.itemType || item.item_type || itemType || 'Gold',
+          purity: item.purity || '22K',
+          weight_grams: itemMg / 1000,
+          weight_mg: itemMg,
+          appraised_value: itemAppraised,
+          description: `${item.description || item.itemType || 'Gold Item'} (${subBillNo})`
+        };
+      });
+      await adminSupabase.from('pawn_items').insert(pawnItemsPayload);
+
+      // Create individual matching stock items for each collateral sub-item
+      try {
+        const stockPayloads = items.map((item: any, idx: number) => {
+          const itemMg = parseFloat(item.weightMg || item.weight_mg) || 0;
+          const itemAppraised = parseFloat(item.appraisedValue || item.appraised_value) || (finalAppraised / items.length);
+          const subBillNo = items.length > 1 ? `${baseBill}-${idx + 1}` : baseBill;
+
+          return {
+            id: crypto.randomUUID(),
+            bill_no: subBillNo,
+            branch_id: targetBranchId,
+            item_type: `${item.description || item.itemType || 'Pawned Gold Collateral'} (${item.purity || '22K'})`,
+            weight: itemMg / 1000,
+            price: itemAppraised,
+            status: 'Active',
+            date: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString()
+          };
+        });
+        await adminSupabase.from('stock_items').insert(stockPayloads);
+      } catch (stockErr) {
+        console.warn("Could not insert matching vault stock items, but proceeding:", stockErr);
+      }
+    } else {
+      // Single default stock item if items array is empty
+      try {
+        await adminSupabase.from('stock_items').insert([{
+          id: crypto.randomUUID(),
+          bill_no: baseBill,
+          branch_id: targetBranchId,
+          item_type: description || 'Pawned Gold Collateral',
+          weight: finalWeightMg / 1000 || finalWeightGrams,
+          price: finalAppraised,
+          status: 'Active',
+          date: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString()
+        }]);
+      } catch (stockErr) {
+        console.warn("Could not insert matching vault stock item, proceeding:", stockErr);
+      }
     }
 
     await recordAuditLog(session, {
@@ -297,6 +334,30 @@ export async function POST(request: Request) {
       await adminSupabase.from('cctv_recordings').insert(cctvPayloads);
     } catch (cctvErr) {
       console.warn("CCTV Auto-capture trigger notice:", cctvErr);
+    }
+
+    // 6. Dispatch Free SMS Receipt via Android SIM Gateway
+    const targetPhone = clientPhone || fullClientObj?.phone;
+    if (targetPhone) {
+      try {
+        const ticketDisplay = billNo || pawnId.substring(0, 8).toUpperCase();
+        const cName = clientName || customerName || (fullClientObj ? `${fullClientObj.first_name || ''} ${fullClientObj.last_name || ''}`.trim() : 'Valued Customer');
+        const smsMessage = buildPawnReceiptSms({
+          customerName: cName,
+          ticketNo: ticketDisplay,
+          amount: finalDisbursed
+        });
+        await sendFreeSms({
+          phone: targetPhone,
+          message: smsMessage,
+          ticketNo: ticketDisplay,
+          amount: finalDisbursed,
+          type: 'RECEIPT',
+          branchId: targetBranchId
+        });
+      } catch (smsErr) {
+        console.warn("SMS Auto-dispatch notice:", smsErr);
+      }
     }
 
     // Attach client details to response

@@ -39,9 +39,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const statsTemplate = [
-  { label: "Total Pawn Value", value: "Rs. 0", change: "+0.0%", trend: "up", icon: DollarSign, color: "emerald" },
-  { label: "Active Pawnes", value: "0", change: "+0.0%", trend: "up", icon: CreditCard, color: "blue" },
-  { label: "Total Customers", value: "0", change: "+0.0%", trend: "up", icon: Users, color: "primary" },
+  { label: "Total Disbursed Portfolio", value: "Rs. 0", change: "+0.0%", trend: "up", icon: DollarSign, color: "emerald" },
+  { label: "Active Pawn Tickets", value: "0", change: "+0.0%", trend: "up", icon: CreditCard, color: "blue" },
+  { label: "Registered Customers", value: "0", change: "+0.0%", trend: "up", icon: Users, color: "primary" },
   { label: "System Health", value: "Online", change: "99.9%", trend: "up", icon: Zap, color: "indigo" },
 ];
 
@@ -55,10 +55,10 @@ const revenueData = [
 ];
 
 const loanDistribution = [
-  { name: "Personal", value: 35, color: "var(--color-primary)" },
-  { name: "Business", value: 28, color: "#10b981" },
-  { name: "Mortgage", value: 22, color: "#7c3aed" },
-  { name: "Bridge", value: 15, color: "#f59e0b" },
+  { name: "Gold Chains", value: 40, color: "var(--color-primary)" },
+  { name: "Rings & Bangles", value: 30, color: "#10b981" },
+  { name: "Necklaces & Pendants", value: 20, color: "#7c3aed" },
+  { name: "Coins & Bars", value: 10, color: "#f59e0b" },
 ];
 
 export default function Home() {

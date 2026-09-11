@@ -34,48 +34,52 @@ async function seed() {
   const authUsers = authUsersResponse.users || [];
   console.log(`Successfully fetched ${authUsers.length} existing auth users.`);
   
-  // 2. Ensure Admin User
-  let adminUser = authUsers.find(u => u.email === 'admin@rupasinghe.com');
-  let adminUserId;
-  if (!adminUser) {
-    console.log("Creating Admin User...");
-    const { data: newAdmin, error: createAdminError } = await supabase.auth.admin.createUser({
-      email: 'admin@rupasinghe.com',
-      password: 'HeadOffice@2024',
-      email_confirm: true
-    });
-    if (createAdminError) {
-      console.error("Error creating admin:", createAdminError.message);
+  // 2. Ensure Admin Users
+  const adminEmails = ['admin@gmail.com', 'admin@rupasinghe.com'];
+  for (const adminEmail of adminEmails) {
+    let adminUser = authUsers.find(u => u.email === adminEmail);
+    let adminUserId;
+    if (!adminUser) {
+      console.log(`Creating Admin User (${adminEmail})...`);
+      const { data: newAdmin, error: createAdminError } = await supabase.auth.admin.createUser({
+        email: adminEmail,
+        password: 'HeadOffice@2024',
+        email_confirm: true,
+        user_metadata: { role: 'ADMIN', full_name: 'Administrator' }
+      });
+      if (createAdminError) {
+        console.error(`Error creating admin (${adminEmail}):`, createAdminError.message);
+      } else {
+        adminUserId = newAdmin.user.id;
+        console.log(`Admin User Created (${adminEmail}):`, adminUserId);
+      }
     } else {
-      adminUserId = newAdmin.user.id;
-      console.log("Admin User Created:", adminUserId);
+      adminUserId = adminUser.id;
+      console.log(`Admin User Exists (${adminEmail}):`, adminUserId);
+      const { error: updateAdminError } = await supabase.auth.admin.updateUserById(adminUserId, {
+        password: 'HeadOffice@2024',
+        user_metadata: { role: 'ADMIN', full_name: 'Administrator' }
+      });
+      if (updateAdminError) {
+        console.error(`Error updating admin password (${adminEmail}):`, updateAdminError.message);
+      } else {
+        console.log(`Admin password updated successfully (${adminEmail})`);
+      }
     }
-  } else {
-    adminUserId = adminUser.id;
-    console.log("Admin User Exists:", adminUserId);
-    // Update admin password
-    const { error: updateAdminError } = await supabase.auth.admin.updateUserById(adminUserId, {
-      password: 'HeadOffice@2024'
-    });
-    if (updateAdminError) {
-      console.error("Error updating admin password:", updateAdminError.message);
-    } else {
-      console.log("Admin password updated successfully");
-    }
-  }
-  
-  if (adminUserId) {
-    const { error: adminProfileError } = await supabase.from('profiles').upsert({
-      id: adminUserId,
-      email: 'admin@rupasinghe.com',
-      branch_id: 'HQ',
-      branch_name: 'Head Office',
-      role: 'ADMIN'
-    });
-    if (adminProfileError) {
-      console.error("Error upserting admin profile:", adminProfileError.message);
-    } else {
-      console.log("Admin profile set up successfully");
+
+    if (adminUserId) {
+      const { error: adminProfileError } = await supabase.from('profiles').upsert({
+        id: adminUserId,
+        email: adminEmail,
+        branch_id: 'HQ',
+        branch_name: 'Head Office',
+        role: 'ADMIN'
+      });
+      if (adminProfileError) {
+        console.error(`Error upserting admin profile (${adminEmail}):`, adminProfileError.message);
+      } else {
+        console.log(`Admin profile set up successfully (${adminEmail})`);
+      }
     }
   }
   

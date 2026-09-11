@@ -305,12 +305,12 @@ export default function LoginPage() {
         }
 
         /* ── Heading ── */
-        .heading { margin-bottom: 32px; }
+        .heading { margin-bottom: 24px; }
         .heading-title {
-          font-size: 48px; font-weight: 800;
-          color: #fff; letter-spacing: -.7px; line-height: 1.1; margin-bottom: 12px;
+          font-size: 32px; font-weight: 800;
+          color: #fff; letter-spacing: -.5px; line-height: 1.15; margin-bottom: 8px;
         }
-        .heading-sub { font-size: 18px; color: rgba(255,255,255,.45); line-height: 1.5; }
+        .heading-sub { font-size: 14px; color: rgba(255,255,255,.5); line-height: 1.4; }
         .heading-sub a {
           color: #fbbf24; font-weight: 600;
           text-decoration: none; cursor: pointer;
@@ -324,36 +324,36 @@ export default function LoginPage() {
           background: rgba(251,191,36,.08);
           border: 1px solid rgba(251,191,36,.25);
           color: #fbbf24; border-radius: 10px;
-          padding: 12px 16px; font-size: 13px; font-weight: 500;
-          margin-bottom: 22px;
+          padding: 10px 14px; font-size: 12.5px; font-weight: 500;
+          margin-bottom: 18px;
         }
         .alert-success {
           display: flex; align-items: flex-start; gap: 8px;
           background: rgba(34,197,94,.08);
           border: 1px solid rgba(34,197,94,.25);
           color: #86efac; border-radius: 10px;
-          padding: 12px 16px; font-size: 13px; font-weight: 500;
-          margin-bottom: 22px;
+          padding: 10px 14px; font-size: 12.5px; font-weight: 500;
+          margin-bottom: 18px;
         }
         .alert-err {
           display: flex; align-items: center; gap: 8px;
           background: rgba(239,68,68,.08);
           border: 1px solid rgba(239,68,68,.22);
           color: #fca5a5; border-radius: 10px;
-          padding: 12px 16px; font-size: 13px; font-weight: 500;
+          padding: 10px 14px; font-size: 12.5px; font-weight: 500;
         }
 
         /* ── Form ── */
-        .form { display: flex; flex-direction: column; gap: 16px; }
+        .form { display: flex; flex-direction: column; gap: 14px; }
 
         /* Field */
-        .field { display: flex; flex-direction: column; gap: 10px; }
-        .field-label { font-size: 18px; font-weight: 600; color: rgba(255,255,255,.7); letter-spacing: .15px; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field-label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.75); letter-spacing: .1px; }
 
         /* Input with icon wrapper */
         .inp-wrap { position: relative; }
         .inp-icon {
-          position: absolute; left: 20px; top: 50%;
+          position: absolute; left: 14px; top: 50%;
           transform: translateY(-50%);
           color: #94a3b8; pointer-events: none;
           display: flex; align-items: center;
@@ -361,24 +361,24 @@ export default function LoginPage() {
 
         /* Inputs */
         .inp {
-          width: 100%; height: 64px;
+          width: 100%; height: 46px;
           background: #fff;
-          border: 2px solid transparent;
+          border: 1.5px solid transparent;
           border-radius: 10px;
-          padding: 0 20px 0 52px;
-          font-size: 20px; font-family: inherit;
+          padding: 0 16px 0 42px;
+          font-size: 14px; font-family: inherit;
           color: #0f172a; outline: none;
           transition: border-color .2s, box-shadow .2s;
         }
-        .inp-no-icon { padding-left: 18px; }
-        .inp::placeholder { color: #b0bec5; }
-        .inp:focus { border-color: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.14); }
-        .inp:hover:not(:focus) { border-color: rgba(251,191,36,.3); }
-        .inp-pw-pad { padding-right: 52px; }
+        .inp-no-icon { padding-left: 14px; }
+        .inp::placeholder { color: #94a3b8; }
+        .inp:focus { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,.18); }
+        .inp:hover:not(:focus) { border-color: rgba(251,191,36,.35); }
+        .inp-pw-pad { padding-right: 42px; }
 
         /* Eye toggle */
         .eye-btn {
-          position: absolute; right: 18px; top: 50%;
+          position: absolute; right: 14px; top: 50%;
           transform: translateY(-50%);
           background: none; border: none;
           color: #94a3b8; cursor: pointer;
@@ -390,46 +390,49 @@ export default function LoginPage() {
         /* Branch dropdown */
         .br-wrap { position: relative; }
         .br-btn {
-          width: 100%; height: 64px;
+          width: 100%; height: 46px;
           background: #fff;
-          border: 2px solid transparent;
+          border: 1.5px solid transparent;
           border-radius: 10px;
-          padding: 0 20px 0 52px;
-          font-size: 20px; font-family: inherit;
+          padding: 0 16px 0 42px;
+          font-size: 14px; font-family: inherit;
           display: flex; align-items: center; gap: 8px;
           cursor: pointer; outline: none;
           transition: border-color .2s, box-shadow .2s;
         }
-        .br-btn:hover:not(.open) { border-color: rgba(251,191,36,.3); }
-        .br-btn.open, .br-btn:focus { border-color: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.14); }
+        .br-btn:hover:not(.open) { border-color: rgba(251,191,36,.35); }
+        .br-btn.open, .br-btn:focus { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,.18); }
         .br-txt { flex: 1; text-align: left; }
-        .br-txt--ph  { color: #b0bec5; }
-        .br-txt--val { color: #0f172a; }
+        .br-txt--ph  { color: #94a3b8; }
+        .br-txt--val { color: #0f172a; font-weight: 500; }
         .br-chev { flex-shrink: 0; color: #94a3b8; transition: transform .22s; }
         .br-btn.open .br-chev { transform: rotate(180deg); }
 
         .br-menu {
-          position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+          position: absolute; top: calc(100% + 4px); left: 0; right: 0;
           background: #1f1f1f;
           border: 1px solid rgba(251,191,36,.28);
-          border-radius: 12px; overflow: hidden; z-index: 80;
-          box-shadow: 0 16px 48px rgba(0,0,0,.6);
+          border-radius: 10px; overflow: hidden; z-index: 80;
+          max-height: 240px; overflow-y: auto;
+          box-shadow: 0 12px 36px rgba(0,0,0,.6);
           animation: menu-in .15s ease both;
         }
+        .br-menu::-webkit-scrollbar { width: 4px; }
+        .br-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 4px; }
         @keyframes menu-in {
-          from { opacity: 0; transform: translateY(-6px); }
+          from { opacity: 0; transform: translateY(-4px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         .br-item {
           width: 100%; background: none; border: none;
-          padding: 18px 24px; font-size: 18px;
+          padding: 11px 16px; font-size: 13.5px;
           font-family: inherit; cursor: pointer;
-          text-align: left; color: rgba(255,255,255,.75);
-          display: flex; align-items: center; gap: 10px;
+          text-align: left; color: rgba(255,255,255,.8);
+          display: flex; align-items: center; gap: 8px;
           transition: background .14s, color .14s;
         }
         .br-item::before {
-          content: ''; width: 6px; height: 6px;
+          content: ''; width: 5px; height: 5px;
           border-radius: 50%; background: rgba(255,255,255,.2);
           flex-shrink: 0; transition: background .14s;
         }
@@ -439,37 +442,37 @@ export default function LoginPage() {
         .br-item.sel::before { background: #fbbf24; }
 
         /* Forgot */
-        .forgot { text-align: right; margin-top: -4px; }
-        .forgot a { font-size: 15px; color: #fbbf24; font-weight: 500; cursor: pointer; text-decoration: none; transition: color .15s; }
+        .forgot { text-align: right; margin-top: -2px; }
+        .forgot a { font-size: 13px; color: #fbbf24; font-weight: 500; cursor: pointer; text-decoration: none; transition: color .15s; }
         .forgot a:hover { color: #fde047; }
 
         /* ── Primary button ── */
         .btn-primary {
-          width: 100%; height: 64px;
+          width: 100%; height: 48px;
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          border: none; border-radius: 12px;
-          font-size: 20px; font-weight: 700;
+          border: none; border-radius: 10px;
+          font-size: 15px; font-weight: 700;
           color: #1a1a1a; cursor: pointer;
-          letter-spacing: .3px;
+          letter-spacing: .2px;
           display: flex; align-items: center; justify-content: center;
           font-family: inherit; position: relative; overflow: hidden;
           transition: transform .15s, box-shadow .2s, opacity .2s;
-          box-shadow: 0 4px 24px rgba(245,158,11,.45);
-          margin-top: 4px;
+          box-shadow: 0 4px 18px rgba(245,158,11,.35);
+          margin-top: 6px;
         }
         .btn-primary::after {
           content: ''; position: absolute; inset: 0;
           background: linear-gradient(to bottom, rgba(255,255,255,.2), transparent);
           pointer-events: none;
         }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(245,158,11,.55); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(245,158,11,.45); }
         .btn-primary:active:not(:disabled) { transform: translateY(0); }
         .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 
         /* Spinner */
         .spinner {
-          width: 20px; height: 20px;
-          border: 2.5px solid rgba(26,26,26,.3);
+          width: 18px; height: 18px;
+          border: 2px solid rgba(26,26,26,.3);
           border-top-color: #1a1a1a;
           border-radius: 50%;
           animation: spin .7s linear infinite;
@@ -478,13 +481,13 @@ export default function LoginPage() {
 
         /* ── Footer ── */
         .lp-footer {
-          padding: 18px 52px;
+          padding: 16px 52px;
           text-align: center;
           position: relative; z-index: 2;
           border-top: 1px solid rgba(255,255,255,.05);
           flex-shrink: 0;
         }
-        .lp-footer p { font-size: 11.5px; color: rgba(255,255,255,.2); letter-spacing: .3px; }
+        .lp-footer p { font-size: 11px; color: rgba(255,255,255,.25); letter-spacing: .3px; }
 
         /* ═════════════════════════════
            RIGHT PANEL
@@ -494,32 +497,32 @@ export default function LoginPage() {
           background: linear-gradient(145deg, #1c1c1c 0%, #121212 100%);
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
-          padding: 52px 48px;
+          padding: 48px 40px;
           position: relative; overflow: hidden;
-          gap: 44px;
+          gap: 32px;
         }
         .right::before {
           content: '';
           position: absolute; top: 50%; left: 50%;
           transform: translate(-50%, -50%);
-          width: 600px; height: 600px;
+          width: 500px; height: 500px;
           background: radial-gradient(circle, rgba(251,191,36,.1) 0%, transparent 60%);
           border-radius: 50%; pointer-events: none;
         }
 
-        /* Shield */
+        /* Shield Ring with Rupasinghe Logo */
         .shield-ring {
           position: relative; z-index: 1; flex-shrink: 0;
-          width: 360px; height: 360px;
+          width: 280px; height: 280px;
         }
         .shield-ring::before {
-          content: ''; position: absolute; inset: -16px; border-radius: 50%;
-          border: 1px solid rgba(251,191,36,.2);
+          content: ''; position: absolute; inset: -14px; border-radius: 50%;
+          border: 1px solid rgba(251,191,36,.25);
           animation: pulse 3s ease-in-out infinite;
         }
         .shield-ring::after {
-          content: ''; position: absolute; inset: -32px; border-radius: 50%;
-          border: 1px solid rgba(251,191,36,.1);
+          content: ''; position: absolute; inset: -28px; border-radius: 50%;
+          border: 1px solid rgba(251,191,36,.12);
           animation: pulse 3s ease-in-out infinite .6s;
         }
         @keyframes pulse {
@@ -530,34 +533,27 @@ export default function LoginPage() {
           width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
           background: #fff;
           display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 0 0 2px rgba(251,191,36,.25), 0 0 60px rgba(251,191,36,.35), 0 0 120px rgba(251,191,36,.18);
+          box-shadow: 0 0 0 2px rgba(251,191,36,.3), 0 0 50px rgba(251,191,36,.3), 0 0 100px rgba(251,191,36,.15);
         }
         .shield-img { width: 80%; height: 80%; object-fit: contain; display: block; }
 
         /* Right text */
-        .right-text { text-align: center; z-index: 1; max-width: 500px; }
-        .right-eyebrow { font-size: 14px; font-weight: 700; letter-spacing: 3px; color: #fbbf24; text-transform: uppercase; margin-bottom: 16px; }
-        .right-title { font-size: 38px; font-weight: 800; color: #fff; letter-spacing: -.5px; line-height: 1.25; margin-bottom: 16px; }
-        .right-body { font-size: 18px; color: rgba(255,255,255,.45); line-height: 1.6; margin-bottom: 32px; }
-        .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-        .chip {
-          background: rgba(251,191,36,.12);
-          border: 1px solid rgba(255,235,59,.2);
-          color: #fde047; font-size: 15px; font-weight: 600;
-          padding: 8px 18px; border-radius: 999px; letter-spacing: .3px;
-        }
+        .right-text { text-align: center; z-index: 1; max-width: 440px; }
+        .right-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2.5px; color: #fbbf24; text-transform: uppercase; margin-bottom: 12px; }
+        .right-title { font-size: 30px; font-weight: 800; color: #fff; letter-spacing: -.4px; line-height: 1.25; margin-bottom: 12px; }
+        .right-body { font-size: 14.5px; color: rgba(255,255,255,.5); line-height: 1.55; }
 
         /* ── Responsive ── */
         @media (max-width: 960px) {
           .root { flex-direction: column; }
           .left { flex: none; width: 100%; }
-          .right { flex: none; padding: 48px 32px; }
-          .shield-ring { width: 240px; height: 240px; }
+          .right { flex: none; padding: 40px 24px; }
+          .shield-ring { width: 200px; height: 200px; }
         }
         @media (max-width: 520px) {
-          .form-area { padding: 32px 24px; }
-          .topbar, .lp-footer { padding-left: 24px; padding-right: 24px; }
-          .heading-title { font-size: 26px; }
+          .form-area { padding: 24px 20px; }
+          .topbar, .lp-footer { padding-left: 20px; padding-right: 20px; }
+          .heading-title { font-size: 24px; }
         }
       `}</style>
 
@@ -569,7 +565,7 @@ export default function LoginPage() {
           {/* Brand */}
           <div className="topbar">
             <div className="topbar-icon">
-              <ShieldCheck size={18} color="#60a5fa" />
+              <ShieldCheck size={18} color="#fbbf24" />
             </div>
             <div>
               <span className="topbar-name">Mifos X</span>
@@ -868,11 +864,6 @@ export default function LoginPage() {
               Multi-branch MFI platform secured with end-to-end
               encryption, role-based access control and real-time audit logging.
             </p>
-            <div className="chips">
-              {['256-bit Encryption', 'Role-Based Access', 'Audit Logging', 'Multi-Branch'].map(t => (
-                <span key={t} className="chip">{t}</span>
-              ))}
-            </div>
           </div>
         </div>
 

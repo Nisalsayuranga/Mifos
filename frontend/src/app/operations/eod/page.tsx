@@ -2515,7 +2515,7 @@ export default function EndOfDayPage() {
 
               {/* Notes */}
               <div className="grid gap-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Logistics Notes / Comments</Label>
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Notes</Label>
                 <Input 
                   value={withdrawalNotes} 
                   onChange={e => setWithdrawalNotes(e.target.value)} 
@@ -2605,7 +2605,7 @@ export default function EndOfDayPage() {
 
               {/* Notes / Reason */}
               <div className="grid gap-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Restoration Audit Notes</Label>
+                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Notes</Label>
                 <Input 
                   value={restoreNotes} 
                   onChange={e => setRestoreNotes(e.target.value)} 

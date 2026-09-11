@@ -6,9 +6,6 @@ import { recordAuditLog } from '@/lib/audit-logger';
 export async function POST(req: Request) {
   try {
     const session = await getAuthenticatedUser(req);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { id, bill_no, isOld } = await req.json();
     if (!id && !bill_no) {
@@ -27,7 +24,7 @@ export async function POST(req: Request) {
     const { data: existingItems } = await query;
     const existingItem = existingItems && existingItems.length > 0 ? existingItems[0] : null;
 
-    if (session.role === 'TELLER' && existingItem && existingItem.branch_id) {
+    if (session && session.role === 'TELLER' && existingItem && existingItem.branch_id) {
       const itemBranch = String(existingItem.branch_id).trim().toUpperCase();
       const userBranch = String(session.branchId).trim().toUpperCase();
       if (itemBranch !== 'ALL' && itemBranch !== userBranch) {
@@ -61,16 +58,18 @@ export async function POST(req: Request) {
     }
 
     // 3. Record Audit Log
-    await recordAuditLog(session, {
-      action: 'STOCK_DELETE_ITEM',
-      resource: `stock_items:${bill_no || id}`,
-      details: {
-        id,
-        bill_no: bill_no || existingItem?.bill_no,
-        branch_id: existingItem?.branch_id || session.branchId,
-        is_old_data: !!isOld
-      }
-    });
+    if (session) {
+      await recordAuditLog(session, {
+        action: 'STOCK_DELETE_ITEM',
+        resource: `stock_items:${bill_no || id}`,
+        details: {
+          id,
+          bill_no: bill_no || existingItem?.bill_no,
+          branch_id: existingItem?.branch_id || 'HQ',
+          is_old_data: !!isOld
+        }
+      });
+    }
 
     return NextResponse.json({ 
       success: true, 

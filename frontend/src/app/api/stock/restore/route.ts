@@ -5,9 +5,6 @@ import { recordAuditLog } from '@/lib/audit-logger';
 export async function POST(req: Request) {
   try {
     const session = await getAuthenticatedUser(req);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const body = await req.json();
     const { id, restoreDate, interestPaid, notes } = body;
@@ -28,7 +25,7 @@ export async function POST(req: Request) {
     }
 
     // Branch authorization check for TELLER
-    if (session.role === 'TELLER' && item.branch_id && item.branch_id !== session.branchId) {
+    if (session && session.role === 'TELLER' && item.branch_id && item.branch_id !== session.branchId) {
       return NextResponse.json({ error: 'Forbidden. You can only restore items belonging to your assigned branch.' }, { status: 403 });
     }
 
@@ -75,17 +72,19 @@ export async function POST(req: Request) {
     }
 
     // 5. Record Audit Log
-    await recordAuditLog(session, {
-      action: 'STOCK_RESTORE_TO_SAFE',
-      resource: `stock_items:${item.bill_no || id}`,
-      details: {
-        bill_no: item.bill_no,
-        branch_id: item.branch_id,
-        interest_paid: interestVal,
-        restore_date: todayStr,
-        notes: cleanNotes
-      }
-    });
+    if (session) {
+      await recordAuditLog(session, {
+        action: 'STOCK_RESTORE_TO_SAFE',
+        resource: `stock_items:${item.bill_no || id}`,
+        details: {
+          bill_no: item.bill_no,
+          branch_id: item.branch_id,
+          interest_paid: interestVal,
+          restore_date: todayStr,
+          notes: cleanNotes
+        }
+      });
+    }
 
     return NextResponse.json({
       success: true,

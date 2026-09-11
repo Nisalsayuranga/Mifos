@@ -124,7 +124,7 @@ export default function VaultTransfersPage() {
                </div>
             </div>
             <div className="space-y-2">
-               <Label className="font-bold">Logistics Instructions / Notes</Label>
+               <Label className="font-bold">Notes</Label>
                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Reason for capital movement..." />
             </div>
           </div>
