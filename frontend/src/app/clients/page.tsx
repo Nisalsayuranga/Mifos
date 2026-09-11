@@ -706,9 +706,9 @@ export default function ClientsPage() {
 
       {/* New Customer Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="w-[95vw] md:w-full md:max-w-4xl max-h-[95vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+        <DialogContent className="w-[96vw] max-w-[96vw] md:max-w-4xl max-h-[95vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-2xl sm:rounded-[2.5rem]">
           <div className="h-2 bg-primary animate-pulse" />
-          <div className="p-8 space-y-6">
+          <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
             <DialogHeader>
               <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3">
                  {editingClient ? <UserCog className="w-6 h-6 text-primary" /> : <UserPlus className="w-6 h-6 text-primary" />}
@@ -752,11 +752,11 @@ export default function ClientsPage() {
               {/* Right Column: Smart Tabbed Switcher (NIC Front, NIC Back, Signature) */}
               <div className="space-y-4">
                 {/* Segmented Control Tabs */}
-                <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 shadow-inner w-full">
+                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 shadow-inner w-full">
                   <button
                     type="button"
                     onClick={() => setActiveKycTab('nic_front')}
-                    className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`py-2 px-1 sm:px-3 text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer rounded-lg ${
                       activeKycTab === 'nic_front'
                         ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
@@ -767,7 +767,7 @@ export default function ClientsPage() {
                   <button
                     type="button"
                     onClick={() => setActiveKycTab('nic_back')}
-                    className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`py-2 px-1 sm:px-3 text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer rounded-lg ${
                       activeKycTab === 'nic_back'
                         ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
@@ -778,7 +778,7 @@ export default function ClientsPage() {
                   <button
                     type="button"
                     onClick={() => setActiveKycTab('signature')}
-                    className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`py-2 px-1 sm:px-3 text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer rounded-lg ${
                       activeKycTab === 'signature'
                         ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'

@@ -821,9 +821,9 @@ export default function PawnesPage() {
 
       {/* Dialog */}
       <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
-        <DialogContent className="w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 rounded-[2.5rem]">
+        <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 shadow-2xl p-0 rounded-2xl sm:rounded-[2.5rem]">
           <div className="h-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500" />
-          <div className="p-8 space-y-6">
+          <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
             <DialogHeader className="border-b border-slate-100 pb-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-3 text-slate-900">
@@ -950,7 +950,7 @@ export default function PawnesPage() {
                 </div>
 
                 {/* Extended Contact Info */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="grid gap-1.5">
                     <Label className="font-black text-[10px] uppercase tracking-widest text-slate-400">Phone Number</Label>
                     <Input
@@ -974,7 +974,7 @@ export default function PawnesPage() {
                 {/* Bill Prefix & Bill Number Block */}
                 <div className="grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                   <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500">Bill Type / Prefix</Label>
                       <Badge className="bg-amber-500/10 text-amber-800 border border-amber-500/20 font-black text-[10px] uppercase tracking-wider px-2.5 py-0.5">
                         Tenor: {periodMonths} {parseInt(periodMonths) === 1 ? 'Month' : 'Months'} (Auto)
