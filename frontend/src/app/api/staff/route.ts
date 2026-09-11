@@ -11,28 +11,51 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden. Admin privileges required to manage staff.' }, { status: 403 });
     }
 
+    // Get all auth users
+    const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+    const authUsers = authData?.users || [];
+
     // Get all profiles
-    const { data: profiles, error: profilesError } = await adminSupabase
+    const { data: profiles } = await adminSupabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (profilesError) throw profilesError;
+    const profilesMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+    const mergedMap = new Map<string, any>();
 
-    // Get all auth users so we can show their emails
-    const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
-    const authUsers = authData?.users || [];
+    // 1. Process all Supabase Auth Users
+    for (const u of authUsers) {
+      const p = profilesMap.get(u.id);
+      mergedMap.set(u.id, {
+        id: u.id,
+        email: u.email || p?.email || '',
+        branch_id: p?.branch_id || 'HQ',
+        branch_name: p?.branch_name || 'Head Office',
+        role: p?.role || (u.email?.includes('admin') ? 'ADMIN' : 'TELLER'),
+        lastSignIn: u.last_sign_in_at || p?.last_login || null,
+        created_at: u.created_at || p?.created_at || new Date().toISOString(),
+      });
+    }
 
-    // Merge profiles with auth user emails
-    const merged = (profiles || []).map((profile: any) => {
-      const authUser = authUsers.find((u: any) => u.id === profile.id);
-      return {
-        ...profile,
-        email: authUser?.email || profile.email || '',
-        lastSignIn: authUser?.last_sign_in_at || null,
-        createdAt: authUser?.created_at || profile.created_at,
-      };
-    });
+    // 2. Add any additional Profiles not present in authUsers
+    for (const p of (profiles || [])) {
+      if (!mergedMap.has(p.id)) {
+        mergedMap.set(p.id, {
+          ...p,
+          email: p.email || '',
+          branch_id: p.branch_id || 'HQ',
+          branch_name: p.branch_name || 'Head Office',
+          role: p.role || 'TELLER',
+          lastSignIn: p.last_login || null,
+          created_at: p.created_at || new Date().toISOString(),
+        });
+      }
+    }
+
+    const merged = Array.from(mergedMap.values()).sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
 
     return NextResponse.json(merged);
   } catch (error: any) {
