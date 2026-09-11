@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [branch, setBranch]       = useState('');
   const [showPw, setShowPw]       = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
+  const [branchError, setBranchError] = useState(false);
   const [expiredAlert, setExpiredAlert] = useState(false);
 
   /* ── register ── */
@@ -149,7 +150,16 @@ export default function LoginPage() {
   /* ── LOGIN ── */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setLoading(true);
+    setError('');
+
+    // Branch is required — block login if not selected
+    if (!branch) {
+      setBranchError(true);
+      return;
+    }
+    setBranchError(false);
+    setLoading(true);
+
     try {
       let loginEmail = email.trim();
       if (!loginEmail.includes('@')) {
@@ -170,8 +180,8 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify({
         email: data.user.email, id: data.user.id,
         role: profile?.role || 'TELLER',
-        branchId: branch || profile?.branch_id || 'HQ',
-        branchName: BRANCHES.find(b => b.id === branch)?.name || profile?.branch_name || 'Head Office',
+        branchId: branch,
+        branchName: BRANCHES.find(b => b.id === branch)?.name || branch,
       }));
       window.location.href = '/';
     } catch (err: any) {
@@ -414,6 +424,8 @@ export default function LoginPage() {
         }
         .br-btn:hover:not(.open) { border-color: rgba(251,191,36,.35); }
         .br-btn.open, .br-btn:focus { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,.18); }
+        .br-btn.error { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.15); }
+        .br-err-msg { font-size: 12px; color: #f87171; margin-top: 5px; font-weight: 500; display: flex; align-items: center; gap: 4px; }
         .br-txt { flex: 1; text-align: left; }
         .br-txt--ph  { color: #94a3b8; }
         .br-txt--val { color: #0f172a; font-weight: 500; }
@@ -636,12 +648,14 @@ export default function LoginPage() {
 
                     {/* Branch */}
                     <div className="field">
-                      <label className="field-label" htmlFor="l-branch">Branch</label>
+                      <label className="field-label" htmlFor="l-branch">
+                        Branch <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
                       <div className="br-wrap">
-                        <div className="inp-icon" style={{ zIndex: 1 }}><Building2 size={15} /></div>
+                        <div className="inp-icon" style={{ zIndex: 1, color: branchError ? '#f87171' : undefined }}><Building2 size={15} /></div>
                         <button id="l-branch" type="button"
-                          className={`br-btn${branchOpen ? ' open' : ''}`}
-                          onClick={() => setBranchOpen(v => !v)}
+                          className={`br-btn${branchOpen ? ' open' : ''}${branchError && !branch ? ' error' : ''}`}
+                          onClick={() => { setBranchOpen(v => !v); if (branchError) setBranchError(false); }}
                           aria-haspopup="listbox" aria-expanded={branchOpen}>
                           <span className={`br-txt ${selectedBranch ? 'br-txt--val' : 'br-txt--ph'}`}>
                             {selectedBranch ? selectedBranch.name : 'Select your branch'}
@@ -654,13 +668,18 @@ export default function LoginPage() {
                               <button key={b.id} type="button" role="option"
                                 aria-selected={branch === b.id}
                                 className={`br-item${branch === b.id ? ' sel' : ''}`}
-                                onClick={() => { setBranch(b.id); setBranchOpen(false); }}>
+                                onClick={() => { setBranch(b.id); setBranchOpen(false); setBranchError(false); }}>
                                 {b.name}
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
+                      {branchError && !branch && (
+                        <p className="br-err-msg" role="alert">
+                          <span>⚠</span> Please select a branch to continue.
+                        </p>
+                      )}
                     </div>
 
                     {error && <div className="alert-err" role="alert"><span>⚠</span>{error}</div>}

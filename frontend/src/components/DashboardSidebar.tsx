@@ -25,7 +25,8 @@ import {
   Camera,
   Video,
   PlaySquare,
-  Eye
+  Eye,
+  Package
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,12 @@ const navGroups = [
       { name: 'Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
       { name: 'Ledger Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
       { name: 'Financial Statements', href: '/accounting/reports', icon: BarChart3 },
+    ]
+  },
+  {
+    label: "Stock Management",
+    items: [
+      { name: 'Pawn Stock', href: '/operations/eod?tab=stock', icon: Package },
     ]
   },
   {
@@ -98,6 +105,7 @@ export default function DashboardSidebar({
   const groupIcons: { [key: string]: React.ElementType } = {
     "Overview": LayoutDashboard,
     "Finance": Wallet,
+    "Stock Management": Package,
     "Transactions": ArrowRightLeft,
     "CCTV Surveillance": Camera,
     "Operations": ShieldCheck
@@ -157,14 +165,14 @@ export default function DashboardSidebar({
           isCollapsed ? "justify-center" : "justify-between"
         )}>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-xl shadow-primary/30 ring-2 ring-white/10 group-hover:scale-110 transition-transform duration-300 relative overflow-hidden shrink-0">
-              <div className="absolute inset-0 bg-linear-to-br from-white/20 to-transparent" />
-              <span className="text-white font-black text-sm tracking-tighter relative z-10">RP</span>
+            <div className="h-10 w-10 bg-[#ffd100] rounded-xl flex items-center justify-center shadow-lg shadow-[#ffd100]/20 ring-2 ring-[#ffd100]/40 group-hover:scale-105 transition-transform duration-300 relative overflow-hidden shrink-0">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
+              <span className="text-[#202020] font-black text-sm tracking-tighter relative z-10">RP</span>
             </div>
             {!isCollapsed && (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-500">
                 <span className="text-white font-black tracking-tighter text-lg leading-none">RUPASINGHE</span>
-                <span className="text-primary text-[8px] font-black uppercase tracking-[0.2em] opacity-90 mt-0.5">Management Hub</span>
+                <span className="text-[#ffd100] text-[8.5px] font-black uppercase tracking-[0.2em] opacity-95 mt-1">MIFOS Management</span>
               </div>
             )}
           </div>
@@ -209,14 +217,14 @@ export default function DashboardSidebar({
                   "w-full flex items-center h-9.5 rounded-xl transition-all duration-300 relative overflow-hidden cursor-pointer",
                   isCollapsed ? "justify-center" : "px-4 justify-between",
                   isGroupActive 
-                    ? "bg-white/10 text-white font-bold border border-white/5" 
+                    ? "bg-[#333533] text-white font-bold border border-[#ffd100]/20" 
                     : "hover:bg-white/5 text-slate-400 hover:text-white"
                 )}
               >
                 <div className="flex items-center">
                   <GroupIcon className={cn(
                     "w-4 h-4 shrink-0 transition-transform duration-300",
-                    isGroupActive ? "text-primary" : "text-slate-500",
+                    isGroupActive ? "text-[#ffd100]" : "text-slate-500",
                     !isCollapsed && "mr-3.5"
                   )} />
                   {!isCollapsed && (
@@ -226,7 +234,7 @@ export default function DashboardSidebar({
                 {!isCollapsed && (
                   <ChevronRight className={cn(
                     "w-3.5 h-3.5 text-slate-500 transition-transform duration-300",
-                    isOpen && "rotate-90"
+                    isOpen && "rotate-90 text-[#ffd100]"
                   )} />
                 )}
               </button>
@@ -236,7 +244,7 @@ export default function DashboardSidebar({
                 "grid transition-all duration-300 ease-in-out overflow-hidden",
                 isOpen ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
               )}>
-                <div className="overflow-hidden space-y-1 pl-3 border-l border-white/5 ml-5">
+                <div className="overflow-hidden space-y-1 pl-3 border-l border-white/10 ml-5">
                   {group.items.map((item) => {
                     if (item.adminOnly && user?.role !== 'ADMIN') return null;
                     const isActive = pathname === item.href;
@@ -255,17 +263,19 @@ export default function DashboardSidebar({
                           "group flex items-center h-8.5 rounded-lg transition-all duration-300 relative overflow-hidden",
                           isCollapsed ? "justify-center" : "px-3",
                           isActive 
-                            ? "bg-primary text-white shadow-xs" 
-                            : "text-slate-400 hover:bg-white/5 hover:text-white"
+                            ? "bg-[#ffd100] text-[#202020] font-black shadow-md" 
+                            : "text-slate-300 hover:bg-[#333533] hover:text-[#ffee32]"
                         )}
                       >
                         <SubIcon className={cn(
                           "w-3.5 h-3.5 shrink-0 transition-all duration-300 group-hover:scale-105",
-                          isActive ? "text-white" : "text-slate-500 group-hover:text-primary",
+                          isActive ? "text-[#202020]" : "text-slate-400 group-hover:text-[#ffd100]",
                           !isCollapsed && "mr-3"
                         )} />
                         {!isCollapsed && (
-                          <span className="font-bold text-[12px] tracking-tight">{item.name}</span>
+                          <span className={cn("text-[12px] tracking-tight", isActive ? "font-black text-[#202020]" : "font-semibold")}>
+                            {item.name}
+                          </span>
                         )}
                       </Link>
                     );

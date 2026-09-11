@@ -28,7 +28,8 @@ import {
   X,
   User,
   Building2,
-  Smartphone
+  Smartphone,
+  Package
 } from 'lucide-react';
 
 const navGroups = [
@@ -50,6 +51,13 @@ const navGroups = [
       { name: 'General Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
       { name: 'Branch Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
       { name: 'Financial Statements', href: '/accounting/reports', icon: BarChart3 },
+    ]
+  },
+  {
+    label: "Stock Management",
+    icon: Package,
+    items: [
+      { name: 'Pawn Stock', href: '/operations/eod?tab=stock', icon: Package },
     ]
   },
   {

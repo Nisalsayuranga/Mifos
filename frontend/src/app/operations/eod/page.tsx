@@ -137,13 +137,21 @@ const expandItemTypeCodes = (str: string): Array<{ id: string, code: string }> =
   return result;
 };
 
-export default function EndOfDayPage() {
-  // Navigation / Tabs
-  const [activeTab, setActiveTab] = useState<'reconciliation' | 'stock'>('reconciliation');
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-  // ==========================================
-  // TAB 1: Reconciliation State & Logic
-  // ==========================================
+// ==========================================
+// TAB 1: Reconciliation State & Logic
+// ==========================================
+function EndOfDayContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') as 'reconciliation' | 'stock';
+  // Navigation / Tabs
+  const [activeTab, setActiveTab] = useState<'reconciliation' | 'stock'>(initialTab || 'reconciliation');
+
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
   const [step, setStep] = useState(1);
   const [cashCount, setCashCount] = useState<any>({
     "5000": 0, "1000": 0, "500": 0, "100": 0, "50": 0, "20": 0
@@ -1589,7 +1597,8 @@ export default function EndOfDayPage() {
         
       </div>
 
-      {/* Tabs Menu */}
+      {/* Tabs Menu - Hidden as per request to move to sidebar */}
+      {/*
       <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60 w-full md:w-fit">
         <button 
           onClick={() => setActiveTab('reconciliation')}
@@ -1610,6 +1619,7 @@ export default function EndOfDayPage() {
           Pawn Stock Management
         </button>
       </div>
+      */}
 
       {/* ==========================================
           RECONCILIATION TAB VIEW
@@ -2982,5 +2992,17 @@ export default function EndOfDayPage() {
       </Dialog>
 
     </div>
+  );
+}
+
+export default function EndOfDayPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    }>
+      <EndOfDayContent />
+    </Suspense>
   );
 }
