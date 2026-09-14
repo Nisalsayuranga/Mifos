@@ -33,8 +33,8 @@ export async function recordAuditLog(sessionOrUser: any, options: AuditLogOption
     }
 
     const payloadDetails = {
+      status: options.details?.status || options.status || 'SUCCESS',
       ...(options.details || {}),
-      status: options.status || 'SUCCESS',
       ip_address: ipAddress,
       user_agent: userAgent
     };

@@ -24,12 +24,16 @@ export async function GET(request: Request) {
 
     const formatted = (data || []).map((row: any) => {
       const details = row.details || {};
+      let status = 'PENDING';
+      if (details.status === 'RESOLVED' || details.status === 'DISMISSED' || details.resolved_at) {
+        status = details.status === 'DISMISSED' ? 'DISMISSED' : 'RESOLVED';
+      }
       return {
         id: row.id,
         userId: row.user_id,
         email: row.user_email || details.email,
         branchId: row.branch_id || details.branch_id || 'HQ',
-        status: details.status || 'PENDING',
+        status,
         requestedAt: details.requested_at || row.created_at,
         resolvedAt: details.resolved_at || null,
         note: details.note || details.message || '',
@@ -97,6 +101,7 @@ export async function POST(request: Request) {
       role: foundRole,
       branchId: foundBranch,
       request,
+      status: 'PENDING' as any,
       details: {
         status: 'PENDING',
         email: searchEmail,

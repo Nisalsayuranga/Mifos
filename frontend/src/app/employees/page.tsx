@@ -85,17 +85,33 @@ export default function StaffPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setResetRequests(data);
+        setResetRequests(Array.isArray(data) ? data : []);
+      } else {
+        const err = await res.json();
+        console.warn('Failed to load reset requests:', err);
       }
     } catch (e) {
-      console.error('Failed to load reset requests');
+      console.error('Failed to load reset requests', e);
     }
+  };
+
+  const handleRefresh = () => {
+    loadStaff();
+    loadBranches();
+    loadResetRequests();
+    toast.success('Data refreshed');
   };
 
   useEffect(() => { 
     loadStaff(); 
     loadBranches();
     loadResetRequests();
+
+    // Auto-poll reset requests every 8 seconds for real-time visibility
+    const interval = setInterval(() => {
+      loadResetRequests();
+    }, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleResolveReset = async () => {
@@ -307,7 +323,7 @@ export default function StaffPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={loadStaff}
+            onClick={handleRefresh}
             disabled={loading}
             className="h-12 px-5 border-[#d6d6d6] bg-white text-[#202020] hover:bg-slate-100 font-black text-[10px] uppercase tracking-widest rounded-xl gap-2 shadow-xs"
           >
