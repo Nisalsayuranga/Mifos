@@ -7,7 +7,7 @@ import { CANONICAL_BRANCHES, normalizeBranchId } from '@/lib/branch-mapping';
 
 export default function LoginPage() {
   /* ── shared ── */
-  const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'update-password'>('login');
+  const [mode, setMode] = useState<'login' | 'reset' | 'update-password'>('login');
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
   const [success, setSuccess]     = useState('');
@@ -22,19 +22,12 @@ export default function LoginPage() {
   const [branchError, setBranchError] = useState(false);
   const [expiredAlert, setExpiredAlert] = useState(false);
 
-  /* ── register ── */
-  const [rUsername, setRUsername]       = useState('');
-  const [rEmail, setREmail]             = useState('');
-  const [rMobile, setRMobile]           = useState('');
-  const [rPassword, setRPassword]       = useState('');
-  const [rConfirm, setRConfirm]         = useState('');
-  const [showRPw, setShowRPw]           = useState(false);
-  const [showRCPw, setShowRCPw]         = useState(false);
-
-  /* ── reset ── */
-  const [resetEmail, setResetEmail]     = useState('');
-  const [newPassword, setNewPassword]   = useState('');
-  const [showNewPw, setShowNewPw]       = useState(false);
+  /* ── reset & update password ── */
+  const [resetEmail, setResetEmail]           = useState('');
+  const [newPassword, setNewPassword]         = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw]             = useState(false);
+  const [showConfirmPw, setShowConfirmPw]     = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -60,7 +53,7 @@ export default function LoginPage() {
 
   /* switch mode — clear errors */
   const [tempSuccess, setTempSuccess] = useState('');
-  const switchMode = (m: 'login' | 'register' | 'reset' | 'update-password') => {
+  const switchMode = (m: 'login' | 'reset' | 'update-password') => {
     setMode(m);
     setError('');
     // Keep success if switching to login after reset/register
@@ -72,7 +65,7 @@ export default function LoginPage() {
     }
   };
 
-  /* ── RESET PASSWORD (Send Link) ── */
+  /* ── RESET PASSWORD (Send Request to Admin Staff Management) ── */
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setSuccess('');
@@ -88,13 +81,16 @@ export default function LoginPage() {
         }
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
-        redirectTo: `${window.location.origin}/login`,
+      const res = await fetch('/api/staff/reset-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, branch }),
       });
 
-      if (error) throw error;
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to submit reset request');
 
-      setSuccess('Verification link sent! Please check your email inbox to proceed.');
+      setSuccess('Verification request submitted! Your administrator in Staff Management has received the request to reset your password.');
       setResetEmail('');
     } catch (err: any) {
       setError(err.message);
@@ -108,7 +104,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(''); setSuccess('');
 
-    if (newPassword !== rConfirm) {
+    if (newPassword !== confirmPassword) {
       return setError('Passwords do not match.');
     }
 
@@ -130,7 +126,7 @@ export default function LoginPage() {
       await supabase.auth.signOut();
       
       setNewPassword('');
-      setRConfirm('');
+      setConfirmPassword('');
       switchMode('login');
       setSuccess(successMsg);
     } catch (err: any) {
@@ -178,38 +174,7 @@ export default function LoginPage() {
         branchId: effectiveBranch,
         branchName: branchList.find(b => b.id === effectiveBranch || b.id === branch)?.name || effectiveBranch,
       }));
-      window.location.href = '/';
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ── REGISTER ── */
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setSuccess('');
-
-    if (!rUsername.trim()) return setError('Username is required.');
-    if (!/^\+?[\d\s\-]{7,15}$/.test(rMobile)) return setError('Enter a valid mobile number.');
-    if (rPassword.length < 8) return setError('Password must be at least 8 characters.');
-    if (rPassword !== rConfirm) return setError('Passwords do not match.');
-
-    setLoading(true);
-    try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: rEmail.trim(),
-        password: rPassword,
-        options: {
-          data: { username: rUsername.trim(), mobile: rMobile.trim() },
-        },
-      });
-      if (signUpError) throw new Error(signUpError.message);
-      setSuccess('Account created! Please check your email to confirm your account, then sign in.');
-      /* clear register fields */
-      setRUsername(''); setREmail(''); setRMobile('');
-      setRPassword(''); setRConfirm('');
+      window.location.href = (profile?.role === 'TELLER') ? '/loans' : '/';
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -602,8 +567,7 @@ export default function LoginPage() {
                   <div className="heading">
                     <h1 className="heading-title">Welcome back</h1>
                     <p className="heading-sub">
-                      Don&apos;t have an account?{' '}
-                      <a onClick={() => switchMode('register')}>Create now</a>
+                      Sign in to access your branch portal
                     </p>
                   </div>
 
@@ -687,100 +651,7 @@ export default function LoginPage() {
                 </>
               )}
 
-              {/* ════════ REGISTER FORM ════════ */}
-              {mode === 'register' && (
-                <>
-                  <button type="button" className="back-btn" onClick={() => switchMode('login')} aria-label="Go back">
-                    <ArrowLeft size={18} />
-                  </button>
-                  <div className="heading">
-                    <h1 className="heading-title">Create account</h1>
-                    <p className="heading-sub">
-                      Already have an account?{' '}
-                      <a onClick={() => switchMode('login')}>Sign in</a>
-                    </p>
-                  </div>
-
-                  {success && <div className="alert-success">✓ {success}</div>}
-
-                  <form className="form" onSubmit={handleRegister} autoComplete="off">
-
-                    {/* Username */}
-                    <div className="field">
-                      <label className="field-label" htmlFor="r-username">Username</label>
-                      <div className="inp-wrap">
-                        <span className="inp-icon"><User size={16} /></span>
-                        <input id="r-username" type="text" className="inp"
-                          placeholder="e.g. john_doe"
-                          value={rUsername} onChange={e => setRUsername(e.target.value)} required />
-                      </div>
-                    </div>
-
-                    {/* Email */}
-                    <div className="field">
-                      <label className="field-label" htmlFor="r-email">Email address</label>
-                      <div className="inp-wrap">
-                        <span className="inp-icon"><Mail size={16} /></span>
-                        <input id="r-email" type="email" className="inp"
-                          placeholder="you@example.com"
-                          value={rEmail} onChange={e => setREmail(e.target.value)} required />
-                      </div>
-                    </div>
-
-                    {/* Mobile */}
-                    <div className="field">
-                      <label className="field-label" htmlFor="r-mobile">Mobile number</label>
-                      <div className="inp-wrap">
-                        <span className="inp-icon"><Phone size={16} /></span>
-                        <input id="r-mobile" type="tel" className="inp"
-                          placeholder="+94 77 123 4567"
-                          value={rMobile} onChange={e => setRMobile(e.target.value)} required />
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div className="field">
-                      <label className="field-label" htmlFor="r-password">Password</label>
-                      <div className="inp-wrap">
-                        <span className="inp-icon"><Lock size={16} /></span>
-                        <input id="r-password" type={showRPw ? 'text' : 'password'}
-                          className="inp inp-pw-pad"
-                          placeholder="Min. 8 characters"
-                          value={rPassword} onChange={e => setRPassword(e.target.value)} required />
-                        <button type="button" className="eye-btn" tabIndex={-1}
-                          onClick={() => setShowRPw(v => !v)} aria-label="Toggle password">
-                          {showRPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Confirm password */}
-                    <div className="field">
-                      <label className="field-label" htmlFor="r-confirm">Confirm password</label>
-                      <div className="inp-wrap">
-                        <span className="inp-icon"><Lock size={16} /></span>
-                        <input id="r-confirm" type={showRCPw ? 'text' : 'password'}
-                          className="inp inp-pw-pad"
-                          placeholder="Re-enter your password"
-                          value={rConfirm} onChange={e => setRConfirm(e.target.value)} required />
-                        <button type="button" className="eye-btn" tabIndex={-1}
-                          onClick={() => setShowRCPw(v => !v)} aria-label="Toggle confirm password">
-                          {showRCPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {error && <div className="alert-err" role="alert"><span>⚠</span>{error}</div>}
-
-                    <button id="r-submit" type="submit" className="btn-primary" disabled={loading}>
-                      {loading ? <span className="spinner" /> : 'Create account'}
-                    </button>
-
-                  </form>
-                </>
-              )}
-
-              {/* ════════ RESET PASSWORD FORM (Send Link) ════════ */}
+              {/* ════════ RESET PASSWORD FORM (Request Admin Verification) ════════ */}
               {mode === 'reset' && (
                 <>
                   <button type="button" className="back-btn" onClick={() => switchMode('login')} aria-label="Go back">
@@ -798,18 +669,22 @@ export default function LoginPage() {
                   {error && <div className="alert-err" role="alert"><span>⚠</span>{error}</div>}
 
                   <form className="form" onSubmit={handleResetPassword} autoComplete="off">
-                    {/* Email */}
+                    {/* Email / Username */}
                     <div className="field">
-                      <label className="field-label" htmlFor="rs-email">Email address</label>
+                      <label className="field-label" htmlFor="rs-email">Email or Username</label>
                       <div className="inp-wrap">
                         <span className="inp-icon"><Mail size={16} /></span>
-                        <input id="rs-email" type="email" className="inp" placeholder="you@example.com"
+                        <input id="rs-email" type="text" className="inp" placeholder="staff@rupasinghe.com"
                           value={resetEmail} onChange={e => setResetEmail(e.target.value)} required />
                       </div>
                     </div>
 
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Submitting this form notifies your Administrator in <strong className="text-amber-400">Staff Management</strong> to verify and update your credentials.
+                    </p>
+
                     <button type="submit" className="btn-primary" disabled={loading}>
-                      {loading ? <span className="spinner" /> : 'Send Verification Link'}
+                      {loading ? <span className="spinner" /> : 'Submit Verification Request'}
                     </button>
                   </form>
                 </>
@@ -849,12 +724,12 @@ export default function LoginPage() {
                       <label className="field-label" htmlFor="up-confirm-password">Confirm Password</label>
                       <div className="inp-wrap">
                         <span className="inp-icon"><Lock size={16} /></span>
-                        <input id="up-confirm-password" type={showRCPw ? 'text' : 'password'}
+                        <input id="up-confirm-password" type={showConfirmPw ? 'text' : 'password'}
                           className="inp inp-pw-pad" placeholder="Re-enter your new password"
-                          value={rConfirm} onChange={e => setRConfirm(e.target.value)} required />
+                          value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                         <button type="button" className="eye-btn" tabIndex={-1}
-                          onClick={() => setShowRCPw(v => !v)} aria-label="Toggle password">
-                          {showRCPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                          onClick={() => setShowConfirmPw(v => !v)} aria-label="Toggle password">
+                          {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
                     </div>

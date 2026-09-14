@@ -86,6 +86,14 @@ const navGroups = [
   }
 ];
 
+const tellerNavItems = [
+  { name: 'Customer', href: '/clients', icon: Users },
+  { name: 'Pawning', href: '/loans', icon: Wallet },
+  { name: 'Stock Management', href: '/operations/eod?tab=stock', icon: Package },
+  { name: 'Daily ledger', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
+  { name: 'Profile', href: '/profile', icon: UserCircle },
+];
+
 export default function DashboardSidebar({ 
   isCollapsed, 
   setIsCollapsed,
@@ -199,7 +207,50 @@ export default function DashboardSidebar({
 
       {/* Navigation Groups */}
       <div className="flex-1 px-4 space-y-2 overflow-y-auto pt-4 scrollbar-hide pb-6">
-        {navGroups.map((group) => {
+        {user?.role === 'TELLER' ? (
+          <div className="space-y-1.5 pt-1">
+            <div className={cn(
+              "px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#ffd100]/80",
+              isCollapsed && "text-center text-[8.5px] px-0"
+            )}>
+              {!isCollapsed ? "Teller Counter" : "Counter"}
+            </div>
+            {tellerNavItems.map((item) => {
+              const isActive = pathname === item.href || (item.href.includes('?') && pathname === item.href.split('?')[0]);
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => {
+                    if (window.innerWidth < 768 && setIsMobileOpen) {
+                      setIsMobileOpen(false);
+                    }
+                  }}
+                  className={cn(
+                    "group flex items-center h-10 rounded-xl transition-all duration-300 relative overflow-hidden",
+                    isCollapsed ? "justify-center" : "px-3.5",
+                    isActive
+                      ? "bg-[#ffd100] text-[#202020] font-black shadow-md"
+                      : "text-slate-300 hover:bg-[#333533] hover:text-[#ffee32]"
+                  )}
+                >
+                  <ItemIcon className={cn(
+                    "w-4 h-4 shrink-0 transition-all duration-300 group-hover:scale-105",
+                    isActive ? "text-[#202020]" : "text-slate-400 group-hover:text-[#ffd100]",
+                    !isCollapsed && "mr-3"
+                  )} />
+                  {!isCollapsed && (
+                    <span className={cn("text-[12.5px] tracking-tight", isActive ? "font-black text-[#202020]" : "font-semibold")}>
+                      {item.name}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          navGroups.map((group) => {
           const GroupIcon = groupIcons[group.label] || LayoutDashboard;
           const isGroupActive = group.items.some(item => pathname === item.href);
           const isOpen = openGroup === group.label;
@@ -284,7 +335,8 @@ export default function DashboardSidebar({
               </div>
             </div>
           );
-        })}
+        })
+      )}
       </div>
 
       {/* Profile & Footer */}

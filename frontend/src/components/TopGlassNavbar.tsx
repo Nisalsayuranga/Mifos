@@ -100,6 +100,14 @@ const auditorNavItems = [
   { name: 'Audit Logs', href: '/operations/audit-logs', icon: ShieldCheck },
 ];
 
+const tellerNavItems = [
+  { name: 'Customer', href: '/clients', icon: Users },
+  { name: 'Pawning', href: '/loans', icon: Wallet },
+  { name: 'Stock Management', href: '/operations/eod?tab=stock', icon: Package },
+  { name: 'Daily ledger', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
+  { name: 'Profile', href: '/profile', icon: User },
+];
+
 export default function TopGlassNavbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -201,6 +209,25 @@ export default function TopGlassNavbar() {
                           : "text-slate-300 hover:bg-white/10 hover:text-white border border-transparent"
                       )}>
                       <ItemIcon className={cn("w-3.5 h-3.5", active ? "text-amber-400" : "text-slate-400")} />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : user?.role === 'TELLER' ? (
+              <div className="hidden lg:flex items-center gap-1.5" ref={dropdownRef}>
+                {tellerNavItems.map((item) => {
+                  const active = isActive(item.href);
+                  const ItemIcon = item.icon;
+                  return (
+                    <Link key={item.name} href={item.href}
+                      className={cn(
+                        "flex items-center gap-2 px-3.5 py-2 rounded-xl text-[11.5px] font-bold transition-all duration-200",
+                        active
+                          ? "bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-md shadow-amber-500/10"
+                          : "text-slate-300 hover:bg-white/10 hover:text-white border border-transparent"
+                      )}>
+                      <ItemIcon className={cn("w-3.5 h-3.5", active ? "text-amber-400" : "text-amber-400/70")} />
                       <span>{item.name}</span>
                     </Link>
                   );
@@ -382,6 +409,30 @@ export default function TopGlassNavbar() {
                         : "text-slate-300 hover:bg-white/8 hover:text-white border border-transparent"
                     )}>
                     <ItemIcon className={cn("w-5 h-5 shrink-0", active ? "text-amber-400" : "text-slate-500")} />
+                    <span>{item.name}</span>
+                    {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                  </Link>
+                );
+              })}
+            </>
+          ) : user?.role === 'TELLER' ? (
+            <>
+              <div className="text-[9px] font-black text-amber-400/70 uppercase tracking-widest px-1 pt-2 pb-1">
+                Teller Counter Navigation
+              </div>
+              {tellerNavItems.map((item) => {
+                const active = isActive(item.href);
+                const ItemIcon = item.icon;
+                return (
+                  <Link key={item.name} href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all min-h-[52px]",
+                      active
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                        : "text-slate-300 hover:bg-white/8 hover:text-white border border-transparent"
+                    )}>
+                    <ItemIcon className={cn("w-5 h-5 shrink-0", active ? "text-amber-400" : "text-amber-400/70")} />
                     <span>{item.name}</span>
                     {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400" />}
                   </Link>
