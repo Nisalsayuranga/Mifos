@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { normalizeBranchId, getBranchSearchTerms } from '@/lib/branch-mapping';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,18 +17,26 @@ export async function GET(request: Request) {
 
     if (session) {
       if (session.role === 'TELLER') {
-        if (requestedBranch && requestedBranch.toLowerCase() !== session.branchId.toLowerCase()) {
+        const normReq = requestedBranch ? normalizeBranchId(requestedBranch) : null;
+        const normSess = normalizeBranchId(session.branchId);
+        if (normReq && normReq !== normSess) {
           return NextResponse.json({ error: 'Forbidden. Access to other branch records is denied.' }, { status: 403 });
         }
-        query = query.ilike('branch_id', `%${session.branchId}%`);
+        const terms = getBranchSearchTerms(session.branchId);
+        const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
+        query = query.or(orClause);
       } else if (session.role === 'ADMIN') {
         if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-          query = query.ilike('branch_id', `%${requestedBranch}%`);
+          const terms = getBranchSearchTerms(requestedBranch);
+          const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
+          query = query.or(orClause);
         }
       }
     } else {
       if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-        query = query.ilike('branch_id', `%${requestedBranch}%`);
+        const terms = getBranchSearchTerms(requestedBranch);
+        const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
+        query = query.or(orClause);
       }
     }
 
@@ -51,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     const trimmedNic = String(nic).trim();
-    let effectiveBranchId = branchId || 'HQ';
+    let effectiveBranchId = normalizeBranchId(branchId || session?.branchId || 'HQ');
     let effectiveUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : null);
 
     // If effectiveUserId is missing or invalid, fetch valid profile ID from DB or fallback
@@ -61,10 +70,12 @@ export async function POST(request: Request) {
     }
 
     if (session && session.role === 'TELLER') {
-      if (branchId && branchId.toLowerCase() !== session.branchId.toLowerCase()) {
+      const normReq = normalizeBranchId(branchId);
+      const normSess = normalizeBranchId(session.branchId);
+      if (branchId && normReq !== normSess) {
         return NextResponse.json({ error: 'Forbidden. You cannot create clients for another branch.' }, { status: 403 });
       }
-      effectiveBranchId = session.branchId;
+      effectiveBranchId = normSess;
     }
 
     // 0. DUPLICATE NIC PREVENTION: Safely check for existing client

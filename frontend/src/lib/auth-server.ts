@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeBranchId } from './branch-mapping';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwMTU1OSwiZXhwIjoyMDk5Njc3NTU5fQ.F0KSjnVMl9Nz4fuXV3Z_fHBkQfCU8ieyPT0qJ2xLEMg';
@@ -60,7 +61,7 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
       .single();
 
     const role = (profile?.role || 'TELLER').toUpperCase() as 'ADMIN' | 'TELLER' | 'AUDITOR';
-    let branchId = profile?.branch_id || 'HQ';
+    let branchId = normalizeBranchId(profile?.branch_id || 'HQ');
     let branchName = profile?.branch_name || '';
 
     // Multi-branch teller support:
@@ -73,7 +74,7 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
         request.headers.get('X-Branch-Id') ||
         request.headers.get('X-BRANCH-ID');
       if (selectedBranch && selectedBranch.trim() !== '') {
-        branchId = selectedBranch.trim();
+        branchId = normalizeBranchId(selectedBranch.trim());
         // branchName is cosmetic; leave it from profile if not overridden
       }
     }

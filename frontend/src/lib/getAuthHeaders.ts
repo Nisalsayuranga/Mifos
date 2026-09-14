@@ -9,6 +9,8 @@
  * scope all data queries to THAT branch — not the teller's home branch in the profiles table.
  */
 
+import { normalizeBranchId } from './branch-mapping';
+
 export interface AuthHeaders {
   'Authorization'?: string;
   'x-branch-id'?: string;
@@ -41,7 +43,12 @@ export function getAuthHeaders(extraHeaders?: Record<string, string>): Record<st
   if (storedUser) {
     try {
       const user: UserSession = JSON.parse(storedUser);
-      branchId = user.branchId || '';
+      branchId = normalizeBranchId(user.branchId || '');
+      // Auto-heal legacy/aliased branchId in localStorage (e.g. 'KAH' -> 'KHT')
+      if (user.branchId && user.branchId !== branchId) {
+        user.branchId = branchId;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
     } catch {
       // ignore
     }
@@ -74,7 +81,11 @@ export function getCurrentUser(): UserSession | null {
   if (!storedUser) return null;
 
   try {
-    return JSON.parse(storedUser) as UserSession;
+    const u = JSON.parse(storedUser) as UserSession;
+    if (u.branchId) {
+      u.branchId = normalizeBranchId(u.branchId);
+    }
+    return u;
   } catch {
     return null;
   }

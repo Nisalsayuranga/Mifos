@@ -3,21 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff, ChevronDown, Building2, ShieldCheck, User, Phone, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-
-const BRANCHES = [
-  { id: 'HQ',   name: 'Head Office' },
-  { id: 'PAN',  name: 'Panadura' },
-  { id: 'DEM',  name: 'Demotagoda' },
-  { id: 'WAT4', name: 'Waththala 4' },
-  { id: 'BOR',  name: 'Borella' },
-  { id: 'KAD',  name: 'Kadawatta' },
-  { id: 'KAH',  name: 'Kahathutuwa' },
-  { id: 'KOT',  name: 'Kottawa' },
-  { id: 'WAT3', name: 'Waththala 3' },
-  { id: 'KIR2', name: 'Kiribathgoda 2' },
-  { id: 'KIR1', name: 'Kiribathgoda 1' },
-  { id: 'HOM',  name: 'Homagama' },
-];
+import { CANONICAL_BRANCHES, normalizeBranchId } from '@/lib/branch-mapping';
 
 export default function LoginPage() {
   /* ── shared ── */
@@ -30,6 +16,7 @@ export default function LoginPage() {
   const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
   const [branch, setBranch]       = useState('');
+  const [branchList, setBranchList] = useState<Array<{ id: string; name: string }>>([...CANONICAL_BRANCHES]);
   const [showPw, setShowPw]       = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
   const [branchError, setBranchError] = useState(false);
@@ -53,6 +40,13 @@ export default function LoginPage() {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       if (p.get('expired') === 'true') setExpiredAlert(true);
+
+      // Load live active branches from Supabase if table exists
+      supabase.from('branches').select('id, name').order('name').then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          setBranchList(data);
+        }
+      });
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
@@ -177,11 +171,12 @@ export default function LoginPage() {
       const tok = data.session?.access_token || '';
       localStorage.setItem('auth_token', tok);
       document.cookie = `sb-access-token=${tok}; path=/; max-age=28800; SameSite=Lax`;
+      const effectiveBranch = normalizeBranchId(branch);
       localStorage.setItem('user', JSON.stringify({
         email: data.user.email, id: data.user.id,
         role: profile?.role || 'TELLER',
-        branchId: branch,
-        branchName: BRANCHES.find(b => b.id === branch)?.name || branch,
+        branchId: effectiveBranch,
+        branchName: branchList.find(b => b.id === effectiveBranch || b.id === branch)?.name || effectiveBranch,
       }));
       window.location.href = '/';
     } catch (err: any) {
@@ -222,7 +217,7 @@ export default function LoginPage() {
     }
   };
 
-  const selectedBranch = BRANCHES.find(b => b.id === branch);
+  const selectedBranch = branchList.find(b => b.id === branch || normalizeBranchId(b.id) === normalizeBranchId(branch));
 
   /* ─────────────────────────────────────────────── */
   return (
@@ -664,7 +659,7 @@ export default function LoginPage() {
                         </button>
                         {branchOpen && (
                           <div className="br-menu" role="listbox">
-                            {BRANCHES.map(b => (
+                            {branchList.map(b => (
                               <button key={b.id} type="button" role="option"
                                 aria-selected={branch === b.id}
                                 className={`br-item${branch === b.id ? ' sel' : ''}`}

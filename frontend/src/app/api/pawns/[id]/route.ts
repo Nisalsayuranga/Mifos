@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { normalizeBranchId } from '@/lib/branch-mapping';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function PATCH(request: Request, context: any) {
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    if (session && session.role === 'TELLER' && existingPawn.branch_id !== session.branchId) {
+    if (session && session.role === 'TELLER' && normalizeBranchId(existingPawn.branch_id) !== normalizeBranchId(session.branchId)) {
       return NextResponse.json({ error: 'Forbidden. Tellers cannot modify pawns belonging to another branch.' }, { status: 403 });
     }
 
@@ -163,7 +164,7 @@ export async function DELETE(request: Request, context: any) {
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    if (session && session.role === 'TELLER' && pawn.branch_id !== session.branchId) {
+    if (session && session.role === 'TELLER' && normalizeBranchId(pawn.branch_id) !== normalizeBranchId(session.branchId)) {
       return NextResponse.json({ error: 'Forbidden. Tellers cannot delete pawns belonging to another branch.' }, { status: 403 });
     }
 
