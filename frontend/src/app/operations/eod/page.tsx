@@ -2062,30 +2062,6 @@ function EndOfDayContent() {
             </div>
           </div>
 
-          {/* Branch breakdown overview */}
-          <div className="flex flex-wrap items-center gap-2 px-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-2 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5" /> Branch Distribution:
-            </span>
-            {branches.map((b: any) => {
-              const currentList = stockFilter === 'OldData' ? oldStockItems : stockItems;
-              const count = currentList.filter(item => item.branch_id === b.id && (stockFilter === 'OldData' ? item.status === 'Active' : item.status === stockFilter)).length;
-              return (
-                <div 
-                  key={b.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all cursor-default"
-                  title={b.name}
-                >
-                  <span className="bg-blue-50 text-blue-800 border border-blue-200/50 font-black px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wide">
-                    {b.id}
-                  </span>
-                  <span className="text-slate-900 font-black">{count}</span>
-                  <span className="text-slate-400 font-semibold text-[10px]">items</span>
-                </div>
-              );
-            })}
-          </div>
-
           {/* Stock Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[300px]">
             {(stockFilter === 'OldData' ? loadingOldStock : loadingStock) ? (
