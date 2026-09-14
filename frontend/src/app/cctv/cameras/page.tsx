@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Camera, Plus, RefreshCw, Shield, CheckCircle2, AlertTriangle, Radio } from "lucide-react";
 import { toast } from 'sonner';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 export default function CctvCamerasPage() {
   const [cameras, setCameras] = useState<any[]>([]);
@@ -24,7 +25,7 @@ export default function CctvCamerasPage() {
   const fetchCameras = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/cctv/cameras');
+      const res = await fetch('/api/cctv/cameras', { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.cameras) {
         setCameras(data.cameras);
@@ -45,7 +46,7 @@ export default function CctvCamerasPage() {
     try {
       const res = await fetch('/api/cctv/cameras', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(formData)
       });
       const data = await res.json();

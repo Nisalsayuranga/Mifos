@@ -10,6 +10,7 @@ import {
   Clock, HardDrive, Sliders, Radio, CheckCircle2, Plus, Trash2, Edit2, Play
 } from "lucide-react";
 import { toast } from 'sonner';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 const BRANCH_LIST = ['HQ', 'KTW', 'BRL', 'DHW', 'HMG', 'KDW', 'KIR', 'KOT', 'PND', 'W2', 'W3', 'W4', 'KHT', 'TEST'];
 
@@ -51,14 +52,14 @@ export default function CctvSettingsPage() {
     setLoading(true);
     try {
       // Fetch cameras
-      const camRes = await fetch('/api/cctv/cameras');
+      const camRes = await fetch('/api/cctv/cameras', { headers: getAuthHeaders() });
       const camData = await camRes.json();
       if (camData.cameras) {
         setCameras(camData.cameras);
       }
 
       // Fetch global settings
-      const setRes = await fetch('/api/cctv/settings');
+      const setRes = await fetch('/api/cctv/settings', { headers: getAuthHeaders() });
       const setObj = await setRes.json();
       if (setObj.settings) {
         setSettings(setObj.settings);

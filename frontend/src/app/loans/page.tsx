@@ -511,7 +511,10 @@ export default function PawnesPage() {
     if (!confirm(`Delete pawn ticket for "${pawn.description}"?`)) return;
     const toastId = toast.loading('Deleting pawn ticket...');
     try {
-      const res = await fetch(`/api/pawns/${pawn.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/pawns/${pawn.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error('Delete failed');
       toast.success('Pawn ticket deleted', { id: toastId });
       loadPawns();
@@ -639,7 +642,7 @@ export default function PawnesPage() {
     try {
       const res = await fetch(`/api/pawns/${redeemingPawn.id}/redeem`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           insurance: redeemInsurance,
           days: redeemDays,
@@ -689,7 +692,7 @@ export default function PawnesPage() {
     try {
       const res = await fetch(`/api/pawns/${pawn.id}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ approvedBy: `Branch Office / ${userRole}` })
       });
       if (!res.ok) {

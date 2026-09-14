@@ -52,7 +52,7 @@ export default function StaffPage() {
   const loadStaff = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/staff');
+      const res = await fetch('/api/staff', { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setStaff(data);

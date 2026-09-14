@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlaySquare, Search, Download, Eye, Film, ShieldAlert, CheckCircle2, Clock } from "lucide-react";
 import { toast } from 'sonner';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 export default function CctvRecordingsPage() {
   const [recordings, setRecordings] = useState<any[]>([]);
@@ -20,7 +21,7 @@ export default function CctvRecordingsPage() {
       if (searchPawn) {
         url += `?pawn_id=${encodeURIComponent(searchPawn)}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.recordings) {
         setRecordings(data.recordings);

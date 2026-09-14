@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { sendFreeSms, buildPawnRedeemSms } from '@/lib/sms';
+import { normalizeBranchId } from '@/lib/branch-mapping';
 
 export async function POST(
   request: Request,
@@ -24,7 +25,7 @@ export async function POST(
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    if (session && session.role === 'TELLER' && pawn.branch_id !== session.branchId) {
+    if (session && session.role === 'TELLER' && normalizeBranchId(pawn.branch_id) !== normalizeBranchId(session.branchId)) {
       return NextResponse.json({ error: 'Forbidden. You cannot redeem pawn tickets belonging to another branch.' }, { status: 403 });
     }
 

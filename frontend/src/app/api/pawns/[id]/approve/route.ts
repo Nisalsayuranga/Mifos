@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { normalizeBranchId } from '@/lib/branch-mapping';
 
 export async function POST(
   request: Request,
@@ -8,8 +9,13 @@ export async function POST(
   try {
     const session = await getAuthenticatedUser(request);
     const { id } = await params;
-    const body = await request.json();
-    const { approvedBy } = body;
+    let approvedBy = '';
+    try {
+      const body = await request.json();
+      approvedBy = body?.approvedBy || '';
+    } catch {
+      // body optional
+    }
 
     // 1. Get Pawn Details
     const { data: pawn, error: fetchError } = await adminSupabase
@@ -22,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    if (session && session.role === 'TELLER' && pawn.branch_id !== session.branchId) {
+    if (session && session.role === 'TELLER' && normalizeBranchId(pawn.branch_id) !== normalizeBranchId(session.branchId)) {
       return NextResponse.json({ error: 'Forbidden. Tellers cannot approve pawns belonging to another branch.' }, { status: 403 });
     }
 

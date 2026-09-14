@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, Camera, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Circle, Radio, Shield, RefreshCw, Globe, Server, Link as LinkIcon } from "lucide-react";
 import { toast } from 'sonner';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 export default function CctvLivePage() {
   const [cameras, setCameras] = useState<any[]>([]);
@@ -21,7 +22,7 @@ export default function CctvLivePage() {
   const fetchCameras = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/cctv/cameras');
+      const res = await fetch('/api/cctv/cameras', { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.cameras && data.cameras.length > 0) {
         setCameras(data.cameras);

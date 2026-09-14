@@ -49,6 +49,7 @@ import { supabase, oldSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { WebBluetoothTransport } from "@/lib/bluetooth/WebBluetoothTransport";
 import { TsplAdapter } from "@/lib/bluetooth/TsplAdapter";
+import { normalizeBranchId, getBranchSearchTerms } from "@/lib/branch-mapping";
 
 // Stock item abbreviations
 const ITEM_TYPES = [
@@ -550,7 +551,8 @@ function EndOfDayContent() {
 
       let query = supabase.from('stock_items').select('*');
       if (activeBranch && activeBranch !== 'ALL') {
-        query = query.eq('branch_id', activeBranch);
+        const branchTerms = getBranchSearchTerms(activeBranch);
+        query = query.in('branch_id', branchTerms);
       }
       if (searchQuery.trim()) {
         query = query.ilike('bill_no', `%${searchQuery.trim()}%`);
@@ -572,8 +574,9 @@ function EndOfDayContent() {
           if (!activeBranch && currentUser) {
             activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
           }
+          const branchTerms = getBranchSearchTerms(activeBranch);
           let filtered = activeBranch && activeBranch !== 'ALL'
-            ? allItems.filter((item: any) => item.branch_id === activeBranch)
+            ? allItems.filter((item: any) => branchTerms.includes(item.branch_id) || normalizeBranchId(item.branch_id) === normalizeBranchId(activeBranch))
             : allItems;
           if (searchQuery.trim()) {
             filtered = filtered.filter((item: any) => 
@@ -778,7 +781,7 @@ function EndOfDayContent() {
 
     // Duplicate bill number check WITHIN THE SAME BRANCH (case-insensitive & trimmed)
     const isDuplicateInBranch = stockItems.some(item => 
-      item.branch_id === targetBranch &&
+      normalizeBranchId(item.branch_id) === normalizeBranchId(targetBranch) &&
       item.bill_no.toLowerCase().trim() === finalBillNo.toLowerCase().trim() &&
       (!isEditingActive || item.id !== selectedActiveItem?.id)
     );
@@ -796,7 +799,7 @@ function EndOfDayContent() {
       date: date,
       item_type: compressItemTypeString(selectedItems.map(item => item.code).join(", ")),
       status: 'Active',
-      branch_id: targetBranch
+      branch_id: normalizeBranchId(targetBranch)
     };
     console.log("[DEBUG] newItem payload:", newItem);
 

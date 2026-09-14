@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ShieldCheck, FileText, RefreshCw, User, Calendar, Lock } from "lucide-react";
 import { toast } from 'sonner';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 export default function CctvAuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -12,7 +13,7 @@ export default function CctvAuditLogsPage() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/cctv/audit-logs');
+      const res = await fetch('/api/cctv/audit-logs', { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.logs) {
         setLogs(data.logs);
