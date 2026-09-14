@@ -160,21 +160,62 @@ export default function LoginPage() {
         }
       }
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
-      if (signInError || !data.user) throw new Error(signInError?.message || 'Invalid credentials');
+      let authUser: any = null;
+      let tok = '';
+      let userRole = 'TELLER';
 
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-      const tok = data.session?.access_token || '';
-      localStorage.setItem('auth_token', tok);
-      document.cookie = `sb-access-token=${tok}; path=/; max-age=28800; SameSite=Lax`;
+      // 1. Primary: Server-side API login (immune to browser adblockers and cross-origin fetch failures)
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: loginEmail, password, branch })
+        });
+        const resData = await res.json();
+        if (res.ok && resData.success) {
+          authUser = resData.user;
+          tok = resData.token || '';
+          userRole = resData.user?.role || 'TELLER';
+        } else if (res.status === 401) {
+          throw new Error(resData.error || 'Invalid credentials');
+        }
+      } catch (srvErr: any) {
+        if (srvErr.message === 'Invalid credentials' || srvErr.message?.includes('credentials')) {
+          throw srvErr;
+        }
+        console.warn('Server login fallback to client auth:', srvErr);
+      }
+
+      // 2. Fallback: Client-side Supabase if server-side route was not used
+      if (!authUser) {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        if (signInError || !data.user) throw new Error(signInError?.message || 'Invalid credentials');
+
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+        authUser = data.user;
+        tok = data.session?.access_token || '';
+        userRole = profile?.role || data.user.user_metadata?.role || (loginEmail.includes('admin') ? 'ADMIN' : 'TELLER');
+      }
+
+      if (tok) {
+        localStorage.setItem('auth_token', tok);
+        document.cookie = `sb-access-token=${tok}; path=/; max-age=28800; SameSite=Lax`;
+        document.cookie = `auth_token=${tok}; path=/; max-age=28800; SameSite=Lax`;
+      }
+
       const effectiveBranch = normalizeBranchId(branch);
+      localStorage.setItem('user_branch', effectiveBranch);
+      localStorage.setItem('user_role', userRole);
+      localStorage.setItem('user_name', authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'User');
       localStorage.setItem('user', JSON.stringify({
-        email: data.user.email, id: data.user.id,
-        role: profile?.role || 'TELLER',
+        email: authUser.email,
+        id: authUser.id,
+        role: userRole,
         branchId: effectiveBranch,
         branchName: branchList.find(b => b.id === effectiveBranch || b.id === branch)?.name || effectiveBranch,
       }));
-      window.location.href = (profile?.role === 'TELLER') ? '/loans' : '/';
+
+      window.location.href = (userRole === 'TELLER') ? '/loans' : '/';
     } catch (err: any) {
       setError(err.message);
     } finally {
