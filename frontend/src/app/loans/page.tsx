@@ -15,6 +15,7 @@ import { WebBluetoothTransport } from "@/lib/bluetooth/WebBluetoothTransport";
 import { EscPosAdapter } from "@/lib/bluetooth/EscPosAdapter";
 import { PawnBill80mmReceipt } from "@/components/receipts/PawnBill80mmReceipt";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ItemEvaluationModal } from "@/components/ItemEvaluationModal"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
@@ -22,6 +23,8 @@ import { buildPawnReminderSms } from "@/lib/sms"
 
 export default function PawnesPage() {
   const [isOpen, setIsOpen]       = useState(false);
+  const [isEvaluationOpen, setIsEvaluationOpen] = useState(false);
+  const [evaluationData, setEvaluationData] = useState<any>(null);
   const [pawns, setPawns]         = useState<any[]>([]);
   const [branches, setBranches]   = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -812,13 +815,29 @@ export default function PawnesPage() {
             </Select>
           )}
           <Button
-            onClick={openAdd}
+            onClick={() => setIsEvaluationOpen(true)}
             className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full md:w-auto shrink-0 rounded-2xl"
           >
-            <Plus className="h-4 w-4" /> Originate Pawn
+            <Plus className="h-4 w-4" /> Customer Registration
           </Button>
         </div>
       </div>
+
+      {/* Evaluation Modal */}
+      <ItemEvaluationModal 
+        isOpen={isEvaluationOpen} 
+        onOpenChange={setIsEvaluationOpen} 
+        onAccept={(data) => {
+          setEvaluationData(data);
+          resetForm();
+          loadClients();
+          // Set initial form values based on evaluation
+          setAppraisal(data.trueValue.toString());
+          setAmount(data.askingAmount.toString());
+          setWeightMg(data.airWeight.toString());
+          setIsOpen(true);
+        }} 
+      />
 
       {/* Dialog */}
       <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) resetForm(); }}>
