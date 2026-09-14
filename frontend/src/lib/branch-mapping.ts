@@ -14,10 +14,16 @@ export const CANONICAL_BRANCHES = [
   { id: 'W2',   name: 'Wattala 2' },
   { id: 'W3',   name: 'Wattala 3' },
   { id: 'W4',   name: 'Wattala 4' },
+  { id: 'TEST', name: 'Test Branch' },
 ] as const;
 
 // Normalization map from any alias / UI value to canonical database branch_id
 const BRANCH_ALIAS_MAP: Record<string, string> = {
+  // Test Branch
+  'TEST': 'TEST',
+  'TESTBRANCH': 'TEST',
+  'TEST BRANCH': 'TEST',
+
   // Kahathuduwa
   'KAH': 'KHT',
   'KHT': 'KHT',
@@ -127,6 +133,10 @@ export function getBranchSearchTerms(branchId: string | null | undefined): strin
     terms.add('WAT3');
   } else if (norm === 'W2') {
     terms.add('WAT2');
+  } else if (norm === 'TEST') {
+    terms.add('TESTBRANCH');
+    terms.add('testbranch');
+    terms.add('Test Branch');
   }
 
   return Array.from(terms);

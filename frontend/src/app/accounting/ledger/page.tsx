@@ -55,6 +55,7 @@ const BRANCHES = [
   { id: 'KTW', name: 'Kottawa' },
   { id: 'HMG', name: 'Homagama' },
   { id: 'KHT', name: 'Kahathuduwa' },
+  { id: 'TEST', name: 'Test Branch' },
   { id: 'HQ',  name: 'Head Office' }
 ];
 
@@ -100,7 +101,20 @@ function MainLedgerContent() {
   const [isHqUser, setIsHqUser] = useState(false);
 
   // Controls
-  const [selectedBranch, setSelectedBranch] = useState(branchParam || 'BRL');
+  const [selectedBranch, setSelectedBranch] = useState(() => {
+    if (branchParam) return branchParam;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          const b = u.branchId || u.branch_id;
+          if (b) return b;
+        }
+      } catch {}
+    }
+    return 'BRL';
+  });
   const [ledgerDate, setLedgerDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [cpBalance, setCpBalance] = useState<string | number>(''); // Closing Capital
   const [openingCapital, setOpeningCapital] = useState<string | number>(''); // Opening Capital
@@ -537,7 +551,7 @@ function MainLedgerContent() {
     setExpandedMonth(null);
     setLoadingBranchLedgers(true);
     try {
-      const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`);
+      const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         const filtered = (data.ledgers || []).filter((l: any) => l.ledger_date.startsWith(selectedYear));
@@ -556,7 +570,7 @@ function MainLedgerContent() {
     setMatrixBranchModalOpen(true);
     setLoadingMatrixLedgers(true);
     try {
-      const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`);
+      const res = await fetch(`/api/ledger/daily?branch_id=${branch.id}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         // filter by specific month
@@ -581,7 +595,7 @@ function MainLedgerContent() {
   const handleDeleteLedger = async (id: string, date: string) => {
     if (!confirm(`Are you sure you want to completely DELETE the ledger for ${date}? This action cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/ledger/daily?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/ledger/daily?id=${id}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (res.ok) {
         setMatrixBranchLedgers(prev => prev.filter(l => l.id !== id));
         fetchMatrix(); // Refresh matrix counts
@@ -598,7 +612,7 @@ function MainLedgerContent() {
     try {
       const res = await fetch(`/api/ledger/daily`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id, is_flag_ignored: true })
       });
       if (res.ok) {
@@ -616,7 +630,7 @@ function MainLedgerContent() {
     setLoadingMatrix(true);
     setMatrixError(null);
     try {
-      const res = await fetch(`/api/ledger/matrix?year=${selectedYear}`);
+      const res = await fetch(`/api/ledger/matrix?year=${selectedYear}`, { headers: getAuthHeaders() });
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
@@ -649,7 +663,7 @@ function MainLedgerContent() {
   const loadJournalEntries = async () => {
     setLoadingJournal(true);
     try {
-      const res = await fetch('/api/ledger');
+      const res = await fetch('/api/ledger', { headers: getAuthHeaders() });
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
         setJournalEntries(await res.json());

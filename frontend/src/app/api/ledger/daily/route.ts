@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { getBranchSearchTerms } from '@/lib/branch-mapping';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,18 +14,16 @@ export async function GET(request: Request) {
 
     let effectiveBranchId = requestedBranch;
     if (session && session.role === 'TELLER') {
-      if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== session.branchId) {
-        return NextResponse.json({ error: 'Forbidden. Access to other branch daily ledgers is denied.' }, { status: 403 });
-      }
       effectiveBranchId = session.branchId;
     }
 
     if (date && effectiveBranchId) {
+      const searchTerms = getBranchSearchTerms(effectiveBranchId);
       // Fetch specific single day ledger
       const { data: ledger, error: ledgerErr } = await adminSupabase
         .from('daily_ledgers')
         .select('*')
-        .eq('branch_id', effectiveBranchId)
+        .in('branch_id', searchTerms)
         .eq('ledger_date', date)
         .maybeSingle();
 
@@ -50,7 +49,7 @@ export async function GET(request: Request) {
       const { data: prevLedger } = await adminSupabase
         .from('daily_ledgers')
         .select('closing_balance, cp_balance, ledger_date')
-        .eq('branch_id', effectiveBranchId)
+        .in('branch_id', searchTerms)
         .lt('ledger_date', date)
         .order('ledger_date', { ascending: false })
         .limit(1)
@@ -70,9 +69,9 @@ export async function GET(request: Request) {
     let query = adminSupabase.from('daily_ledgers').select('*').order('ledger_date', { ascending: false });
 
     if (session && session.role === 'TELLER') {
-      query = query.eq('branch_id', session.branchId);
+      query = query.in('branch_id', getBranchSearchTerms(session.branchId));
     } else if (effectiveBranchId && effectiveBranchId !== 'HQ' && effectiveBranchId !== 'ALL') {
-      query = query.eq('branch_id', effectiveBranchId);
+      query = query.in('branch_id', getBranchSearchTerms(effectiveBranchId));
     }
 
     if (month) {
@@ -121,9 +120,6 @@ export async function POST(request: Request) {
 
     if (session) {
       if (session.role === 'TELLER') {
-        if (branch_id && branch_id !== session.branchId) {
-          return NextResponse.json({ error: 'Forbidden. You cannot record ledgers for another branch.' }, { status: 403 });
-        }
         branch_id = session.branchId;
       }
       if (session.user?.email) {

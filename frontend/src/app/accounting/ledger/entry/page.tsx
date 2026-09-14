@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 import { useState, useEffect, useMemo } from 'react';
 import { 
@@ -39,6 +40,7 @@ const BRANCHES = [
   { id: 'KTW', name: 'Kottawa' },
   { id: 'HMG', name: 'Homagama' },
   { id: 'KHT', name: 'Kahathuduwa' },
+  { id: 'TEST', name: 'Test Branch' },
   { id: 'HQ',  name: 'Head Office' }
 ];
 
@@ -47,7 +49,19 @@ export default function DailyLedgerEntryPage() {
   const [isHqUser, setIsHqUser] = useState(false);
 
   // Form State
-  const [selectedBranch, setSelectedBranch] = useState('BRL');
+  const [selectedBranch, setSelectedBranch] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          const b = u.branchId || u.branch_id;
+          if (b) return b;
+        }
+      } catch {}
+    }
+    return 'BRL';
+  });
   const [ledgerDate, setLedgerDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [cpBalance, setCpBalance] = useState<string | number>('');
   const [openingBalance, setOpeningBalance] = useState<string | number>('');
@@ -99,7 +113,8 @@ export default function DailyLedgerEntryPage() {
     setLoading(true);
     setFeedback(null);
     try {
-      const res = await fetch(`/api/ledger/daily?branch_id=${selectedBranch}&date=${ledgerDate}`);
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/ledger/daily?branch_id=${selectedBranch}&date=${ledgerDate}`, { headers });
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
@@ -192,9 +207,10 @@ export default function DailyLedgerEntryPage() {
     };
 
     try {
+      const headers = getAuthHeaders({ 'Content-Type': 'application/json' });
       const res = await fetch('/api/ledger/daily', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
       const contentType = res.headers.get('content-type');

@@ -1714,6 +1714,8 @@ const BRANCH_ADDRESSES: Record<string, string> = {
   HOMAGAMA: 'Homagama Branch, High Level Road, Homagama.',
   KHT: 'Kahathuduwa Branch, Main Street, Kahathuduwa.',
   KAHATHUDUWA: 'Kahathuduwa Branch, Main Street, Kahathuduwa.',
+  TEST: 'Test Branch Office, Colombo.',
+  TESTBRANCH: 'Test Branch Office, Colombo.',
 };
 
 const getBranchAddress = (pawn: any, branchesList?: any[]): string => {

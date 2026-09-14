@@ -510,6 +510,7 @@ function EndOfDayContent() {
         { id: 'W3',  name: 'Wattala 3' },
         { id: 'W4',  name: 'Wattala 4' },
         { id: 'KHT', name: 'Kahathuduwa' },
+        { id: 'TEST', name: 'Test Branch' },
         { id: 'HQ',  name: 'Head Office' }
       ]);
     }

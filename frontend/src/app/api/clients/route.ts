@@ -17,11 +17,6 @@ export async function GET(request: Request) {
 
     if (session) {
       if (session.role === 'TELLER') {
-        const normReq = requestedBranch ? normalizeBranchId(requestedBranch) : null;
-        const normSess = normalizeBranchId(session.branchId);
-        if (normReq && normReq !== normSess) {
-          return NextResponse.json({ error: 'Forbidden. Access to other branch records is denied.' }, { status: 403 });
-        }
         const terms = getBranchSearchTerms(session.branchId);
         const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
         query = query.or(orClause);
@@ -70,12 +65,7 @@ export async function POST(request: Request) {
     }
 
     if (session && session.role === 'TELLER') {
-      const normReq = normalizeBranchId(branchId);
-      const normSess = normalizeBranchId(session.branchId);
-      if (branchId && normReq !== normSess) {
-        return NextResponse.json({ error: 'Forbidden. You cannot create clients for another branch.' }, { status: 403 });
-      }
-      effectiveBranchId = normSess;
+      effectiveBranchId = normalizeBranchId(session.branchId);
     }
 
     // 0. DUPLICATE NIC PREVENTION: Safely check for existing client
