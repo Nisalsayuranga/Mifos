@@ -91,7 +91,7 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
       const Tesseract = (await import('tesseract.js')).default;
       
       // Using tesseract to read digits from the scale display
-      const result = await Tesseract.recognize(imgData, 'eng', {
+      const result = await (Tesseract.recognize as any)(imgData, 'eng', {
         tessedit_char_whitelist: '0123456789.', // Only numbers and decimal
       });
       
