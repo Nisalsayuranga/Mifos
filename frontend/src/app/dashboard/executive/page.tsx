@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,8 +49,7 @@ export default function ExecutiveDashboard() {
     else setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers = { 'Authorization': `Bearer ${token}` };
+      const headers = getAuthHeaders();
 
       const [pRes, sRes, jRes, vRes] = await Promise.all([
         fetch(`${API_BASE_URL}/reports/portfolio`, { headers }),

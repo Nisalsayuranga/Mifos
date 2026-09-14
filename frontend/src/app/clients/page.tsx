@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -318,9 +319,8 @@ export default function ClientsPage() {
       }
 
       const storedUserParsed = storedUser ? JSON.parse(storedUser) : null;
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
+      const headers = getAuthHeaders();
 
       const res = await fetch(`/api/clients?branchId=${storedUserParsed?.branchId || ''}`, { headers });
       if (res.ok) {
@@ -444,9 +444,7 @@ export default function ClientsPage() {
       // Serialize Front and Back NIC scan base64 frames into a single robust JSON payload string
       const serializedNicImage = JSON.stringify({ front: nicFrontImage, back: nicBackImage });
 
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = getAuthHeaders();
 
       const res = await fetch(url, {
         method,
@@ -518,9 +516,7 @@ export default function ClientsPage() {
 
     const toastId = toast.loading("Deleting customer...");
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = getAuthHeaders();
 
       const res = await fetch(`/api/clients/${client.id}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error("Delete failed");
@@ -656,9 +652,7 @@ export default function ClientsPage() {
     if (!confirm("Are you sure you want to delete this customer profile?")) return;
     try {
       if (isUsingSupabase) {
-        const token = localStorage.getItem('auth_token');
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const headers = getAuthHeaders();
         const res = await fetch(`/api/stock-customers/${id}`, { method: 'DELETE', headers });
         if (!res.ok) throw new Error("Delete failed");
         toast.success("Customer profile deleted from Supabase!");

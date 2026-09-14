@@ -60,8 +60,23 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
       .single();
 
     const role = (profile?.role || 'TELLER').toUpperCase() as 'ADMIN' | 'TELLER' | 'AUDITOR';
-    const branchId = profile?.branch_id || 'HQ';
-    const branchName = profile?.branch_name || '';
+    let branchId = profile?.branch_id || 'HQ';
+    let branchName = profile?.branch_name || '';
+
+    // Multi-branch teller support:
+    // If the client sent an x-branch-id header (the branch selected at login),
+    // override the profile's fixed branch_id for TELLER sessions.
+    // ADMIN and AUDITOR roles are not restricted to a branch, so we skip them.
+    if (role === 'TELLER') {
+      const selectedBranch =
+        request.headers.get('x-branch-id') ||
+        request.headers.get('X-Branch-Id') ||
+        request.headers.get('X-BRANCH-ID');
+      if (selectedBranch && selectedBranch.trim() !== '') {
+        branchId = selectedBranch.trim();
+        // branchName is cosmetic; leave it from profile if not overridden
+      }
+    }
 
     return {
       user,

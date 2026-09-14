@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ export default function ApprovalsPage() {
           role: u.role || 'TELLER',
           filterBranch: 'ALL'
         });
-        const res = await fetch(`/api/pawns?${params}`);
+        const res = await fetch(`/api/pawns?${params}`, { headers: getAuthHeaders() });
         if (res.ok) {
           const data: any[] = await res.json();
           const pending = data.filter(p => p.status === 'PENDING_APPROVAL');
@@ -59,7 +60,7 @@ export default function ApprovalsPage() {
     try {
       const res = await fetch(`/api/pawns/${id}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           approvedBy: user ? `${user.firstName || user.name || 'System Admin'}` : 'Manager'
         })

@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -322,9 +323,7 @@ function MainLedgerContent() {
     setLoadingLedger(true);
     setFeedback(null);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = getAuthHeaders();
 
       const res = await fetch(`/api/ledger/daily?branch_id=${selectedBranch}&date=${ledgerDate}`, { headers });
       const contentType = res.headers.get('content-type');

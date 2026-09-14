@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -249,9 +250,8 @@ export default function PawnesPage() {
   const loadClients = async (u?: any) => {
     try {
       const user = u || JSON.parse(localStorage.getItem('user') || '{}');
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
+      const headers = getAuthHeaders();
 
       const res = await fetch(`/api/clients?branchId=${user?.branchId || ''}`, { headers });
       if (res.ok) {
@@ -282,9 +282,8 @@ export default function PawnesPage() {
   const loadPawns = async (u?: any) => {
     try {
       const user = u || loadUser();
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
+      const headers = getAuthHeaders();
 
       const params = new URLSearchParams({
         branchId: user?.branchId || branchId,
@@ -456,9 +455,8 @@ export default function PawnesPage() {
       const itemDesc = description.trim() || itemDescSummary || `${goldPurity} Gold Collateral (${itemType})`;
       const fullDescription = finalBillNo ? `${finalBillNo} | ${itemDesc}` : itemDesc;
 
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
+      const headers = getAuthHeaders();
 
       const url    = editingPawn ? `/api/pawns/${editingPawn.id}` : '/api/pawns';
       const method = editingPawn ? 'PATCH' : 'POST';
