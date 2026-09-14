@@ -57,6 +57,14 @@ export async function POST(request: Request) {
     const role = profile?.role || authData.user.user_metadata?.role || (loginEmail.includes('admin') ? 'ADMIN' : 'TELLER');
     const effectiveBranch = normalizeBranchId(branch || profile?.branch_id || 'HQ');
 
+    // Tellers are strictly forbidden from logging into Head Office (HQ)
+    if (role === 'TELLER' && (effectiveBranch === 'HQ' || effectiveBranch === 'HEAD OFFICE')) {
+      return NextResponse.json(
+        { error: 'Tellers are not authorized to log into Head Office. Please select your assigned operating branch.' },
+        { status: 403 }
+      );
+    }
+
     const token = authData.session?.access_token || '';
 
     const response = NextResponse.json({

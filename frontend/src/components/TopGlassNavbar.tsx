@@ -121,7 +121,14 @@ export default function TopGlassNavbar() {
     const syncUser = () => {
       const stored = localStorage.getItem('user');
       if (stored) {
-        try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.role === 'TELLER' && (parsed.branchId === 'HQ' || parsed.branchId === 'HEAD OFFICE')) {
+            handleLogout();
+            return;
+          }
+          setUser(parsed);
+        } catch { /* ignore */ }
       }
     };
     syncUser();

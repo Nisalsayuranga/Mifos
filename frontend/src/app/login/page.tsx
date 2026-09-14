@@ -176,11 +176,11 @@ export default function LoginPage() {
           authUser = resData.user;
           tok = resData.token || '';
           userRole = resData.user?.role || 'TELLER';
-        } else if (res.status === 401) {
+        } else if (!res.ok) {
           throw new Error(resData.error || 'Invalid credentials');
         }
       } catch (srvErr: any) {
-        if (srvErr.message === 'Invalid credentials' || srvErr.message?.includes('credentials')) {
+        if (srvErr.message) {
           throw srvErr;
         }
         console.warn('Server login fallback to client auth:', srvErr);
@@ -197,13 +197,22 @@ export default function LoginPage() {
         userRole = profile?.role || data.user.user_metadata?.role || (loginEmail.includes('admin') ? 'ADMIN' : 'TELLER');
       }
 
+      const effectiveBranch = normalizeBranchId(branch);
+
+      // Tellers are strictly forbidden from logging into Head Office (HQ)
+      if (userRole === 'TELLER' && (effectiveBranch === 'HQ' || effectiveBranch === 'HEAD OFFICE')) {
+        await supabase.auth.signOut();
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        throw new Error('Tellers are not authorized to log into Head Office. Please select your assigned operating branch.');
+      }
+
       if (tok) {
         localStorage.setItem('auth_token', tok);
         document.cookie = `sb-access-token=${tok}; path=/; max-age=28800; SameSite=Lax`;
         document.cookie = `auth_token=${tok}; path=/; max-age=28800; SameSite=Lax`;
       }
-
-      const effectiveBranch = normalizeBranchId(branch);
       localStorage.setItem('user_branch', effectiveBranch);
       localStorage.setItem('user_role', userRole);
       localStorage.setItem('user_name', authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'User');
@@ -669,7 +678,8 @@ export default function LoginPage() {
                                 aria-selected={branch === b.id}
                                 className={`br-item${branch === b.id ? ' sel' : ''}`}
                                 onClick={() => { setBranch(b.id); setBranchOpen(false); setBranchError(false); }}>
-                                {b.name}
+                                <span>{b.name}</span>
+                                {b.id === 'HQ' && <span style={{ fontSize: '10px', color: '#ffd100', marginLeft: '6px', fontWeight: 700 }}>(Admin Only)</span>}
                               </button>
                             ))}
                           </div>

@@ -77,6 +77,10 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
         branchId = normalizeBranchId(selectedBranch.trim());
         // branchName is cosmetic; leave it from profile if not overridden
       }
+      // Tellers are strictly prohibited from operating as Head Office (HQ)
+      if (branchId === 'HQ' || branchId === 'HEAD OFFICE') {
+        branchId = '';
+      }
     }
 
     return {
