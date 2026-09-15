@@ -943,7 +943,7 @@ export default function PawnesPage() {
             onClick={() => setIsEvaluationOpen(true)}
             className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full md:w-auto shrink-0 rounded-2xl"
           >
-            <Plus className="h-4 w-4" /> Customer Registration
+            <Plus className="h-4 w-4" /> Pawning registration
           </Button>
         </div>
       </div>
@@ -1207,7 +1207,13 @@ export default function PawnesPage() {
                                   <div className="space-y-2">
                                     {kycCameraOn ? (
                                       <div className="relative rounded-xl overflow-hidden bg-black">
-                                        <video ref={kycVideoRef} autoPlay playsInline muted className="w-full h-40 object-cover" />
+                                        <video 
+                                          ref={(el) => {
+                                            kycVideoRef.current = el;
+                                            if (el && kycStreamRef.current) el.srcObject = kycStreamRef.current;
+                                          }} 
+                                          autoPlay playsInline muted className="w-full h-40 object-cover" 
+                                        />
                                         <div className="absolute inset-0 border-2 border-amber-500/50 rounded-xl pointer-events-none" />
                                         <button type="button" onClick={captureKycPhoto}
                                           className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-amber-500 hover:bg-amber-600 text-black font-black text-[11px] uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
