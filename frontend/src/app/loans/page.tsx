@@ -27,12 +27,24 @@ export default function PawnesPage() {
   const [evaluationData, setEvaluationData] = useState<any>(null);
 
   // Inline Quick Customer Registration (inside pawn modal)
-  const [showInlineReg, setShowInlineReg]     = useState(false);
-  const [inlineNic, setInlineNic]             = useState('');
-  const [inlineName, setInlineName]           = useState('');
-  const [inlinePhone, setInlinePhone]         = useState('');
-  const [inlineAddress, setInlineAddress]     = useState('');
-  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
+  const [showInlineReg, setShowInlineReg]         = useState(false);
+  const [inlineNic, setInlineNic]                 = useState('');
+  const [inlineName, setInlineName]               = useState('');
+  const [inlinePhone, setInlinePhone]             = useState('');
+  const [inlineAddress, setInlineAddress]         = useState('');
+  const [isSavingCustomer, setIsSavingCustomer]   = useState(false);
+
+  // KYC Photo Upload Step (after inline registration)
+  const [showKycStep, setShowKycStep]             = useState(false);
+  const [newClientId, setNewClientId]             = useState<string>('');
+  const [kycActiveTab, setKycActiveTab]           = useState<'front'|'back'|'sign'>('front');
+  const [kycFront, setKycFront]                   = useState<string|null>(null);
+  const [kycBack, setKycBack]                     = useState<string|null>(null);
+  const [kycSign, setKycSign]                     = useState<string|null>(null);
+  const [kycCameraOn, setKycCameraOn]             = useState(false);
+  const [isSavingKyc, setIsSavingKyc]             = useState(false);
+  const kycVideoRef                               = useRef<HTMLVideoElement>(null);
+  const kycStreamRef                              = useRef<MediaStream|null>(null);
   const [pawns, setPawns]         = useState<any[]>([]);
   const [branches, setBranches]   = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -365,6 +377,9 @@ export default function PawnesPage() {
     setItemsList([{ itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }]);
     setEditingPawn(null); setResolvedName(''); setShowSuggestions(false);
     setShowInlineReg(false); setInlineNic(''); setInlineName(''); setInlinePhone(''); setInlineAddress('');
+    setShowKycStep(false); setNewClientId(''); setKycFront(null); setKycBack(null); setKycSign(null);
+    setKycCameraOn(false); setKycActiveTab('front');
+    if (kycStreamRef.current) { kycStreamRef.current.getTracks().forEach(t => t.stop()); kycStreamRef.current = null; }
   };
 
   // Save new customer inline and auto-select them
@@ -396,7 +411,7 @@ export default function PawnesPage() {
         throw new Error(err.error || 'Failed to register customer');
       }
       const newClient = await res.json();
-      toast.success(`Customer "${inlineName}" registered!`, { id: toastId });
+      toast.dismiss(toastId);
       // Auto-select the newly registered customer
       setClientId(nicVal);
       setResolvedName(inlineName.trim());
@@ -404,12 +419,67 @@ export default function PawnesPage() {
       setClientAddress(inlineAddress.trim());
       setShowInlineReg(false);
       setShowSuggestions(false);
+      // Transition to KYC photo step
+      setNewClientId(newClient.id || '');
+      setShowKycStep(true);
+      setKycActiveTab('front');
       // Refresh clients list in background
-      await loadClients();
+      loadClients();
     } catch (err: any) {
       toast.error(err.message || 'Registration failed', { id: toastId });
     } finally {
       setIsSavingCustomer(false);
+    }
+  };
+
+  // Start KYC webcam
+  const startKycCamera = async () => {
+    try {
+      if (kycStreamRef.current) { kycStreamRef.current.getTracks().forEach(t => t.stop()); }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } });
+      kycStreamRef.current = stream;
+      if (kycVideoRef.current) { kycVideoRef.current.srcObject = stream; }
+      setKycCameraOn(true);
+    } catch { toast.error('Camera access denied'); }
+  };
+
+  const stopKycCamera = () => {
+    if (kycStreamRef.current) { kycStreamRef.current.getTracks().forEach(t => t.stop()); kycStreamRef.current = null; }
+    setKycCameraOn(false);
+  };
+
+  const captureKycPhoto = () => {
+    if (!kycVideoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = kycVideoRef.current.videoWidth;
+    canvas.height = kycVideoRef.current.videoHeight;
+    canvas.getContext('2d')?.drawImage(kycVideoRef.current, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    if (kycActiveTab === 'front') setKycFront(dataUrl);
+    else if (kycActiveTab === 'back') setKycBack(dataUrl);
+    else setKycSign(dataUrl);
+    stopKycCamera();
+  };
+
+  // Save KYC photos to existing client via PATCH
+  const handleInlineKycSave = async () => {
+    if (!newClientId) { setShowKycStep(false); return; }
+    setIsSavingKyc(true);
+    const toastId = toast.loading('Saving KYC photos...');
+    try {
+      const nicImage = JSON.stringify({ front: kycFront, back: kycBack });
+      const res = await fetch(`/api/clients/${newClientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ nicImage, signatureImage: kycSign }),
+      });
+      if (!res.ok) throw new Error('Failed to save photos');
+      toast.success('KYC photos saved ✓', { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || 'Could not save photos', { id: toastId });
+    } finally {
+      setIsSavingKyc(false);
+      setShowKycStep(false);
     }
   };
 
@@ -1094,11 +1164,104 @@ export default function PawnesPage() {
                             )}
                           </div>
                         )}
+
+                        {/* ── KYC Photo Upload Step (after registration) ── */}
+                        {showKycStep && (
+                          <div className="mt-2 bg-slate-900 border border-amber-500/30 rounded-2xl overflow-hidden">
+                            {/* Header */}
+                            <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
+                              <div>
+                                <p className="text-amber-400 text-[10px] font-black uppercase tracking-widest">KYC Document Capture</p>
+                                <p className="text-slate-300 text-[11px] font-semibold mt-0.5">Capture NIC front, back &amp; signature</p>
+                              </div>
+                              <span className="text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded-lg uppercase tracking-wider">
+                                Customer Registered ✓
+                              </span>
+                            </div>
+
+                            {/* Tab Bar */}
+                            <div className="grid grid-cols-3 border-b border-white/5">
+                              {(['front','back','sign'] as const).map((tab) => {
+                                const labels = { front: 'NIC Front', back: 'NIC Back', sign: 'Signature' };
+                                const photos = { front: kycFront, back: kycBack, sign: kycSign };
+                                const isActive = kycActiveTab === tab;
+                                return (
+                                  <button key={tab} type="button"
+                                    onClick={() => { setKycActiveTab(tab); stopKycCamera(); }}
+                                    className={`py-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${
+                                      isActive ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-300'
+                                    }`}
+                                  >
+                                    {photos[tab] ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" /> : null}
+                                    {labels[tab]}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Camera / Preview Area */}
+                            <div className="p-3">
+                              {(() => {
+                                const currentPhoto = kycActiveTab === 'front' ? kycFront : kycActiveTab === 'back' ? kycBack : kycSign;
+                                return (
+                                  <div className="space-y-2">
+                                    {kycCameraOn ? (
+                                      <div className="relative rounded-xl overflow-hidden bg-black">
+                                        <video ref={kycVideoRef} autoPlay playsInline muted className="w-full h-40 object-cover" />
+                                        <div className="absolute inset-0 border-2 border-amber-500/50 rounded-xl pointer-events-none" />
+                                        <button type="button" onClick={captureKycPhoto}
+                                          className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-amber-500 hover:bg-amber-600 text-black font-black text-[11px] uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
+                                          📷 Capture
+                                        </button>
+                                        <button type="button" onClick={stopKycCamera}
+                                          className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-lg">
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ) : currentPhoto ? (
+                                      <div className="relative rounded-xl overflow-hidden bg-black">
+                                        <img src={currentPhoto} alt="captured" className="w-full h-40 object-cover" />
+                                        <button type="button" onClick={() => { if (kycActiveTab==='front') setKycFront(null); else if (kycActiveTab==='back') setKycBack(null); else setKycSign(null); }}
+                                          className="absolute top-2 right-2 bg-red-500/80 text-white text-[10px] px-2 py-1 rounded-lg font-bold">
+                                          Retake
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="h-40 rounded-xl bg-slate-800 border border-white/5 flex flex-col items-center justify-center gap-2">
+                                        <Camera className="w-8 h-8 text-slate-600" />
+                                        <p className="text-slate-500 text-[11px]">No photo captured</p>
+                                      </div>
+                                    )}
+
+                                    {!kycCameraOn && !currentPhoto && (
+                                      <button type="button" onClick={startKycCamera}
+                                        className="w-full flex items-center justify-center gap-2 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all">
+                                        <Camera className="w-4 h-4" /> Open Camera
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="px-3 pb-3 flex gap-2">
+                              <button type="button" onClick={() => { stopKycCamera(); setShowKycStep(false); }}
+                                className="flex-1 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white text-[11px] font-bold uppercase tracking-widest transition-all">
+                                Skip
+                              </button>
+                              <button type="button" onClick={handleInlineKycSave} disabled={isSavingKyc || (!kycFront && !kycBack && !kycSign)}
+                                className="flex-[2] py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                {isSavingKyc ? <><RefreshCcw className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <><UserCheck className="w-3.5 h-3.5" /> Save KYC Photos</>}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </>
                     );
                   })()}
 
-                  {resolvedName && (
+                  {resolvedName && !showKycStep && (
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl mt-1">
                       <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span className="text-emerald-700 font-black text-xs">{resolvedName}</span>
