@@ -25,6 +25,14 @@ export default function PawnesPage() {
   const [isOpen, setIsOpen]       = useState(false);
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false);
   const [evaluationData, setEvaluationData] = useState<any>(null);
+
+  // Inline Quick Customer Registration (inside pawn modal)
+  const [showInlineReg, setShowInlineReg]     = useState(false);
+  const [inlineNic, setInlineNic]             = useState('');
+  const [inlineName, setInlineName]           = useState('');
+  const [inlinePhone, setInlinePhone]         = useState('');
+  const [inlineAddress, setInlineAddress]     = useState('');
+  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [pawns, setPawns]         = useState<any[]>([]);
   const [branches, setBranches]   = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -356,6 +364,53 @@ export default function PawnesPage() {
     setClientPhone(''); setClientAddress('');
     setItemsList([{ itemType: 'CH', description: '', weightGrams: '', weightMg: '', appraisedValue: '' }]);
     setEditingPawn(null); setResolvedName(''); setShowSuggestions(false);
+    setShowInlineReg(false); setInlineNic(''); setInlineName(''); setInlinePhone(''); setInlineAddress('');
+  };
+
+  // Save new customer inline and auto-select them
+  const handleInlineRegisterCustomer = async () => {
+    if (!inlineName.trim()) { toast.error('Name is required'); return; }
+    const nicVal = inlineNic.trim() || clientId.trim();
+    if (!nicVal) { toast.error('NIC is required'); return; }
+    setIsSavingCustomer(true);
+    const toastId = toast.loading('Registering customer...');
+    try {
+      const nameParts = inlineName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName  = nameParts.slice(1).join(' ') || '';
+      const payload = {
+        nationalId: nicVal,
+        firstName,
+        lastName,
+        phone: inlinePhone.trim(),
+        address: inlineAddress.trim(),
+        branchId,
+      };
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to register customer');
+      }
+      const newClient = await res.json();
+      toast.success(`Customer "${inlineName}" registered!`, { id: toastId });
+      // Auto-select the newly registered customer
+      setClientId(nicVal);
+      setResolvedName(inlineName.trim());
+      setClientPhone(inlinePhone.trim());
+      setClientAddress(inlineAddress.trim());
+      setShowInlineReg(false);
+      setShowSuggestions(false);
+      // Refresh clients list in background
+      await loadClients();
+    } catch (err: any) {
+      toast.error(err.message || 'Registration failed', { id: toastId });
+    } finally {
+      setIsSavingCustomer(false);
+    }
   };
 
   const openAdd = () => { resetForm(); loadClients(); setIsOpen(true); };
@@ -947,19 +1002,96 @@ export default function PawnesPage() {
                           </div>
                         )}
 
-                        {/* Fallback Add Customer */}
+                        {/* Inline Customer Registration — no page redirect needed */}
                         {clientId && !resolvedName && suggestions.length === 0 && (
-                          <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-2">
-                            <span className="text-amber-800 text-[11px] font-black tracking-tight">Customer NIC not found.</span>
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                window.location.href = `/clients?register=true&nic=${encodeURIComponent(clientId)}`;
-                              }}
-                              className="bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-widest py-1.5 rounded-xl flex items-center justify-center gap-1.5 h-8 w-full"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Register New Customer
-                            </Button>
+                          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+                            {/* Header Row */}
+                            <div className="flex items-center justify-between px-3 py-2.5">
+                              <span className="text-amber-800 text-[11px] font-black tracking-tight flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                                Customer not found
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  setShowInlineReg(v => !v);
+                                  setInlineNic(clientId);
+                                }}
+                                className="bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-widest rounded-lg h-7 px-3 gap-1"
+                              >
+                                <Plus className="w-3 h-3" />
+                                {showInlineReg ? 'Cancel' : 'Register Now'}
+                              </Button>
+                            </div>
+
+                            {/* Inline Registration Form */}
+                            {showInlineReg && (
+                              <div className="px-3 pb-3 space-y-2.5 border-t border-amber-200 pt-2.5">
+                                <p className="text-[10px] text-amber-700 font-bold uppercase tracking-widest">Quick Registration</p>
+                                
+                                {/* NIC */}
+                                <div className="grid gap-1">
+                                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">NIC Number</label>
+                                  <input
+                                    type="text"
+                                    value={inlineNic}
+                                    onChange={e => setInlineNic(e.target.value)}
+                                    placeholder="e.g. 941234567V"
+                                    className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold w-full focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  />
+                                </div>
+
+                                {/* Full Name */}
+                                <div className="grid gap-1">
+                                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Full Name</label>
+                                  <input
+                                    type="text"
+                                    value={inlineName}
+                                    onChange={e => setInlineName(e.target.value)}
+                                    placeholder="e.g. Kamal Perera"
+                                    className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold w-full focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  />
+                                </div>
+
+                                {/* Phone & Address */}
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="grid gap-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Phone</label>
+                                    <input
+                                      type="text"
+                                      value={inlinePhone}
+                                      onChange={e => setInlinePhone(e.target.value)}
+                                      placeholder="07X XXX XXXX"
+                                      className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-mono w-full focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                  </div>
+                                  <div className="grid gap-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Address</label>
+                                    <input
+                                      type="text"
+                                      value={inlineAddress}
+                                      onChange={e => setInlineAddress(e.target.value)}
+                                      placeholder="Street, City"
+                                      className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs w-full focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Save Button */}
+                                <Button
+                                  type="button"
+                                  onClick={handleInlineRegisterCustomer}
+                                  disabled={isSavingCustomer || !inlineName.trim()}
+                                  className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-widest rounded-xl gap-2"
+                                >
+                                  {isSavingCustomer
+                                    ? <><RefreshCcw className="w-3.5 h-3.5 animate-spin" /> Saving...</>
+                                    : <><UserCheck className="w-3.5 h-3.5" /> Register & Select Customer</>
+                                  }
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
