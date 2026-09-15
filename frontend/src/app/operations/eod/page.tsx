@@ -1324,9 +1324,9 @@ function EndOfDayContent() {
       csvLines.push(`"=== SECTION: ${pref} ==="`);
 
       if (stockFilter === 'Withdrawn') {
-        csvLines.push(`"Bill No","Price","Weight","Pawning Date","Withdraw/FS Date","Reason / Status","Notes / Interest","Items"`);
+        csvLines.push(`"Bill No","Branch","Appraised Value / Price","Weight","Pawning Date","Withdraw/FS Date","Reason / Status","Notes / Interest","Items"`);
       } else {
-        csvLines.push(`"Bill No","Price","Weight","Date","Items"`);
+        csvLines.push(`"Bill No","Branch","Appraised Value / Price","Weight","Date","Items"`);
       }
 
       items.forEach(item => {
@@ -1336,19 +1336,21 @@ function EndOfDayContent() {
         const yr = String(d.getFullYear()).slice(-2);
         const formattedDate = `${day}-${month}-${yr}`;
 
-        const weightVal = parseFloat(item.weight) || 0;
+        const weightVal = parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0;
         const g = Math.floor(weightVal);
         const mg = Math.round((weightVal - g) * 1000);
         const formattedWeight = `${g}g${mg}`;
-        const formattedPrice = (parseFloat(item.price) || 0).toLocaleString();
+        const itemVal = parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0;
+        const formattedPrice = itemVal.toLocaleString();
+        const branchCode = item.branch_id || item.branch || 'HQ';
 
         if (stockFilter === 'Withdrawn') {
           const wDate = item.withdrawal_date ? new Date(item.withdrawal_date).toLocaleDateString('en-GB') : '';
           const wReason = item.withdrawal_reason || '';
           const wNotes = (item.withdrawal_notes || '').replace(/"/g, '""');
-          csvLines.push(`"${item.bill_no}","${formattedPrice}","${formattedWeight}","${formattedDate}","${wDate}","${wReason}","${wNotes}","${compressItemTypeString(item.item_type || '')}"`);
+          csvLines.push(`"${item.bill_no}","${branchCode}","${formattedPrice}","${formattedWeight}","${formattedDate}","${wDate}","${wReason}","${wNotes}","${compressItemTypeString(item.item_type || '')}"`);
         } else {
-          csvLines.push(`"${item.bill_no}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
+          csvLines.push(`"${item.bill_no}","${branchCode}","${formattedPrice}","${formattedWeight}","${formattedDate}","${compressItemTypeString(item.item_type || '')}"`);
         }
       });
 
@@ -1358,8 +1360,8 @@ function EndOfDayContent() {
 
     // Summary Totals at bottom
     const totalCount = sortedStock.length;
-    const totalWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
-    const totalValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+    const totalWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
+    const totalValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
 
     csvLines.push(`"SUMMARY TOTALS"`);
     csvLines.push(`"Total Items","${totalCount}"`);
@@ -1416,15 +1418,18 @@ function EndOfDayContent() {
         const yr = String(d.getFullYear()).slice(-2);
         const formattedDate = `${day}-${month}-${yr}`;
 
-        const weightVal = parseFloat(item.weight) || 0;
+        const weightVal = parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0;
         const g = Math.floor(weightVal);
         const mg = Math.round((weightVal - g) * 1000);
         const formattedWeight = `${g}g${mg}`;
-        const formattedPrice = (parseFloat(item.price) || 0).toLocaleString();
+        const itemVal = parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0;
+        const formattedPrice = itemVal.toLocaleString();
+        const branchCode = item.branch_id || item.branch || 'HQ';
 
         return `
           <tr>
             <td style="font-weight: bold; text-align: left;">${item.bill_no}</td>
+            <td style="text-align: center;">${branchCode}</td>
             <td style="text-align: right;">${formattedPrice}</td>
             <td style="text-align: right;">${formattedWeight}</td>
             <td style="text-align: center;">${formattedDate}</td>
@@ -1438,11 +1443,12 @@ function EndOfDayContent() {
           <table class="inventory-table">
             <thead>
               <tr>
-                <th style="text-align: left; width: 22%;">Bill No</th>
-                <th style="text-align: right; width: 22%;">Price</th>
-                <th style="text-align: right; width: 18%;">Weight</th>
-                <th style="text-align: center; width: 18%;">Date</th>
-                <th style="text-align: left; width: 20%;">Items</th>
+                <th style="text-align: left; width: 20%;">Bill No</th>
+                <th style="text-align: center; width: 12%;">Branch</th>
+                <th style="text-align: right; width: 20%;">Appraised Value</th>
+                <th style="text-align: right; width: 16%;">Weight</th>
+                <th style="text-align: center; width: 16%;">Date</th>
+                <th style="text-align: left; width: 16%;">Items</th>
               </tr>
             </thead>
             <tbody>
@@ -1455,8 +1461,8 @@ function EndOfDayContent() {
     }).join('');
 
     const totalCount = sortedStock.length;
-    const totalWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
-    const totalValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+    const totalWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
+    const totalValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -1585,14 +1591,14 @@ function EndOfDayContent() {
   // Calculate statistics (active vault stock)
   const activeStockList = stockItems.filter(item => item.status === 'Active');
   const totalActiveCount = activeStockList.length;
-  const totalActiveWeight = activeStockList.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
-  const totalActiveValue = activeStockList.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+  const totalActiveWeight = activeStockList.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
+  const totalActiveValue = activeStockList.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
 
   // Calculate statistics for Old Data stock
   const oldActiveList = oldStockItems;
   const totalOldCount = oldActiveList.length;
-  const totalOldWeight = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.weight) || 0), 0);
-  const totalOldValue = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+  const totalOldWeight = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
+  const totalOldValue = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
 
   const displayCount = stockFilter === 'OldData' ? totalOldCount : totalActiveCount;
   const displayWeight = stockFilter === 'OldData' ? totalOldWeight : totalActiveWeight;
