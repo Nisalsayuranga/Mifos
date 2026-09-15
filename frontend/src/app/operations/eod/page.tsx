@@ -1588,22 +1588,6 @@ function EndOfDayContent() {
     printWindow.document.close();
   };
 
-  // Calculate statistics (active vault stock)
-  const activeStockList = stockItems.filter(item => item.status === 'Active');
-  const totalActiveCount = activeStockList.length;
-  const totalActiveWeight = activeStockList.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
-  const totalActiveValue = activeStockList.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
-
-  // Calculate statistics for Old Data stock
-  const oldActiveList = oldStockItems;
-  const totalOldCount = oldActiveList.length;
-  const totalOldWeight = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
-  const totalOldValue = oldActiveList.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
-
-  const displayCount = stockFilter === 'OldData' ? totalOldCount : totalActiveCount;
-  const displayWeight = stockFilter === 'OldData' ? totalOldWeight : totalActiveWeight;
-  const displayValue = stockFilter === 'OldData' ? totalOldValue : totalActiveValue;
-
   // Filter and search stock with Advanced Filters
   const filteredStock = (stockFilter === 'OldData' ? oldStockItems : stockItems).filter(item => {
     // 1. Status Filter
@@ -1657,6 +1641,14 @@ function EndOfDayContent() {
 
   // Strict sort by prefix order: A -> 1R -> 3M -> 3R -> 6R -> 12R -> 6M -> Others
   const sortedStock = sortStockItems(filteredStock);
+
+  // Calculate dynamic statistics strictly for the displayed/filtered stock list
+  const displayCount = sortedStock.length;
+  const displayWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
+  const displayValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
+
+  const totalActiveCount = stockItems.filter(item => item.status === 'Active').length;
+  const totalOldCount = oldStockItems.length;
 
   return (
     <div className="space-y-6 w-full max-w-[96%] xl:max-w-[1400px] mx-auto pb-20">
