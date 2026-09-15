@@ -35,17 +35,23 @@ async function seed() {
   console.log(`Successfully fetched ${authUsers.length} existing auth users.`);
   
   // 2. Ensure Admin Users
-  const adminEmails = ['admin@gmail.com', 'admin@rupasinghe.com'];
-  for (const adminEmail of adminEmails) {
+  const adminAccounts = [
+    { email: 'admin@gmail.com', pass: 'HeadOffice@2024', name: 'Administrator' },
+    { email: 'admin@rupasinghe.com', pass: 'HeadOffice@2024', name: 'Administrator' },
+    { email: 'erandiperera25@gmail.com', pass: 'Mifos@KB101', name: 'Erandi Perera' },
+    { email: 'madushaniperera9617@gmail.com', pass: 'Mifos@HQ002', name: 'Chathurika Madushani' }
+  ];
+  for (const acc of adminAccounts) {
+    const adminEmail = acc.email;
     let adminUser = authUsers.find(u => u.email === adminEmail);
     let adminUserId;
     if (!adminUser) {
       console.log(`Creating Admin User (${adminEmail})...`);
       const { data: newAdmin, error: createAdminError } = await supabase.auth.admin.createUser({
         email: adminEmail,
-        password: 'HeadOffice@2024',
+        password: acc.pass,
         email_confirm: true,
-        user_metadata: { role: 'ADMIN', full_name: 'Administrator' }
+        user_metadata: { role: 'ADMIN', full_name: acc.name }
       });
       if (createAdminError) {
         console.error(`Error creating admin (${adminEmail}):`, createAdminError.message);
@@ -57,8 +63,8 @@ async function seed() {
       adminUserId = adminUser.id;
       console.log(`Admin User Exists (${adminEmail}):`, adminUserId);
       const { error: updateAdminError } = await supabase.auth.admin.updateUserById(adminUserId, {
-        password: 'HeadOffice@2024',
-        user_metadata: { role: 'ADMIN', full_name: 'Administrator' }
+        password: acc.pass,
+        user_metadata: { role: 'ADMIN', full_name: acc.name }
       });
       if (updateAdminError) {
         console.error(`Error updating admin password (${adminEmail}):`, updateAdminError.message);

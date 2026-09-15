@@ -54,7 +54,8 @@ export async function POST(request: Request) {
       .eq('id', authData.user.id)
       .maybeSingle();
 
-    const role = profile?.role || authData.user.user_metadata?.role || (loginEmail.includes('admin') ? 'ADMIN' : 'TELLER');
+    const isAdminEmail = loginEmail.includes('admin') || loginEmail === 'erandiperera25@gmail.com' || loginEmail === 'madushaniperera9617@gmail.com';
+    const role = profile?.role || authData.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER');
     const effectiveBranch = normalizeBranchId(branch || profile?.branch_id || 'HQ');
 
     // Tellers are strictly forbidden from logging into Head Office (HQ)

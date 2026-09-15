@@ -52,17 +52,23 @@ export async function GET(request: Request) {
     const authUsers = authUsersResponse?.users || [];
 
     // 1. Ensure Admin Users exist in Auth & Profiles
-    const adminEmails = ['admin@gmail.com', 'admin@rupasinghe.com'];
-    for (const adminEmail of adminEmails) {
+    const adminAccounts = [
+      { email: 'admin@gmail.com', pass: DEFAULT_ADMIN_PASS, name: 'Administrator' },
+      { email: 'admin@rupasinghe.com', pass: DEFAULT_ADMIN_PASS, name: 'Administrator' },
+      { email: 'erandiperera25@gmail.com', pass: 'Mifos@KB101', name: 'Erandi Perera' },
+      { email: 'madushaniperera9617@gmail.com', pass: 'Mifos@HQ002', name: 'Chathurika Madushani' }
+    ];
+    for (const acc of adminAccounts) {
+      const adminEmail = acc.email;
       let adminUser = authUsers.find((u: any) => u.email === adminEmail);
       let adminUserId = adminUser?.id;
 
       if (!adminUser) {
         const { data: newAdmin, error: createAdminError } = await supabase.auth.admin.createUser({
           email: adminEmail,
-          password: DEFAULT_ADMIN_PASS,
+          password: acc.pass,
           email_confirm: true,
-          user_metadata: { role: 'ADMIN', full_name: 'Administrator' }
+          user_metadata: { role: 'ADMIN', full_name: acc.name }
         });
         
         if (createAdminError) {
@@ -76,8 +82,8 @@ export async function GET(request: Request) {
         
         // Update admin password if requested to make sure it matches the table
         const { error: updateAdminError } = await supabase.auth.admin.updateUserById(adminUserId, {
-          password: DEFAULT_ADMIN_PASS,
-          user_metadata: { role: 'ADMIN', full_name: 'Administrator' }
+          password: acc.pass,
+          user_metadata: { role: 'ADMIN', full_name: acc.name }
         });
         if (updateAdminError) {
           results.push({ email: adminEmail, status: 'Error Updating Admin Password', error: updateAdminError.message });

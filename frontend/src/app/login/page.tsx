@@ -198,7 +198,8 @@ export default function LoginPage() {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
         authUser = data.user;
         tok = data.session?.access_token || '';
-        userRole = profile?.role || data.user.user_metadata?.role || (loginEmail.includes('admin') ? 'ADMIN' : 'TELLER');
+        const isAdminEmail = loginEmail.includes('admin') || loginEmail === 'erandiperera25@gmail.com' || loginEmail === 'madushaniperera9617@gmail.com';
+        userRole = profile?.role || data.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER');
       }
 
       const effectiveBranch = normalizeBranchId(branch);
