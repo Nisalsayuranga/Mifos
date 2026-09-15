@@ -180,7 +180,11 @@ export default function LoginPage() {
           throw new Error(resData.error || 'Invalid credentials');
         }
       } catch (srvErr: any) {
-        if (srvErr.message) {
+        // Only re-throw if it's a real auth error from the server (not a fetch/network failure)
+        // "fetch failed", "Failed to fetch", etc. = API route missing or network issue → use fallback
+        const msg = srvErr?.message || '';
+        const isNetworkError = msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('econnrefused');
+        if (!isNetworkError && msg) {
           throw srvErr;
         }
         console.warn('Server login fallback to client auth:', srvErr);
