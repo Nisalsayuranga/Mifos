@@ -44,7 +44,6 @@ const navGroups = [
     items: [
       { name: 'Customers', href: '/clients', icon: Users },
       { name: 'Pawnes', href: '/loans', icon: Wallet },
-      { name: 'Accounts', href: '/savings', icon: PiggyBank },
       { name: 'Records', href: '/accounting/ledger?tab=journal', icon: FileText },
       { name: 'Ledger Entry', href: '/accounting/ledger?tab=entry', icon: FileSpreadsheet },
       { name: 'Ledger Matrix', href: '/accounting/ledger?tab=matrix', icon: Layers },
@@ -61,7 +60,6 @@ const navGroups = [
     label: "Transactions",
     items: [
       { name: 'Transaction History', href: '/transactions', icon: ArrowRightLeft },
-      { name: 'Money Transfers', href: '/transactions/transfers', icon: History },
     ]
   },
   {
