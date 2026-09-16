@@ -550,19 +550,39 @@ function EndOfDayContent() {
         activeBranch = currentUser.role === 'ADMIN' ? 'ALL' : (currentUser.branchId || 'HQ');
       }
 
-      let query = supabase.from('stock_items').select('*');
-      if (activeBranch && activeBranch !== 'ALL') {
-        const branchTerms = getBranchSearchTerms(activeBranch);
-        query = query.in('branch_id', branchTerms);
-      }
-      if (searchQuery.trim()) {
-        query = query.ilike('bill_no', `%${searchQuery.trim()}%`);
-      }
-      const { data, error } = await query.order('created_at', { ascending: false });
+      let allFetchedStock: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        let query = supabase.from('stock_items').select('*');
+        if (activeBranch && activeBranch !== 'ALL') {
+          const branchTerms = getBranchSearchTerms(activeBranch);
+          query = query.in('branch_id', branchTerms);
+        }
+        if (searchQuery.trim()) {
+          query = query.ilike('bill_no', `%${searchQuery.trim()}%`);
+        }
+        const { data, error } = await query
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      setStockItems(sortStockItems(data || []));
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allFetchedStock = allFetchedStock.concat(data);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setStockItems(sortStockItems(allFetchedStock));
       setIsUsingSupabase(true);
     } catch (err: any) {
       console.warn("Supabase fetch failed, falling back to LocalStorage:", err.message);
@@ -637,13 +657,34 @@ function EndOfDayContent() {
   const loadOldStockData = async () => {
     setLoadingOldStock(true);
     try {
-      const { data, error } = await oldSupabase
-        .from('stock_items')
-        .select('*')
-        .eq('status', 'Active')
-        .order('date', { ascending: false });
-      if (error) throw error;
-      const formatted = (data || []).map(item => ({
+      let allOldFetchedStock: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await oldSupabase
+          .from('stock_items')
+          .select('*')
+          .eq('status', 'Active')
+          .order('date', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allOldFetchedStock = allOldFetchedStock.concat(data);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const formatted = allOldFetchedStock.map(item => ({
         ...item,
         branch_id: item.branch_id || 'OLD'
       }));
@@ -1300,16 +1341,16 @@ function EndOfDayContent() {
     csvLines.push(`"Status: ${stockFilter} Stock"`);
     csvLines.push("");
 
-    const PREFIX_ORDER = ["A", "1R", "3M", "3R", "6R", "12R", "6M"];
+    const sortedPrefixes = [...BILL_PREFIXES].sort((a, b) => b.length - a.length);
     const grouped: { [key: string]: any[] } = {};
-    PREFIX_ORDER.forEach(p => { grouped[p] = []; });
+    BILL_PREFIXES.forEach(p => { grouped[p] = []; });
     grouped["OTHERS"] = [];
 
     sortedStock.forEach(item => {
-      const clean = (item.bill_no || "").trim();
+      const clean = (item.bill_no || "").trim().toUpperCase();
       let matched = "OTHERS";
-      for (const pref of PREFIX_ORDER) {
-        if (clean.startsWith(pref + " ") || clean.startsWith(pref)) {
+      for (const pref of sortedPrefixes) {
+        if (clean.startsWith(pref + " ") || clean === pref || (clean.startsWith(pref) && /^\d/.test(clean.substring(pref.length)))) {
           matched = pref;
           break;
         }
@@ -1317,7 +1358,7 @@ function EndOfDayContent() {
       grouped[matched].push(item);
     });
 
-    const activeGroups = [...PREFIX_ORDER, "OTHERS"].filter(p => grouped[p].length > 0);
+    const activeGroups = [...BILL_PREFIXES, "OTHERS"].filter(p => grouped[p].length > 0);
 
     activeGroups.forEach(pref => {
       const items = grouped[pref];
@@ -1330,22 +1371,33 @@ function EndOfDayContent() {
       }
 
       items.forEach(item => {
-        const d = new Date(item.date);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const yr = String(d.getFullYear()).slice(-2);
-        const formattedDate = `${day}-${month}-${yr}`;
+        let formattedDate = '';
+        if (item.date) {
+          const d = new Date(item.date);
+          if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const yr = String(d.getFullYear()).slice(-2);
+            formattedDate = `${day}-${month}-${yr}`;
+          } else {
+            formattedDate = String(item.date);
+          }
+        }
 
         const weightVal = parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0;
         const g = Math.floor(weightVal);
         const mg = Math.round((weightVal - g) * 1000);
-        const formattedWeight = `${g}g${mg}`;
+        const formattedWeight = `${g}g${String(mg).padStart(3, '0')}`;
         const itemVal = parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0;
         const formattedPrice = itemVal.toLocaleString();
         const branchCode = item.branch_id || item.branch || 'HQ';
 
         if (stockFilter === 'Withdrawn') {
-          const wDate = item.withdrawal_date ? new Date(item.withdrawal_date).toLocaleDateString('en-GB') : '';
+          let wDate = '';
+          if (item.withdrawal_date) {
+            const wd = new Date(item.withdrawal_date);
+            wDate = !isNaN(wd.getTime()) ? wd.toLocaleDateString('en-GB') : String(item.withdrawal_date);
+          }
           const wReason = item.withdrawal_reason || '';
           const wNotes = (item.withdrawal_notes || '').replace(/"/g, '""');
           csvLines.push(`"${item.bill_no}","${branchCode}","${formattedPrice}","${formattedWeight}","${formattedDate}","${wDate}","${wReason}","${wNotes}","${compressItemTypeString(item.item_type || '')}"`);
@@ -1362,14 +1414,22 @@ function EndOfDayContent() {
     const totalCount = sortedStock.length;
     const totalWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
     const totalValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
+    const totG = Math.floor(totalWeight);
+    const totMg = Math.round((totalWeight - totG) * 1000);
+    const formattedTotWeight = `${totalWeight.toFixed(3)} g (${totG}g${String(totMg).padStart(3, '0')})`;
 
     csvLines.push(`"SUMMARY TOTALS"`);
+    if (stockFilter === 'Withdrawn') {
+      csvLines.push(`"TOTAL ITEMS: ${totalCount}","","Rs. ${totalValue.toLocaleString()}","${totalWeight.toFixed(3)} g","","","","",""`);
+    } else {
+      csvLines.push(`"TOTAL ITEMS: ${totalCount}","","Rs. ${totalValue.toLocaleString()}","${totalWeight.toFixed(3)} g","",""`);
+    }
     csvLines.push(`"Total Items","${totalCount}"`);
-    csvLines.push(`"Total Weight","${totalWeight.toFixed(3)} g"`);
+    csvLines.push(`"Total Weight","${formattedTotWeight}"`);
     csvLines.push(`"Total Value","Rs. ${totalValue.toLocaleString()}"`);
 
     const csvContent = csvLines.join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -1390,16 +1450,16 @@ function EndOfDayContent() {
       
     const activeBranchName = branches.find(b => b.id === selectedBranch)?.name || (selectedBranch === 'ALL' ? 'All Branches' : selectedBranch);
 
-    const PREFIX_ORDER = ["A", "1R", "3M", "3R", "6R", "12R", "6M"];
+    const sortedPrefixes = [...BILL_PREFIXES].sort((a, b) => b.length - a.length);
     const grouped: { [key: string]: any[] } = {};
-    PREFIX_ORDER.forEach(p => { grouped[p] = []; });
+    BILL_PREFIXES.forEach(p => { grouped[p] = []; });
     grouped["OTHERS"] = [];
 
     sortedStock.forEach(item => {
-      const clean = (item.bill_no || "").trim();
+      const clean = (item.bill_no || "").trim().toUpperCase();
       let matched = "OTHERS";
-      for (const pref of PREFIX_ORDER) {
-        if (clean.startsWith(pref + " ") || clean.startsWith(pref)) {
+      for (const pref of sortedPrefixes) {
+        if (clean.startsWith(pref + " ") || clean === pref || (clean.startsWith(pref) && /^\d/.test(clean.substring(pref.length)))) {
           matched = pref;
           break;
         }
@@ -1407,21 +1467,28 @@ function EndOfDayContent() {
       grouped[matched].push(item);
     });
 
-    const activeGroups = [...PREFIX_ORDER, "OTHERS"].filter(p => grouped[p].length > 0);
+    const activeGroups = [...BILL_PREFIXES, "OTHERS"].filter(p => grouped[p].length > 0);
 
     const sectionsHtml = activeGroups.map(pref => {
       const items = grouped[pref];
       const rowsHtml = items.map(item => {
-        const d = new Date(item.date);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const yr = String(d.getFullYear()).slice(-2);
-        const formattedDate = `${day}-${month}-${yr}`;
+        let formattedDate = '';
+        if (item.date) {
+          const d = new Date(item.date);
+          if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const yr = String(d.getFullYear()).slice(-2);
+            formattedDate = `${day}-${month}-${yr}`;
+          } else {
+            formattedDate = String(item.date);
+          }
+        }
 
         const weightVal = parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0;
         const g = Math.floor(weightVal);
         const mg = Math.round((weightVal - g) * 1000);
-        const formattedWeight = `${g}g${mg}`;
+        const formattedWeight = `${g}g${String(mg).padStart(3, '0')}`;
         const itemVal = parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0;
         const formattedPrice = itemVal.toLocaleString();
         const branchCode = item.branch_id || item.branch || 'HQ';
@@ -1596,8 +1663,12 @@ function EndOfDayContent() {
     }
 
     // 2. Branch Filter
-    if (selectedBranch && selectedBranch !== 'ALL' && item.branch_id !== selectedBranch) {
-      return false;
+    if (selectedBranch && selectedBranch !== 'ALL') {
+      const canonicalSelected = normalizeBranchId(selectedBranch);
+      const canonicalItemBranch = normalizeBranchId(item.branch_id || '');
+      if (canonicalItemBranch !== canonicalSelected && item.branch_id !== selectedBranch) {
+        return false;
+      }
     }
 
     // 3. Reason Filter (e.g. F/S, Pawn Redeemed, etc.)
