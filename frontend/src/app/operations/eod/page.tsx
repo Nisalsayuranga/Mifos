@@ -1686,8 +1686,13 @@ function EndOfDayContent() {
     // 4. Prefix Filter
     if (filterPrefix && filterPrefix !== 'ALL') {
       const cleanBill = (item.bill_no || "").trim();
-      if (!cleanBill.startsWith(filterPrefix + " ") && !cleanBill.startsWith(filterPrefix)) {
-        return false;
+      if (filterPrefix === '1R-12R') {
+        const isR = /^(?:[1-9]|1[0-2])R(?:\s|$)/i.test(cleanBill);
+        if (!isR) return false;
+      } else {
+        if (!cleanBill.startsWith(filterPrefix + " ") && !cleanBill.startsWith(filterPrefix)) {
+          return false;
+        }
       }
     }
 
@@ -2075,6 +2080,7 @@ function EndOfDayContent() {
                   </SelectTrigger>
                   <SelectContent className="glass">
                     <SelectItem value="ALL" className="font-semibold text-xs">All Prefixes</SelectItem>
+                    <SelectItem value="1R-12R" className="font-bold text-xs text-blue-700">1R-12R</SelectItem>
                     {BILL_PREFIXES.map(pref => (
                       <SelectItem key={pref} value={pref} className="font-bold text-xs">{pref}</SelectItem>
                     ))}
