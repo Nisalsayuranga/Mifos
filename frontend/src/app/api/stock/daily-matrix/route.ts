@@ -110,12 +110,17 @@ export async function GET(req: Request) {
         const itemCreatedDate = (s.created_at || '').substring(0, 10);
         const itemWithdrawDate = (s.withdrawal_date || '').substring(0, 10);
 
-        // An item is a Loan Issued on dateParam if it was pawned or created on dateParam
-        if (itemPawnDate === dateParam || itemCreatedDate === dateParam) {
+        // Primary loan date is s.date if present, else fallback to s.created_at
+        const effectiveLoanDate = (s.date && String(s.date).trim() !== '')
+          ? s.date.substring(0, 10)
+          : (itemCreatedDate || '');
+
+        // An item is a Loan Issued on dateParam ONLY if its effective loan date strictly equals dateParam
+        if (effectiveLoanDate === dateParam) {
           loanItems.push({
             id: s.id,
             bill_no: s.bill_no,
-            date: itemPawnDate || itemCreatedDate,
+            date: effectiveLoanDate,
             amount: Number(s.price) || Number(s.disbursed_amount) || 0,
             weight: Number(s.weight) || 0,
             item_type: s.item_type || 'GOLD',
@@ -125,7 +130,7 @@ export async function GET(req: Request) {
         }
 
         // An item is a Redeemed Stock on dateParam if it was withdrawn on dateParam
-        if (itemWithdrawDate === dateParam && (s.status === 'Withdrawn' || s.status === 'Redeemed' || s.status === 'CLOSED')) {
+        if (itemWithdrawDate === dateParam && (s.status === 'Withdrawn' || s.status === 'Redeemed' || s.status === 'CLOSED' || !!s.withdrawal_reason)) {
           redeemItems.push({
             id: s.id,
             bill_no: s.bill_no,
