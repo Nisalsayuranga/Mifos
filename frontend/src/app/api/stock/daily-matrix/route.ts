@@ -78,26 +78,44 @@ export async function GET(req: Request) {
       });
     }
 
-    // 3. Fetch Stock Items (Loans & Redeems)
-    let stockQuery = adminSupabase.from('stock_items').select('*');
-    if (branchParam && branchParam.toUpperCase() !== 'ALL') {
-      stockQuery = stockQuery.ilike('branch_id', branchParam);
+    // 3. Fetch Stock Items (Loans & Redeems) - Paginated to prevent 1000 row truncation
+    let allStock: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      let stockQuery = adminSupabase
+        .from('stock_items')
+        .select('*')
+        .range(from, to);
+
+      if (branchParam && branchParam.toUpperCase() !== 'ALL') {
+        stockQuery = stockQuery.ilike('branch_id', branchParam);
+      }
+
+      const { data: pageData, error: stockErr } = await stockQuery;
+      if (stockErr || !pageData || pageData.length === 0) break;
+      allStock.push(...pageData);
+      if (pageData.length < pageSize) break;
+      page++;
     }
-    const { data: allStock, error: stockErr } = await stockQuery;
 
     let loanItems: any[] = [];
     let redeemItems: any[] = [];
 
-    if (allStock && Array.isArray(allStock)) {
+    if (Array.isArray(allStock)) {
       allStock.forEach((s: any) => {
-        const createDate = s.date || s.created_at?.split('T')[0];
-        const withdrawDate = s.withdrawal_date;
+        const itemPawnDate = (s.date || '').substring(0, 10);
+        const itemCreatedDate = (s.created_at || '').substring(0, 10);
+        const itemWithdrawDate = (s.withdrawal_date || '').substring(0, 10);
 
-        if (createDate === dateParam && s.status === 'Active') {
+        // An item is a Loan Issued on dateParam if it was pawned or created on dateParam
+        if (itemPawnDate === dateParam || itemCreatedDate === dateParam) {
           loanItems.push({
             id: s.id,
             bill_no: s.bill_no,
-            date: createDate,
+            date: itemPawnDate || itemCreatedDate,
             amount: Number(s.price) || Number(s.disbursed_amount) || 0,
             weight: Number(s.weight) || 0,
             item_type: s.item_type || 'GOLD',
@@ -106,11 +124,12 @@ export async function GET(req: Request) {
           });
         }
 
-        if (withdrawDate === dateParam && s.status === 'Withdrawn') {
+        // An item is a Redeemed Stock on dateParam if it was withdrawn on dateParam
+        if (itemWithdrawDate === dateParam && (s.status === 'Withdrawn' || s.status === 'Redeemed' || s.status === 'CLOSED')) {
           redeemItems.push({
             id: s.id,
             bill_no: s.bill_no,
-            date: withdrawDate,
+            date: itemWithdrawDate,
             amount: Number(s.price) || Number(s.disbursed_amount) || 0,
             weight: Number(s.weight) || 0,
             reason: s.withdrawal_reason || 'Pawn Redeemed',

@@ -1631,7 +1631,18 @@ function EndOfDayContent() {
         }
       });
 
-      csvLines.push(`"No of Packets = ${items.length}"`);
+      const secValue = items.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
+      const secWeight = items.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
+      const secG = Math.floor(secWeight);
+      const secMg = Math.round((secWeight - secG) * 1000);
+      const formattedSecWeight = `${secWeight.toFixed(3)} g (${secG}g${String(secMg).padStart(3, '0')})`;
+
+      if (stockFilter === 'Withdrawn') {
+        csvLines.push(`"SECTION ${pref} TOTALS","","Rs. ${secValue.toLocaleString()}","${secWeight.toFixed(3)} g","Packets: ${items.length}","","","",""`);
+      } else {
+        csvLines.push(`"SECTION ${pref} TOTALS","","Rs. ${secValue.toLocaleString()}","${secWeight.toFixed(3)} g","Packets: ${items.length}",""`);
+      }
+      csvLines.push(`"No of Packets = ${items.length} | Section Total Value = Rs. ${secValue.toLocaleString()} | Section Total Weight = ${formattedSecWeight}"`);
       csvLines.push("");
     });
 
