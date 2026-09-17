@@ -149,9 +149,9 @@ import { Suspense } from 'react';
 // ==========================================
 function EndOfDayContent() {
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') as 'reconciliation' | 'stock';
+  const initialTab = searchParams.get('tab') as 'reconciliation' | 'stock' | 'matrix';
   // Navigation / Tabs
-  const [activeTab, setActiveTab] = useState<'reconciliation' | 'stock'>(initialTab || 'reconciliation');
+  const [activeTab, setActiveTab] = useState<'reconciliation' | 'stock' | 'matrix'>(initialTab || 'reconciliation');
 
   useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
@@ -483,6 +483,118 @@ function EndOfDayContent() {
     setStockInterests(updated);
     localStorage.setItem('local_stock_interests', JSON.stringify(updated));
     toast.success("Interest entry removed.");
+  };
+
+  // Stock Daily Matrix State & Handlers
+  const [matrixDate, setMatrixDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [matrixBranch, setMatrixBranch] = useState<string>("ALL");
+  const [matrixCategoryFilter, setMatrixCategoryFilter] = useState<string>("ALL");
+  const [matrixResponse, setMatrixResponse] = useState<any>(null);
+  const [loadingMatrix, setLoadingMatrix] = useState<boolean>(false);
+
+  // Edit / Delete Matrix Item Modal State
+  const [editingMatrixItem, setEditingMatrixItem] = useState<any | null>(null);
+  const [showEditMatrixModal, setShowEditMatrixModal] = useState<boolean>(false);
+  const [editMatrixAmount, setEditMatrixAmount] = useState<string>("");
+  const [editMatrixDate, setEditMatrixDate] = useState<string>("");
+  const [editMatrixBranch, setEditMatrixBranch] = useState<string>("");
+  const [editMatrixNotes, setEditMatrixNotes] = useState<string>("");
+  const [isSubmittingEditMatrix, setIsSubmittingEditMatrix] = useState<boolean>(false);
+
+  const [deletingMatrixItem, setDeletingMatrixItem] = useState<any | null>(null);
+  const [showDeleteMatrixModal, setShowDeleteMatrixModal] = useState<boolean>(false);
+  const [isDeletingMatrixItem, setIsDeletingMatrixItem] = useState<boolean>(false);
+
+  const fetchDailyMatrix = async (dDate = matrixDate, dBranch = matrixBranch) => {
+    setLoadingMatrix(true);
+    try {
+      const res = await fetch(`/api/stock/daily-matrix?date=${dDate}&branch=${dBranch}`);
+      if (res.ok) {
+        const json = await res.json();
+        setMatrixResponse(json);
+      }
+    } catch (err) {
+      console.error("Failed to fetch daily matrix:", err);
+    } finally {
+      setLoadingMatrix(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'matrix') {
+      fetchDailyMatrix(matrixDate, matrixBranch);
+    }
+  }, [activeTab, matrixDate, matrixBranch]);
+
+  const openEditMatrixItem = (item: any) => {
+    setEditingMatrixItem(item);
+    setEditMatrixAmount(item.amount ? item.amount.toString() : "");
+    setEditMatrixDate(item.date || matrixDate);
+    setEditMatrixBranch(item.branch || "DMT");
+    setEditMatrixNotes(item.notes || item.remarks || item.reason || "");
+    setShowEditMatrixModal(true);
+  };
+
+  const handleSaveEditMatrixItem = async () => {
+    if (!editingMatrixItem) return;
+    setIsSubmittingEditMatrix(true);
+    try {
+      const res = await fetch('/api/stock/daily-matrix/item', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingMatrixItem.id,
+          category: editingMatrixItem.category,
+          bill_no: editingMatrixItem.bill_no,
+          date: editMatrixDate,
+          amount: parseFloat(editMatrixAmount) || 0,
+          branch: editMatrixBranch,
+          notes: editMatrixNotes,
+          remarks: editMatrixNotes
+        })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success("Transaction updated successfully!");
+        setShowEditMatrixModal(false);
+        fetchDailyMatrix(matrixDate, matrixBranch);
+        fetchStockInterests();
+      } else {
+        toast.error(json.error || "Failed to update item");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update item");
+    } finally {
+      setIsSubmittingEditMatrix(false);
+    }
+  };
+
+  const openDeleteMatrixItem = (item: any) => {
+    setDeletingMatrixItem(item);
+    setShowDeleteMatrixModal(true);
+  };
+
+  const handleConfirmDeleteMatrixItem = async () => {
+    if (!deletingMatrixItem) return;
+    setIsDeletingMatrixItem(true);
+    try {
+      const res = await fetch(`/api/stock/daily-matrix/item?id=${deletingMatrixItem.id}&category=${deletingMatrixItem.category}`, {
+        method: 'DELETE'
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success("Transaction removed from daily matrix!");
+        setShowDeleteMatrixModal(false);
+        fetchDailyMatrix(matrixDate, matrixBranch);
+        fetchStockInterests();
+      } else {
+        toast.error(json.error || "Failed to delete item");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete item");
+    } finally {
+      setIsDeletingMatrixItem(false);
+    }
   };
 
   // Form State - Add Stock Item
@@ -1854,7 +1966,7 @@ function EndOfDayContent() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60 w-full md:w-fit">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60 w-full md:w-fit flex-wrap gap-1">
         <button 
           onClick={() => setActiveTab('reconciliation')}
           className={cn(
@@ -1872,6 +1984,15 @@ function EndOfDayContent() {
           )}
         >
           Pawn Stock Management
+        </button>
+        <button 
+          onClick={() => setActiveTab('matrix')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5",
+            activeTab === 'matrix' ? "bg-emerald-600 text-white shadow-md font-bold" : "text-slate-600 hover:text-slate-900 bg-slate-200/60"
+          )}
+        >
+          <Coins className="w-3.5 h-3.5" /> Stock Daily Matrix
         </button>
       </div>
 
@@ -2463,6 +2584,214 @@ function EndOfDayContent() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          STOCK DAILY SUMMARY & MATRIX TAB VIEW
+          ========================================== */}
+      {activeTab === 'matrix' && (
+        <div className="space-y-6 animate-in fade-in-50 duration-300">
+
+          {/* Date & Branch Controls bar */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Select Date</label>
+                <input
+                  type="date"
+                  value={matrixDate}
+                  onChange={(e) => setMatrixDate(e.target.value)}
+                  className="h-10 px-3 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs bg-white cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Select Branch</label>
+                <select
+                  value={matrixBranch}
+                  onChange={(e) => setMatrixBranch(e.target.value)}
+                  className="h-10 px-3 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs bg-white cursor-pointer"
+                >
+                  <option value="ALL">All Branches</option>
+                  <option value="DMT">Dematagoda (DMT)</option>
+                  <option value="KIR">Kiribathgoda (KIR)</option>
+                  <option value="BRL">Borella (BRL)</option>
+                  <option value="DHW">Dehiwala (DHW)</option>
+                  <option value="HMG">Homagama (HMG)</option>
+                  <option value="KDW">Kadawatha (KDW)</option>
+                  <option value="KOT">Kotikawatta (KOT)</option>
+                  <option value="KTW">Kottawa (KTW)</option>
+                  <option value="PND">Panadura (PND)</option>
+                  <option value="W2">Wattala 2 (W2)</option>
+                  <option value="W3">Wattala 3 (W3)</option>
+                  <option value="W4">Wattala 4 (W4)</option>
+                  <option value="KHT">Kahathuduwa (KHT)</option>
+                  <option value="HQ">Head Office (HQ)</option>
+                </select>
+              </div>
+
+              {/* Category Filter Buttons */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Category Filter</label>
+                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 flex-wrap gap-1">
+                  {['ALL', 'FS', 'INTEREST', 'RECEIPT', 'LOAN', 'REDEEM'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setMatrixCategoryFilter(cat)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                        matrixCategoryFilter === cat ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                      )}
+                    >
+                      {cat === 'FS' ? 'F / S' : cat === 'INTEREST' ? 'I (Interest)' : cat === 'RECEIPT' ? 'R (Receipt)' : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => fetchDailyMatrix(matrixDate, matrixBranch)}
+              variant="outline"
+              className="h-10 rounded-xl font-bold border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 cursor-pointer"
+            >
+              {loadingMatrix ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+              Refresh Matrix
+            </Button>
+          </div>
+
+          {/* Daily KPI Summary Cards */}
+          {matrixResponse?.summary && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">F / S Charges</p>
+                <p className="text-xl font-black text-purple-950 mt-1">LKR {matrixResponse.summary.total_fs.toLocaleString()}</p>
+                <p className="text-[10px] text-purple-600 font-bold mt-0.5">{matrixResponse.data.fs_items.length} Entries</p>
+              </div>
+
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Interest (I)</p>
+                <p className="text-xl font-black text-emerald-950 mt-1">LKR {matrixResponse.summary.total_interest.toLocaleString()}</p>
+                <p className="text-[10px] text-emerald-600 font-bold mt-0.5">{matrixResponse.data.interest_items.length} Entries</p>
+              </div>
+
+              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Receipts (R)</p>
+                <p className="text-xl font-black text-blue-950 mt-1">LKR {matrixResponse.summary.total_receipts.toLocaleString()}</p>
+                <p className="text-[10px] text-blue-600 font-bold mt-0.5">{matrixResponse.data.receipt_items.length} Entries</p>
+              </div>
+
+              <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">Loans Issued</p>
+                <p className="text-xl font-black text-amber-950 mt-1">LKR {matrixResponse.summary.total_loans.toLocaleString()}</p>
+                <p className="text-[10px] text-amber-600 font-bold mt-0.5">{matrixResponse.data.loan_items.length} Items</p>
+              </div>
+
+              <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-wider text-rose-700">Redeemed Stock</p>
+                <p className="text-xl font-black text-rose-950 mt-1">LKR {matrixResponse.summary.total_redeems.toLocaleString()}</p>
+                <p className="text-[10px] text-rose-600 font-bold mt-0.5">{matrixResponse.data.redeem_items.length} Items</p>
+              </div>
+            </div>
+          )}
+
+          {/* Categorized Matrix Tables */}
+          {(() => {
+            if (loadingMatrix) {
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-600" />
+                  <p className="font-bold text-xs uppercase tracking-wider">Loading Daily Matrix Data...</p>
+                </div>
+              );
+            }
+
+            const categories = [
+              { key: 'FS', title: 'F / S (Form & Stamp Fees)', items: matrixResponse?.data?.fs_items || [], badgeBg: 'bg-purple-100 text-purple-800' },
+              { key: 'INTEREST', title: 'I (Interest Entries)', items: matrixResponse?.data?.interest_items || [], badgeBg: 'bg-emerald-100 text-emerald-800' },
+              { key: 'RECEIPT', title: 'R (Receipts & Cash Received)', items: matrixResponse?.data?.receipt_items || [], badgeBg: 'bg-blue-100 text-blue-800' },
+              { key: 'LOAN', title: 'Loans Issued (New Active Stock)', items: matrixResponse?.data?.loan_items || [], badgeBg: 'bg-amber-100 text-amber-800' },
+              { key: 'REDEEM', title: 'Redeemed Stock (Closed Pawns)', items: matrixResponse?.data?.redeem_items || [], badgeBg: 'bg-rose-100 text-rose-800' }
+            ];
+
+            const filteredCategories = categories.filter(c => matrixCategoryFilter === 'ALL' || c.key === matrixCategoryFilter);
+
+            return (
+              <div className="space-y-6">
+                {filteredCategories.map((cat) => (
+                  <div key={cat.key} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className={cn("text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider", cat.badgeBg)}>
+                          {cat.key}
+                        </span>
+                        <h3 className="font-black text-slate-800 text-sm">{cat.title}</h3>
+                        <span className="text-xs font-bold text-slate-400">({cat.items.length})</span>
+                      </div>
+                      <span className="text-xs font-black text-slate-700">
+                        Subtotal: LKR {cat.items.reduce((s: number, x: any) => s + (x.amount || 0), 0).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {cat.items.length === 0 ? (
+                      <div className="p-6 text-center text-xs font-semibold text-slate-400 italic">
+                        No transactions recorded under {cat.key} for date {matrixDate}.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs font-semibold text-slate-600">
+                          <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            <tr>
+                              <th className="px-6 py-3">Bill No</th>
+                              <th className="px-6 py-3">Date</th>
+                              <th className="px-6 py-3">Branch</th>
+                              <th className="px-6 py-3">Amount (Rs.)</th>
+                              <th className="px-6 py-3">Details / Notes</th>
+                              <th className="px-6 py-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-bold">
+                            {cat.items.map((row: any, idx: number) => (
+                              <tr key={row.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="px-6 py-3.5 text-slate-900 font-black">{row.bill_no}</td>
+                                <td className="px-6 py-3.5 text-slate-500">{row.date}</td>
+                                <td className="px-6 py-3.5">
+                                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-black border border-slate-200">
+                                    {row.branch || 'DMT'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3.5 text-slate-900 font-black">LKR {Number(row.amount || 0).toLocaleString()}</td>
+                                <td className="px-6 py-3.5 text-slate-500 text-[11px]">{row.notes || row.remarks || row.reason || row.item_type || '-'}</td>
+                                <td className="px-6 py-3.5 text-right space-x-1">
+                                  <button
+                                    onClick={() => openEditMatrixItem(row)}
+                                    className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors cursor-pointer"
+                                    title="Edit Row"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteMatrixItem(row)}
+                                    className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete Row"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
         </div>
       )}
 
@@ -3449,6 +3778,144 @@ function EndOfDayContent() {
                   Save Interest
                 </Button>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: EDIT MATRIX ITEM */}
+      <Dialog open={showEditMatrixModal} onOpenChange={setShowEditMatrixModal}>
+        <DialogContent className="sm:max-w-[420px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+          <div className="h-2 bg-blue-600" />
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-tighter text-slate-900 flex items-center gap-2">
+                <Edit className="w-5 h-5 text-blue-600" />
+                Edit Matrix Transaction ({editingMatrixItem?.category})
+              </DialogTitle>
+              <DialogDescription className="font-semibold text-slate-400 text-xs mt-1">
+                Modify transaction details for Bill: <span className="text-slate-800 font-black">{editingMatrixItem?.bill_no}</span>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-5 space-y-4">
+              {/* Field 1: Date */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">Date</Label>
+                <Input
+                  type="date"
+                  value={editMatrixDate}
+                  onChange={(e) => setEditMatrixDate(e.target.value)}
+                  className="h-10 border-slate-200 rounded-xl font-bold text-slate-800 text-xs"
+                />
+              </div>
+
+              {/* Field 2: Amount */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">Amount (Rs.)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-black text-slate-400">Rs.</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={editMatrixAmount}
+                    onChange={(e) => setEditMatrixAmount(e.target.value)}
+                    className="h-10 pl-10 border-slate-200 rounded-xl font-bold text-slate-900 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Field 3: Branch */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">Branch</Label>
+                <select
+                  value={editMatrixBranch}
+                  onChange={(e) => setEditMatrixBranch(e.target.value)}
+                  className="h-10 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs px-3 bg-white w-full focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="DMT">Dematagoda (DMT)</option>
+                  <option value="KIR">Kiribathgoda (KIR)</option>
+                  <option value="BRL">Borella (BRL)</option>
+                  <option value="DHW">Dehiwala (DHW)</option>
+                  <option value="HMG">Homagama (HMG)</option>
+                  <option value="KDW">Kadawatha (KDW)</option>
+                  <option value="KOT">Kotikawatta (KOT)</option>
+                  <option value="KTW">Kottawa (KTW)</option>
+                  <option value="PND">Panadura (PND)</option>
+                  <option value="W2">Wattala 2 (W2)</option>
+                  <option value="W3">Wattala 3 (W3)</option>
+                  <option value="W4">Wattala 4 (W4)</option>
+                  <option value="KHT">Kahathuduwa (KHT)</option>
+                  <option value="HQ">Head Office (HQ)</option>
+                </select>
+              </div>
+
+              {/* Field 4: Notes / Remarks */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">Remarks / Notes</Label>
+                <Input
+                  value={editMatrixNotes}
+                  onChange={(e) => setEditMatrixNotes(e.target.value)}
+                  className="h-10 border-slate-200 rounded-xl font-medium text-slate-700 text-xs"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex justify-end gap-2 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditMatrixModal(false)}
+                  className="rounded-xl font-bold border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveEditMatrixItem}
+                  disabled={isSubmittingEditMatrix}
+                  className="rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer px-6 text-xs gap-1.5 shadow-md"
+                >
+                  {isSubmittingEditMatrix ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: DELETE MATRIX ITEM */}
+      <Dialog open={showDeleteMatrixModal} onOpenChange={setShowDeleteMatrixModal}>
+        <DialogContent className="sm:max-w-[420px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+          <div className="h-2 bg-rose-600" />
+          <div className="p-6 text-center space-y-4">
+            <div className="w-12 h-12 bg-rose-50 rounded-full border border-rose-100 flex items-center justify-center mx-auto text-rose-600">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-900 text-lg">Confirm Delete Transaction</h3>
+              <p className="text-xs font-semibold text-slate-500 mt-1">
+                Are you sure you want to delete this {deletingMatrixItem?.category} entry for bill <span className="font-black text-slate-800">{deletingMatrixItem?.bill_no}</span> (LKR {Number(deletingMatrixItem?.amount || 0).toLocaleString()})?
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteMatrixModal(false)}
+                className="rounded-xl font-bold border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer text-xs px-5"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmDeleteMatrixItem}
+                disabled={isDeletingMatrixItem}
+                className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer px-5 text-xs gap-1.5 shadow-md shadow-rose-600/20"
+              >
+                {isDeletingMatrixItem ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Confirm Delete
+              </Button>
             </div>
           </div>
         </DialogContent>
