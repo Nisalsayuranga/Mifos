@@ -132,11 +132,11 @@ export async function GET(req: Request) {
     }));
 
     // Calculate totals
-    const totalFs = fsItems.reduce((acc, x) => acc + x.amount, 0);
-    const totalInterest = formattedInterests.reduce((acc, x) => acc + x.amount, 0);
-    const totalReceipts = receiptItems.reduce((acc, x) => acc + x.amount, 0);
-    const totalLoans = loanItems.reduce((acc, x) => acc + x.amount, 0);
-    const totalRedeems = redeemItems.reduce((acc, x) => acc + x.amount, 0);
+    const totalFs = fsItems.reduce((acc: number, x: any) => acc + x.amount, 0);
+    const totalInterest = formattedInterests.reduce((acc: number, x: any) => acc + x.amount, 0);
+    const totalReceipts = receiptItems.reduce((acc: number, x: any) => acc + x.amount, 0);
+    const totalLoans = loanItems.reduce((acc: number, x: any) => acc + x.amount, 0);
+    const totalRedeems = redeemItems.reduce((acc: number, x: any) => acc + x.amount, 0);
 
     return NextResponse.json({
       date: dateParam,
