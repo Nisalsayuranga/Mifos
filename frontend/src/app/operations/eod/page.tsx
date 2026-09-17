@@ -2303,13 +2303,25 @@ function EndOfDayContent() {
                               setSelectedBillForCustomerView(item.bill_no);
                               setShowBillCustomerModal(true);
                             }}
-                            className="font-black text-slate-800 text-sm hover:text-blue-600 underline decoration-dotted transition-colors text-left flex items-center gap-1.5 cursor-pointer"
-                            title="Click to view customer details"
+                            className="font-black text-slate-800 text-sm hover:text-blue-600 underline decoration-dotted transition-colors text-left flex items-center gap-1.5 cursor-pointer flex-wrap"
+                            title="Click to view details & interest"
                           >
-                            {item.bill_no}
+                            <span>{item.bill_no}</span>
                             {getCustomerForBill(item.bill_no) && (
-                              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full inline-block" />
+                              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full inline-block" title="Customer Linked" />
                             )}
+                            {(() => {
+                              const bInts = stockInterests.filter(i => (i.bill_no || '').trim().toUpperCase() === (item.bill_no || '').trim().toUpperCase());
+                              const sumInt = bInts.reduce((sum, x) => sum + (parseFloat(x.interest_value) || 0), 0);
+                              if (sumInt > 0) {
+                                return (
+                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 font-black text-[9px] px-1.5 py-0.5 rounded-full" title={`Recorded Interest: LKR ${sumInt.toLocaleString()}`}>
+                                    +LKR {sumInt.toLocaleString()}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                           </button>
                         </TableCell>
                         {currentUser?.role === 'ADMIN' && (
