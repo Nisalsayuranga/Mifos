@@ -1891,10 +1891,47 @@ function EndOfDayContent() {
     printWindow.document.close();
   };
 
+  // Strict Rule: Helper function to determine if a stock item has been redeemed / withdrawn
+  const isItemWithdrawnOrRedeemed = (item: any): boolean => {
+    if (!item) return false;
+    const statusClean = (item.status || '').toString().trim().toLowerCase();
+    
+    // 1. If status explicitly matches any withdrawn / redeemed keyword
+    const withdrawnKeywords = ['withdrawn', 'redeemed', 'closed', 'fs', 'f/s', 'pawn redeemed (closed)', 'pawn redeemed', 'settled', 'auctioned'];
+    if (withdrawnKeywords.includes(statusClean)) {
+      return true;
+    }
+    
+    // 2. If status is non-empty and not 'active'
+    if (statusClean !== '' && statusClean !== 'active') {
+      return true;
+    }
+    
+    // 3. If withdrawal_date exists and is valid/non-empty
+    if (item.withdrawal_date && String(item.withdrawal_date).trim() !== '' && String(item.withdrawal_date).trim() !== 'null') {
+      return true;
+    }
+
+    // 4. If withdrawal_reason exists and is valid/non-empty
+    if (item.withdrawal_reason && String(item.withdrawal_reason).trim() !== '' && String(item.withdrawal_reason).trim() !== 'null') {
+      return true;
+    }
+
+    return false;
+  };
+
   // Filter and search stock with Advanced Filters
   const filteredStock = (stockFilter === 'OldData' ? oldStockItems : stockItems).filter(item => {
-    // 1. Status Filter
-    if (stockFilter !== 'OldData' && item.status !== stockFilter) {
+    // 1. Strict Status Filter (Prevents ANY redeemed or withdrawn item from entering Active Stock)
+    if (stockFilter === 'Active') {
+      if (isItemWithdrawnOrRedeemed(item)) {
+        return false;
+      }
+    } else if (stockFilter === 'Withdrawn') {
+      if (!isItemWithdrawnOrRedeemed(item)) {
+        return false;
+      }
+    } else if (stockFilter !== 'OldData' && item.status !== stockFilter) {
       return false;
     }
 
@@ -1959,7 +1996,7 @@ function EndOfDayContent() {
   const displayWeight = sortedStock.reduce((sum, item) => sum + (parseFloat(item.weight) || parseFloat(item.weight_g) || parseFloat(item.weight_grams) || 0), 0);
   const displayValue = sortedStock.reduce((sum, item) => sum + (parseFloat(item.price) || parseFloat(item.appraised_value) || parseFloat(item.disbursed_amount) || parseFloat(item.amount) || 0), 0);
 
-  const totalActiveCount = stockItems.filter(item => item.status === 'Active').length;
+  const totalActiveCount = stockItems.filter(item => !isItemWithdrawnOrRedeemed(item)).length;
   const totalOldCount = oldStockItems.length;
 
   return (
@@ -2212,7 +2249,7 @@ function EndOfDayContent() {
                   stockFilter === 'Withdrawn' ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-500 hover:text-slate-800"
                 )}
               >
-                Withdrawn ({stockItems.filter(item => item.status === 'Withdrawn').length})
+                Withdrawn ({stockItems.filter(item => isItemWithdrawnOrRedeemed(item)).length})
               </button>
               <button 
                 onClick={() => setStockFilter('OldData')}
