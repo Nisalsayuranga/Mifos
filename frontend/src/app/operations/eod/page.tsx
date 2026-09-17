@@ -35,7 +35,10 @@ import {
   Filter,
   RotateCcw,
   QrCode,
-  Tag
+  Tag,
+  Percent,
+  Save,
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -371,6 +374,116 @@ function EndOfDayContent() {
   const [custBills, setCustBills] = useState("");
   const [nameSuggestions, setNameSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Stock Interests Form States
+  const [stockInterests, setStockInterests] = useState<any[]>([]);
+  const [showAddInterestModal, setShowAddInterestModal] = useState(false);
+  const [interestDate, setInterestDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [interestValue, setInterestValue] = useState<string>("");
+  const [interestBranch, setInterestBranch] = useState<string>("DMT");
+  const [interestNotes, setInterestNotes] = useState<string>("");
+  const [isSubmittingInterest, setIsSubmittingInterest] = useState(false);
+
+  const fetchStockInterests = async () => {
+    try {
+      const res = await fetch('/api/stock/interest');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          setStockInterests(json.data);
+          localStorage.setItem('local_stock_interests', JSON.stringify(json.data));
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch stock interests:", e);
+    }
+    const local = localStorage.getItem('local_stock_interests');
+    if (local) {
+      try { setStockInterests(JSON.parse(local)); } catch (e) {}
+    }
+  };
+
+  useEffect(() => {
+    fetchStockInterests();
+  }, []);
+
+  const openAddInterestModal = (billNoStr: string) => {
+    setInterestDate(new Date().toISOString().split('T')[0]);
+    setInterestValue("");
+    setInterestBranch(selectedBranch || "DMT");
+    setInterestNotes("");
+    setShowAddInterestModal(true);
+  };
+
+  const handleSaveInterest = async () => {
+    if (!selectedBillForCustomerView) return;
+    if (!interestDate || !interestValue || !interestBranch) {
+      toast.error("Please fill in Date, Interest Value, and Branch.");
+      return;
+    }
+    const val = parseFloat(interestValue);
+    if (isNaN(val) || val <= 0) {
+      toast.error("Please enter a valid interest value.");
+      return;
+    }
+
+    setIsSubmittingInterest(true);
+    const newEntry = {
+      bill_no: selectedBillForCustomerView,
+      date: interestDate,
+      interest_value: val,
+      branch: interestBranch.toUpperCase(),
+      notes: interestNotes,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await fetch('/api/stock/interest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEntry)
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(`Interest of LKR ${val.toLocaleString()} added for bill ${selectedBillForCustomerView}!`);
+        setShowAddInterestModal(false);
+        setInterestValue("");
+        setInterestNotes("");
+        fetchStockInterests();
+      } else {
+        const localEntry = { ...newEntry, id: 'loc_' + Date.now() };
+        const updated = [localEntry, ...stockInterests];
+        setStockInterests(updated);
+        localStorage.setItem('local_stock_interests', JSON.stringify(updated));
+        toast.success(`Interest of LKR ${val.toLocaleString()} saved!`);
+        setShowAddInterestModal(false);
+        setInterestValue("");
+        setInterestNotes("");
+      }
+    } catch (err: any) {
+      const localEntry = { ...newEntry, id: 'loc_' + Date.now() };
+      const updated = [localEntry, ...stockInterests];
+      setStockInterests(updated);
+      localStorage.setItem('local_stock_interests', JSON.stringify(updated));
+      toast.success(`Interest of LKR ${val.toLocaleString()} saved!`);
+      setShowAddInterestModal(false);
+      setInterestValue("");
+      setInterestNotes("");
+    } finally {
+      setIsSubmittingInterest(false);
+    }
+  };
+
+  const handleDeleteInterest = async (id: string) => {
+    try {
+      await fetch(`/api/stock/interest?id=${id}`, { method: 'DELETE' });
+    } catch (e) {}
+    const updated = stockInterests.filter(i => i.id !== id);
+    setStockInterests(updated);
+    localStorage.setItem('local_stock_interests', JSON.stringify(updated));
+    toast.success("Interest entry removed.");
+  };
 
   // Form State - Add Stock Item
   const [billNo, setBillNo] = useState("");
@@ -2925,24 +3038,78 @@ function EndOfDayContent() {
                           )}
                         </div>
                       </div>
-                      <div className="flex justify-end gap-2 pt-2">
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        <Button 
+                          onClick={() => {
+                            openAddInterestModal(selectedBillForCustomerView);
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-[9px] h-9 px-3.5 rounded-xl shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
+                        >
+                          <Percent className="w-3.5 h-3.5" /> Add Interest
+                        </Button>
                         <Button 
                           onClick={() => {
                             openEditCustomerModal(cust);
                             setShowBillCustomerModal(false);
                           }}
                           variant="outline"
-                          className="rounded-xl font-bold border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer px-4 flex items-center gap-1.5"
+                          className="rounded-xl font-bold border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer px-3.5 h-9 flex items-center gap-1.5 text-xs"
                         >
                           <Edit className="w-3.5 h-3.5 text-blue-600" /> Edit Profile
                         </Button>
                         <Button 
                           onClick={() => setShowBillCustomerModal(false)}
-                          className="rounded-xl font-bold bg-slate-950 hover:bg-slate-900 text-white cursor-pointer px-5"
+                          className="rounded-xl font-bold bg-slate-950 hover:bg-slate-900 text-white cursor-pointer px-4 h-9 text-xs"
                         >
                           Close Details
                         </Button>
                       </div>
+
+                      {/* Recorded Interest Section */}
+                      {(() => {
+                        const billInterests = stockInterests.filter(i => (i.bill_no || '').trim().toUpperCase() === (selectedBillForCustomerView || '').trim().toUpperCase());
+                        const totalBillInterest = billInterests.reduce((sum, item) => sum + (parseFloat(item.interest_value) || 0), 0);
+                        return (
+                          <div className="mt-4 pt-4 border-t border-slate-200/60 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 flex items-center gap-1">
+                                <Coins className="w-3.5 h-3.5 text-emerald-600" /> Recorded Interest Entries ({billInterests.length})
+                              </span>
+                              {totalBillInterest > 0 && (
+                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                  Total: LKR {totalBillInterest.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+
+                            {billInterests.length === 0 ? (
+                              <p className="text-[11px] text-slate-400 font-semibold italic py-1">No interest added yet for this bill.</p>
+                            ) : (
+                              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                {billInterests.map((item, idx) => (
+                                  <div key={item.id || idx} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-1.5 py-0.5 rounded">
+                                        {item.branch || 'DMT'}
+                                      </span>
+                                      <span className="text-slate-500 font-semibold text-[11px]">{item.date}</span>
+                                      <span className="text-slate-900 font-black">LKR {Number(item.interest_value || 0).toLocaleString()}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteInterest(item.id)}
+                                      className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                                      title="Remove Interest Entry"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 } else {
@@ -2955,17 +3122,71 @@ function EndOfDayContent() {
                         <p className="text-xs font-black text-slate-700 uppercase tracking-wide">No Customer Profile Linked</p>
                         <p className="text-[11px] text-slate-400 font-semibold mt-1">There is no customer details registered under this bill number.</p>
                       </div>
-                      <div className="flex justify-center pt-2">
+                      <div className="flex flex-wrap justify-center gap-2 pt-2">
+                        <Button 
+                          onClick={() => {
+                            openAddInterestModal(selectedBillForCustomerView);
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-4 rounded-xl shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
+                        >
+                          <Percent className="w-3.5 h-3.5" /> Add Interest
+                        </Button>
                         <Button 
                           onClick={() => {
                             openAddCustomerModal(selectedBillForCustomerView);
                             setShowBillCustomerModal(false);
                           }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-4 rounded-xl shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
                         >
                           <UserPlus className="w-3.5 h-3.5" /> Add Customer Details
                         </Button>
                       </div>
+
+                      {/* Recorded Interest Section */}
+                      {(() => {
+                        const billInterests = stockInterests.filter(i => (i.bill_no || '').trim().toUpperCase() === (selectedBillForCustomerView || '').trim().toUpperCase());
+                        const totalBillInterest = billInterests.reduce((sum, item) => sum + (parseFloat(item.interest_value) || 0), 0);
+                        return (
+                          <div className="mt-4 pt-4 border-t border-slate-200/60 text-left space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 flex items-center gap-1">
+                                <Coins className="w-3.5 h-3.5 text-emerald-600" /> Recorded Interest Entries ({billInterests.length})
+                              </span>
+                              {totalBillInterest > 0 && (
+                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                  Total: LKR {totalBillInterest.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+
+                            {billInterests.length === 0 ? (
+                              <p className="text-[11px] text-slate-400 font-semibold italic py-1">No interest added yet for this bill.</p>
+                            ) : (
+                              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                {billInterests.map((item, idx) => (
+                                  <div key={item.id || idx} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-1.5 py-0.5 rounded">
+                                        {item.branch || 'DMT'}
+                                      </span>
+                                      <span className="text-slate-500 font-semibold text-[11px]">{item.date}</span>
+                                      <span className="text-slate-900 font-black">LKR {Number(item.interest_value || 0).toLocaleString()}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteInterest(item.id)}
+                                      className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                                      title="Remove Interest Entry"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 }
@@ -3105,6 +3326,118 @@ function EndOfDayContent() {
             >
               Save Customer
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: ADD INTEREST FOR BILL */}
+      <Dialog open={showAddInterestModal} onOpenChange={setShowAddInterestModal}>
+        <DialogContent className="sm:max-w-[420px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+          <div className="h-2 bg-emerald-600" />
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black tracking-tighter text-slate-900 flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100 text-emerald-600">
+                  <Percent className="w-5 h-5" />
+                </div>
+                Add Interest
+              </DialogTitle>
+              <DialogDescription className="font-semibold text-slate-400 text-xs mt-1">
+                Record interest for Bill No: <span className="text-slate-800 font-black">{selectedBillForCustomerView}</span>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-5 space-y-4">
+              {/* Field 1: Date */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                  Date <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  type="date"
+                  value={interestDate}
+                  onChange={(e) => setInterestDate(e.target.value)}
+                  className="h-10 border-slate-200 rounded-xl font-bold text-slate-800 text-xs"
+                />
+              </div>
+
+              {/* Field 2: Interest Value */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                  Interest Value (Rs.) <span className="text-rose-500">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-black text-slate-400">Rs.</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={interestValue}
+                    onChange={(e) => setInterestValue(e.target.value)}
+                    className="h-10 pl-10 border-slate-200 rounded-xl font-bold text-slate-900 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Field 3: Branch */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                  Branch <span className="text-rose-500">*</span>
+                </Label>
+                <select
+                  value={interestBranch}
+                  onChange={(e) => setInterestBranch(e.target.value)}
+                  className="h-10 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs px-3 bg-white w-full focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value="DMT">Dematagoda (DMT)</option>
+                  <option value="KIR">Kiribathgoda (KIR)</option>
+                  <option value="BRL">Borella (BRL)</option>
+                  <option value="DHW">Dehiwala (DHW)</option>
+                  <option value="HMG">Homagama (HMG)</option>
+                  <option value="KDW">Kadawatha (KDW)</option>
+                  <option value="KOT">Kotikawatta (KOT)</option>
+                  <option value="KTW">Kottawa (KTW)</option>
+                  <option value="PND">Panadura (PND)</option>
+                  <option value="W2">Wattala 2 (W2)</option>
+                  <option value="W3">Wattala 3 (W3)</option>
+                  <option value="W4">Wattala 4 (W4)</option>
+                  <option value="KHT">Kahathuduwa (KHT)</option>
+                  <option value="HQ">Head Office (HQ)</option>
+                </select>
+              </div>
+
+              {/* Notes (Optional) */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-wider text-slate-500">Notes / Remarks (Optional)</Label>
+                <Input
+                  placeholder="E.g. Monthly interest payment"
+                  value={interestNotes}
+                  onChange={(e) => setInterestNotes(e.target.value)}
+                  className="h-10 border-slate-200 rounded-xl font-medium text-slate-700 text-xs"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex justify-end gap-2 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAddInterestModal(false)}
+                  className="rounded-xl font-bold border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveInterest}
+                  disabled={isSubmittingInterest}
+                  className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer px-6 text-xs gap-1.5 shadow-md shadow-emerald-600/20"
+                >
+                  {isSubmittingInterest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Interest
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
