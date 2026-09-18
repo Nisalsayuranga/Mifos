@@ -1090,269 +1090,287 @@ function MainLedgerContent() {
           {/* SECTION 2: CLEAN FULL-WIDTH STACKED SUMMARY & EXPENSES CARDS */}
           <div className="w-full flex flex-col gap-6">
             
-            {/* Daily Summary (Formula Table) */}
-            <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-4">
+            {/* Daily Financial Summary (Dual-Column Clean Layout) */}
+            <div className="w-full bg-white border border-slate-200 p-5 rounded-xl shadow-sm space-y-5">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3">
                 <Calculator className="w-5 h-5 text-blue-600 shrink-0" />
                 Daily Financial Summary (දිනපතා මූල්‍ය සාරාංශය)
               </h3>
 
-              <div className="space-y-2.5 text-xs font-bold w-full">
-                {/* 1A. O/Capital */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50/50 p-2.5 rounded-lg border border-blue-200 gap-2">
-                  <span className="text-blue-800 font-bold">1A. Opening Capital (ආරම්භක මුළු ණය එකතුව):</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={openingCapital}
-                    onChange={(e) => setOpeningCapital(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-blue-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* 1B. O/Cash */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-slate-800 font-bold">1B. Opening Cash (ආරම්භක අතේ ඇති මුදල):</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={openingBalance}
-                    onChange={(e) => setOpeningBalance(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* 2. Cash In (Office) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-emerald-700 font-bold">2. Cash In (Office) / Transfer In (+):</span>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
-                    <div className="flex items-center gap-1">
-                      {['B2B', 'B2O', 'O2B'].map(type => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setTransferInType(transferInType === type ? '' : type as any)}
-                          className={`px-2 py-1 rounded text-[10px] font-black transition-all border ${
-                            transferInType === type
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-white text-slate-500 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700'
-                          }`}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={transferIn}
-                      onChange={(e) => setTransferIn(e.target.value)}
-                      className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                {/* 3. Cash Out */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-rose-700 font-bold">3. Cash Out / Transfer Out (-):</span>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto">
-                    <div className="flex items-center gap-1">
-                      {['B2B', 'B2O', 'O2B'].map(type => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setTransferOutType(transferOutType === type ? '' : type as any)}
-                          className={`px-2 py-1 rounded text-[10px] font-black transition-all border ${
-                            transferOutType === type
-                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                              : 'bg-white text-slate-500 border-slate-300 hover:bg-rose-50 hover:text-rose-700'
-                          }`}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={transferOut}
-                      onChange={(e) => setTransferOut(e.target.value)}
-                      className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500"
-                    />
-                  </div>
-                </div>
-
-                {/* 4. Loan */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-rose-50/70 rounded-lg border border-rose-200 text-rose-900 gap-2">
-                  <span className="font-bold flex items-center gap-1.5">
-                    4. Loan (ණය ලබාදීම් එකතුව) (-):
-                    {totalLoansIssued > 0 ? (
-                      <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
-                    ) : (
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
-                    )}
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal}
-                    onChange={(e) => setManualLoanTotal(e.target.value)}
-                    disabled={totalLoansIssued > 0}
-                    className="w-full sm:w-48 bg-white border border-rose-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/80"
-                  />
-                </div>
-
-                {/* 5. Redeem */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
-                  <span className="font-bold flex items-center gap-1.5">
-                    5. Redeem (මුදාගැනීම් එකතුව) (+):
-                    {totalRedemptions > 0 ? (
-                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
-                    ) : (
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
-                    )}
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal}
-                    onChange={(e) => setManualRedeemTotal(e.target.value)}
-                    disabled={totalRedemptions > 0}
-                    className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
-                  />
-                </div>
-
-                {/* 6. Receive */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
-                  <span className="font-bold flex items-center gap-1.5">
-                    6. Receive (පොලී/ලැබීම්) (+):
-                    {totalInterestCollected > 0 ? (
-                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
-                    ) : (
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
-                    )}
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal}
-                    onChange={(e) => setManualInterestTotal(e.target.value)}
-                    disabled={totalInterestCollected > 0}
-                    className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
-                  />
-                </div>
-
-                {/* 7. Recovery */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
-                  <span className="text-emerald-700 font-bold">7. Recovery (පරණ පොලී/අයකරගැනීම්) (+):</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={recoveryTotal}
-                    onChange={(e) => setRecoveryTotal(e.target.value)}
-                    className="w-full sm:w-48 bg-white border border-slate-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                {/* 8. Insurance */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 text-emerald-900 gap-2">
-                  <span className="font-bold flex items-center gap-1.5">
-                    8. Insurance (රක්ෂණ ගාස්තු) (+):
-                    {totalInsuranceCollected > 0 ? (
-                      <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Auto Grid Sum</span>
-                    ) : (
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
-                    )}
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal}
-                    onChange={(e) => setManualInsuranceTotal(e.target.value)}
-                    disabled={totalInsuranceCollected > 0}
-                    className="w-full sm:w-48 bg-white border border-emerald-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/80"
-                  />
-                </div>
-
-                {/* 9. Expenses */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-rose-50/70 rounded-lg border border-rose-200 text-rose-900 gap-2">
-                  <span className="font-bold flex items-center gap-1.5">
-                    9. Expenses (වියදම්) (-):
-                    {totalExpensesSum > 0 ? (
-                      <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded font-mono">Auto Exp Sum</span>
-                    ) : (
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">Direct Input</span>
-                    )}
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal}
-                    onChange={(e) => setManualExpensesTotal(e.target.value)}
-                    disabled={totalExpensesSum > 0}
-                    className="w-full sm:w-48 bg-white border border-rose-300 rounded px-3 py-1.5 text-right font-mono text-sm font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/80"
-                  />
-                </div>
-
-                {/* 10. L/Balance */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-emerald-100 border-2 border-emerald-500 rounded-xl text-emerald-950 text-base font-black gap-2 shadow-xs mt-2">
-                  <span>10. L/Balance (අවසාන අතේ ඇති මුදල - Cash Formula Sum):</span>
-                  <span className="font-mono text-xl">LKR {calculatedClosingCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </div>
+              {/* Main Dual-Column Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-blue-100 border-2 border-blue-500 rounded-xl text-blue-950 text-base font-black gap-2 shadow-xs mt-2">
-                  <span>11. CP Balance (අවසාන මුළු ණය එකතුව - Capital Formula Sum):</span>
-                  <span className="font-mono text-xl">LKR {calculatedClosingCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </div>
+                {/* COLUMN A: CASH ACCOUNTING (GREEN THEME) */}
+                <div className="bg-white rounded-2xl border-2 border-emerald-500/30 shadow-sm overflow-hidden flex flex-col justify-between">
+                  {/* Header Banner */}
+                  <div className="bg-emerald-600 px-5 py-3 text-white">
+                    <h4 className="text-sm font-black tracking-wider uppercase">CASH ACCOUNTING</h4>
+                  </div>
 
-                {/* USER INPUTS AT THE END OF THE FORM */}
-                <div className="mt-8 border-t-2 border-dashed border-slate-300 pt-6 space-y-4">
-                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Final Balances (අවසාන ශේෂයන්)
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-300 rounded-xl">
-                      <label className="text-xs font-extrabold text-slate-700">Closing Cash (අවසාන අතේ ඇති මුදල)</label>
+                  {/* Form Items */}
+                  <div className="p-5 space-y-4 flex-1">
+                    {/* 1B. Opening Cash */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 gap-2">
+                      <span className="font-extrabold text-xs text-emerald-950">1B. Opening Cash</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={openingBalance}
+                        onChange={(e) => setOpeningBalance(e.target.value)}
+                        className="w-full sm:w-36 bg-white border border-emerald-300 rounded-lg px-3 py-1.5 text-right font-mono text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Cash Received */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">Cash Received</span>
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
+                        <span className="text-xs font-bold text-slate-700">Cash In (Office / Transfer In)</span>
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          <div className="flex items-center gap-1">
+                            {['B2B', 'B2O', 'O2B'].map(type => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setTransferInType(transferInType === type ? '' : type as any)}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-black transition-all border ${
+                                  transferInType === type
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                    : 'bg-white text-slate-500 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700'
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={transferIn}
+                            onChange={(e) => setTransferIn(e.target.value)}
+                            className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
+                        <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          Redeem Cash
+                          {totalRedemptions > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-mono">Auto</span>}
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal}
+                          onChange={(e) => setManualRedeemTotal(e.target.value)}
+                          disabled={totalRedemptions > 0}
+                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/50 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
+                        <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          Receive (Interest)
+                          {totalInterestCollected > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-mono">Auto</span>}
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal}
+                          onChange={(e) => setManualInterestTotal(e.target.value)}
+                          disabled={totalInterestCollected > 0}
+                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/50 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[11px] font-bold text-slate-600 block">Recovery</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={recoveryTotal}
+                            onChange={(e) => setRecoveryTotal(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-300 rounded-lg px-2 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[11px] font-bold text-slate-600 block flex items-center justify-between">
+                            Insurance
+                            {totalInsuranceCollected > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-mono">Auto</span>}
+                          </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal}
+                            onChange={(e) => setManualInsuranceTotal(e.target.value)}
+                            disabled={totalInsuranceCollected > 0}
+                            className="w-full mt-1 bg-white border border-slate-300 rounded-lg px-2 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/50 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cash Paid Out */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-rose-700 uppercase tracking-wider block">Cash Paid Out</span>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
+                        <span className="text-xs font-bold text-slate-700">Cash Out / Transfer Out</span>
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          <div className="flex items-center gap-1">
+                            {['B2B', 'B2O', 'O2B'].map(type => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setTransferOutType(transferOutType === type ? '' : type as any)}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-black transition-all border ${
+                                  transferOutType === type
+                                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                    : 'bg-white text-slate-500 border-slate-300 hover:bg-rose-50 hover:text-rose-700'
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={transferOut}
+                            onChange={(e) => setTransferOut(e.target.value)}
+                            className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
+                        <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          Loans Issued
+                          {totalLoansIssued > 0 && <span className="text-[9px] bg-rose-100 text-rose-800 px-1 py-0.5 rounded font-mono">Auto</span>}
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal}
+                          onChange={(e) => setManualLoanTotal(e.target.value)}
+                          disabled={totalLoansIssued > 0}
+                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/50 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
+                        <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          Expenses
+                          {totalExpensesSum > 0 && <span className="text-[9px] bg-rose-100 text-rose-800 px-1 py-0.5 rounded font-mono">Auto</span>}
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal}
+                          onChange={(e) => setManualExpensesTotal(e.target.value)}
+                          disabled={totalExpensesSum > 0}
+                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/50 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Closing Cash Result Card (Bottom) */}
+                  <div className="p-5 bg-emerald-50 border-t-2 border-emerald-500/40 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black text-emerald-950 uppercase tracking-wider">L/Balance (Closing Cash)</span>
+                      <span className="text-xl font-black font-mono text-emerald-950">LKR {calculatedClosingCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div className="pt-2 border-t border-emerald-200 flex items-center justify-between gap-3">
+                      <span className="text-xs font-bold text-slate-700">Closing Cash Entered:</span>
                       <input
                         type="number"
                         step="0.01"
                         placeholder="0.00"
                         value={userClosingBalance}
                         onChange={(e) => setUserClosingBalance(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 font-bold text-base text-right focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+                        className="w-36 bg-white border-2 border-emerald-400 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-xs text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* COLUMN B: CAPITAL ACCOUNTING (BLUE THEME) */}
+                <div className="bg-white rounded-2xl border-2 border-blue-500/30 shadow-sm overflow-hidden flex flex-col justify-between">
+                  {/* Header Banner */}
+                  <div className="bg-blue-600 px-5 py-3 text-white">
+                    <h4 className="text-sm font-black tracking-wider uppercase">CAPITAL ACCOUNTING (CP)</h4>
+                  </div>
+
+                  {/* Form Items */}
+                  <div className="p-5 space-y-5 flex-1">
+                    {/* 1A. Opening Capital */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50/70 p-3 rounded-xl border border-blue-200 gap-2">
+                      <span className="font-extrabold text-xs text-blue-950">1A. Opening Capital</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={openingCapital}
+                        onChange={(e) => setOpeningCapital(e.target.value)}
+                        className="w-full sm:w-36 bg-white border border-blue-300 rounded-lg px-3 py-1.5 text-right font-mono text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
 
-                    <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-300 rounded-xl">
-                      <label className="text-xs font-extrabold text-slate-700">Closing Capital (අවසාන මුළු ණය - CP)</label>
+                    {/* Capital Transactions */}
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                      <span className="text-xs font-black text-blue-950 uppercase tracking-wider block">Capital Transactions</span>
+
+                      <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
+                        <span className="text-xs font-extrabold text-slate-700">4. Loans Issued (+)</span>
+                        <span className="font-mono font-bold text-xs text-rose-600">LKR {effectiveLoansIssued.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
+                        <span className="text-xs font-extrabold text-slate-700">5. Redeems (-)</span>
+                        <span className="font-mono font-bold text-xs text-emerald-600">LKR {effectiveRedemptions.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Closing Capital Result Card (Bottom) */}
+                  <div className="p-5 bg-blue-50 border-t-2 border-blue-500/40 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black text-blue-950 uppercase tracking-wider">CP Balance (Closing Capital)</span>
+                      <span className="text-xl font-black font-mono text-blue-950">LKR {calculatedClosingCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div className="pt-2 border-t border-blue-200 flex items-center justify-between gap-3">
+                      <span className="text-xs font-bold text-slate-700">Closing CP Entered:</span>
                       <input
                         type="number"
                         step="0.01"
                         placeholder="0.00"
                         value={cpBalance}
                         onChange={(e) => setCpBalance(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 font-bold text-base text-right focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+                        className="w-36 bg-white border-2 border-blue-400 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-xs text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Warning Alerts & Save Button */}
               <div className="pt-3 space-y-3">
                 {Math.abs((Number(userClosingBalance) || 0) - calculatedClosingCash) > 0.01 && (
-                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-start gap-2 text-rose-800">
                       <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
                       <div>
@@ -1373,7 +1391,7 @@ function MainLedgerContent() {
                 )}
 
                 {Math.abs((Number(cpBalance) || 0) - calculatedClosingCapital) > 0.01 && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-start gap-2 text-amber-900">
                       <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
                       <div>
@@ -1396,7 +1414,7 @@ function MainLedgerContent() {
                 <Button
                   onClick={handleSaveLedger}
                   disabled={savingLedger || loadingLedger}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 text-sm gap-2 rounded-xl shadow-sm"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 text-sm gap-2 rounded-xl shadow-xs"
                 >
                   <Save className="w-5 h-5" />
                   {savingLedger ? 'Saving Ledger...' : 'Update & Save Ledger for ' + ledgerDate}
