@@ -153,11 +153,16 @@ export async function POST(request: Request) {
 
     // --- CAPITAL MATH ---
     const userOpeningCapital = Number(opening_capital) || 0; // New field from payload
-    const userClosingCapital = Number(cp_balance) || 0;      // CP Balance = Closing Capital
+    let userClosingCapital = (cp_balance !== '' && cp_balance !== null && cp_balance !== undefined) ? Number(cp_balance) : 0;
 
     const calculatedClosingCapital = Number((
       userOpeningCapital + calcLoans - calcRedeem
     ).toFixed(2));
+
+    // If cp_balance was unprovided/empty or 0 (and calculatedClosingCapital is non-zero), default to calculatedClosingCapital
+    if ((userClosingCapital === 0 || cp_balance === '' || cp_balance === null || cp_balance === undefined) && calculatedClosingCapital !== 0) {
+      userClosingCapital = calculatedClosingCapital;
+    }
 
     const capitalMismatch = Math.abs(userClosingCapital - calculatedClosingCapital) > 0.01;
     const capitalVariance = Number((userClosingCapital - calculatedClosingCapital).toFixed(2));

@@ -470,7 +470,7 @@ function MainLedgerContent() {
     const payload = {
       branch_id: selectedBranch,
       ledger_date: ledgerDate,
-      cp_balance: cpBalance,
+      cp_balance: (cpBalance !== '' && cpBalance !== null && cpBalance !== undefined) ? cpBalance : calculatedClosingCapital,
       opening_capital: openingCapital,
       opening_balance: openingBalance,
       transfer_in: transferIn,
