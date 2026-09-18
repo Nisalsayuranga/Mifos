@@ -81,15 +81,15 @@ export default function PawnesPage() {
   // Form state
   const BILL_PREFIXES = ['1R', '3M', '3R', '6R', '12R', '6M', 'A'];
   const ITEM_OPTIONS = [
-    { code: 'CH', label: 'Chain (මාලය)' },
-    { code: 'PP', label: 'Pendant (පෙන්ඩන්ට්)' },
-    { code: 'PR', label: 'Ring (මුදුව)' },
-    { code: 'NL', label: 'Necklace (නෙක්ලස්)' },
-    { code: 'EAR', label: 'Earrings (කරාබු)' },
-    { code: 'BRC', label: 'Bracelet (බ්‍රේස්ලට්)' },
-    { code: 'BKT', label: 'Bangles (වළලු)' },
-    { code: 'COIN', label: 'Gold Coin / Bar (කාසිය)' },
-    { code: 'OTHER', label: 'Other (වෙනත් - Custom)' }
+    { code: 'CH', label: 'Chain' },
+    { code: 'PP', label: 'Pendant' },
+    { code: 'PR', label: 'Ring' },
+    { code: 'NL', label: 'Necklace' },
+    { code: 'EAR', label: 'Earrings' },
+    { code: 'BRC', label: 'Bracelet' },
+    { code: 'BKT', label: 'Bangles' },
+    { code: 'COIN', label: 'Gold Coin / Bar' },
+    { code: 'OTHER', label: 'Other' }
   ];
 
   const handlePrefixChange = (pref: string) => {
@@ -2235,6 +2235,7 @@ function PawnDetailsModal({
       const dsep = '- - - - - - - - - - - - - - - - - - - -';
       const fmt  = (n: number) => n.toLocaleString();
       const amt  = parseFloat(billAmount || '0');
+      const cleanSinhala = (str: string) => (str || '').replace(/[\u0D80-\u0DFF]+/g, '').replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
 
       const lines: Uint8Array[] = [
         adapter.init(),
@@ -2246,16 +2247,16 @@ function PawnDetailsModal({
         adapter.text(`${billBranchAddress || 'Head Office, Dehiwala.'}\n`),
         adapter.text('Tel: 011 7006588\n'),
         adapter.text(`${sep}\n`),
-        adapter.text('** PAWN BILL / රාකනු රසීදය **\n', true),
+        adapter.text('** PAWN BILL **\n', true),
         adapter.text(`${sep}\n`),
         // ── BODY (left aligned) ──
         adapter.align(0),
         adapter.text(`R No: ${billNo}\n`, true),
         adapter.text(`Date: ${billDate}\n`),
-        adapter.text(`Months / මාස: ${billMonths}\n`),
+        adapter.text(`Months: ${billMonths}\n`),
         adapter.text(`${sep}\n`),
-        adapter.text(`I the undersigned: ${billName}\n`),
-        adapter.text(`of: ${billAddress}\n`),
+        adapter.text(`I the undersigned: ${cleanSinhala(billName)}\n`),
+        adapter.text(`of: ${cleanSinhala(billAddress)}\n`),
         adapter.text(`NIC: ${billNic}\n`),
         adapter.text(`Phone: ${billPhone}\n`),
         adapter.text('being the lawful owner of the articles\n'),
@@ -2268,17 +2269,17 @@ function PawnDetailsModal({
         // ── ARTICLES (left) ──
         adapter.align(0),
         adapter.text('ARTICLES DESCRIPTION:\n', true),
-        adapter.text(`${billDesc}\n`, true),
+        adapter.text(`${cleanSinhala(billDesc)}\n`, true),
         adapter.text(`Appraised: Rs. ${billAppraised}\n`),
         adapter.text(`Total Weight: ${billWeight}\n`),
         adapter.text(`${sep}\n`),
         // ── TERMS ──
         adapter.text('I hold responsible and liable for any\n'),
         adapter.text('claims arising on sale of the articles.\n'),
-        adapter.text('මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.\n'),
+        adapter.text('I have read, understood, and agreed to these terms.\n'),
         adapter.text(`${sep}\n`),
         adapter.text(`Last Date: ${billLastDate}\n`, true),
-        adapter.text(`Name: ${billName}\n`),
+        adapter.text(`Name: ${cleanSinhala(billName)}\n`),
         adapter.feed(3),
         // ── STUB ──
         adapter.text(`${sep}\n`),

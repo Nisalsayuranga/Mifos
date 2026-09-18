@@ -55,7 +55,7 @@ export const PawnBill80mmReceipt = forwardRef<HTMLDivElement, { data: PawnBillDa
 
       {/* ── PAWN BILL TITLE ── */}
       <div style={{ textAlign: 'center', fontWeight: '900', fontSize: '14px', margin: '6px 0' }}>
-        ** PAWN BILL / රාකනු රසීදය **
+        ** PAWN BILL **
       </div>
 
       <div style={{ textAlign: 'center', fontSize: '11px', marginBottom: '8px' }}>{sep}</div>
@@ -66,7 +66,7 @@ export const PawnBill80mmReceipt = forwardRef<HTMLDivElement, { data: PawnBillDa
         <span>Date: <strong>{data.date}</strong></span>
       </div>
       <div style={{ marginBottom: '8px', fontSize: '12px' }}>
-        Months / මාස: <strong>{data.months}</strong>
+        Months: <strong>{data.months}</strong>
       </div>
 
       <div style={{ fontSize: '11px', marginBottom: '8px' }}>{sep}</div>
@@ -122,26 +122,26 @@ export const PawnBill80mmReceipt = forwardRef<HTMLDivElement, { data: PawnBillDa
         on the sale of the articles.
       </div>
       <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>
-        මෙය මට කියවා තේරුම් කරදුන් පසු අත්සන් කළෙමි.
+        I have read, understood, and agreed to these terms.
       </div>
       <div style={{ fontSize: '10px', marginBottom: '8px' }}>
-        රසිට්පතේ යට සඳහන් අවසාන දිනට ප්‍රථම නිදහස් කිරීම හෝ
-        පොළී මුදල් ගෙවීම කළයුතුයි. එසේ නොවුනහොත් බඩු විකුණනු ලැබේ.
+        Articles must be redeemed or interest renewed before the Last Date,
+        otherwise they will be sold.
       </div>
 
       <div style={{ fontSize: '11px', marginBottom: '8px' }}>{sep}</div>
 
       {/* ── LAST DATE & SIGNATURES ── */}
       <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
-        Last Date / අවසාන දිනය: <strong>{data.lastDate}</strong>
+        Last Date: <strong>{data.lastDate}</strong>
       </div>
       <div style={{ fontSize: '12px', marginBottom: '4px' }}>
-        නම / Name: {data.customerName}
+        Name: {data.customerName}
       </div>
       <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: '1px solid #000', width: '160px', marginBottom: '4px' }}></div>
-          <div>ගනුදෙනු බාරගත් අයගේ අත්සන</div>
+          <div>Authorized Signature</div>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ border: '1px dashed #888', width: '80px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#666' }}>
