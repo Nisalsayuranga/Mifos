@@ -2577,7 +2577,7 @@ function PawnDetailsModal({
   );
 }
 
-// Sub-Component: Official Pawn Redemption / Settlement Receipt Modal (Print & PDF Auto-Download)
+// Sub-Component: Official Pawn Redemption / Settlement Receipt Modal (Interactive 80mm Editable & Bluetooth POS Print)
 function RedemptionReceiptModal({
   data,
   onClose,
@@ -2597,7 +2597,7 @@ function RedemptionReceiptModal({
   getClientNic: (p: any) => string;
   getCleanDescription: (p: any) => string;
 }) {
-  // Pre-compute all derived values (before any hooks)
+  // Pre-compute initial values from props
   const resolvedData = data ? (() => {
     const { pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt } = data;
     const billNo = pawn ? getBillNo(pawn) : 'RED-001';
@@ -2610,120 +2610,235 @@ function RedemptionReceiptModal({
     const cName = pawn?.client_name || pawn?.customerName || (pCidStr && clientsMap?.[pCidStr]) || (clientObj ? `${clientObj.firstName || ''} ${clientObj.lastName || ''}`.trim() : '') || 'S. A. Perera';
     const cAddress = pawn?.client_address || clientObj?.address || 'Station Road, Dehiwala';
     const cNic = pawn?.client_nic || clientObj?.nationalId || getClientNic(pawn) || '200125102002';
-    const bAddress = getBranchAddress(pawn, branchesList);
-    return { pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt, billNo, cName, cAddress, cNic, bAddress };
+    const cPhone = pawn?.client_phone || clientObj?.phone || '077 0000000';
+    const bAddress = getBranchAddress(pawn, branchesList) || 'No. 3/B/1, Station Road, Dehiwala. Tel: 011 7006588';
+    
+    // Weight calculation
+    let weightStr = String(pawn?.weight || '0.00');
+    if (pawn?.weight_grams !== undefined && pawn?.weight_grams !== null) {
+      const g = Math.floor(pawn.weight_grams);
+      const mg = Math.round((parseFloat(pawn.weight_mg) || 0));
+      weightStr = mg > 0 ? `${g}g ${mg}mg` : `${g}g`;
+    }
+
+    return { 
+      pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt, 
+      billNo, cName, cAddress, cNic, cPhone, bAddress, weightStr 
+    };
   })() : null;
 
-  // Auto-trigger print when receipt first appears
-  const [hasAutoPrintedReceipt, setHasAutoPrintedReceipt] = useState(false);
+  // Editable Form State
+  const [companyTitle, setCompanyTitle] = useState('RUPASINGHE TRUST INVESTMENTS LTD.');
+  const [branchAddress, setBranchAddress] = useState('');
+  const [billNo, setBillNoState] = useState('');
+  const [redemptionDate, setRedemptionDate] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [nic, setNic] = useState('');
+  const [phone, setPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [description, setDescription] = useState('');
+  const [appraisedValuation, setAppraisedValuation] = useState('');
+  const [weight, setWeight] = useState('');
+  const [principal, setPrincipal] = useState('');
+  const [days, setDays] = useState('');
+  const [interest, setInterest] = useState('');
+  const [insurance, setInsurance] = useState('');
+  const [settlement, setSettlement] = useState('');
 
+  const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
+
+  // Sync state when data prop changes
   useEffect(() => {
-    if (data && !hasAutoPrintedReceipt && resolvedData) {
-      const timer = setTimeout(() => {
-        setHasAutoPrintedReceipt(true);
-        // Inline print to avoid calling handlePrint before it's defined
-        const { billNo, cName, cNic, cAddress, bAddress, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt } = resolvedData;
-        const printWindow = window.open('', '_blank', 'width=800,height=900');
-        if (printWindow) {
-          printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Pawn Redemption Receipt - ${billNo}</title><style>@media print{@page{size:A4 portrait;margin:15mm}body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}.no-print{display:none!important}</style></head><body><div style="max-width:650px;margin:0 auto;padding:28px;border:2px solid #6b21a8;border-radius:16px;font-family:sans-serif;color:#0f172a"><div style="text-align:center;border-bottom:2px solid #6b21a8;padding-bottom:12px;margin-bottom:16px"><div style="font-size:11px;font-weight:900;color:#6b21a8;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px">OFFICIAL PAWN REDEMPTION RECEIPT</div><h2 style="font-size:22px;font-weight:900;text-transform:uppercase;color:#581c87;margin:0">RUPASINGHE TRUST INVESTMENTS LTD.</h2><p style="font-size:11px;color:#475569;margin-top:4px">${bAddress}</p></div><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:16px;background:#faf5ff;padding:10px 14px;border-radius:10px;border:1px solid #e9d5ff"><div>Pawn Bill No: <span style="font-family:monospace;color:#6b21a8;font-weight:900">${billNo}</span></div><div>Date: <span style="font-family:monospace">${redeemedAt}</span></div></div><div style="border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;line-height:1.6"><div><strong>Customer:</strong> ${cName}</div><div><strong>NIC:</strong> ${cNic}</div><div><strong>Address:</strong> ${cAddress}</div></div><table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px"><thead><tr style="background:#f3e8ff;color:#581c87"><th style="padding:10px;border:1px solid #e9d5ff;text-align:left">Description</th><th style="padding:10px;border:1px solid #e9d5ff;text-align:right">Amount (LKR)</th></tr></thead><tbody><tr><td style="padding:10px;border:1px solid #e2e8f0">Principal (මූලික ණය)</td><td style="padding:10px;border:1px solid #e2e8f0;font-family:monospace;text-align:right">Rs. ${principal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr><tr><td style="padding:10px;border:1px solid #e2e8f0">Interest - ${days} Days (පොලී)</td><td style="padding:10px;border:1px solid #e2e8f0;font-family:monospace;text-align:right">Rs. ${interest.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr><tr><td style="padding:10px;border:1px solid #e2e8f0">Insurance &amp; Charges (රක්ෂණ)</td><td style="padding:10px;border:1px solid #e2e8f0;font-family:monospace;text-align:right">Rs. ${parseFloat(insurance||'0').toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr><tr style="background:#581c87;color:white"><td style="padding:12px;font-weight:900;text-transform:uppercase">Total Settlement (මුළු ගෙවූ)</td><td style="padding:12px;font-family:monospace;font-weight:900;font-size:16px;text-align:right">Rs. ${settlement.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr></tbody></table><div style="font-size:10px;color:#64748b;margin-bottom:24px">GL Entry: ${journalEntryId||'N/A'}</div><div style="display:flex;justify-content:space-between;margin-top:30px"><div style="text-align:center;font-size:11px"><div style="width:140px;border-bottom:1px solid #0f172a;margin-bottom:4px"></div><span>Customer Signature</span></div><div style="text-align:center;font-size:11px"><div style="width:140px;border-bottom:1px solid #0f172a;margin-bottom:4px"></div><span>Cashier Signature</span></div></div></div><script>setTimeout(()=>{window.print();},500);</script></body></html>`);
-          printWindow.document.close();
-        }
-      }, 700);
-      return () => clearTimeout(timer);
+    if (resolvedData) {
+      setCompanyTitle('RUPASINGHE TRUST INVESTMENTS LTD.');
+      setBranchAddress(resolvedData.bAddress || 'No. 3/B/1, Station Road, Dehiwala. Tel: 011 7006588');
+      setBillNoState(resolvedData.billNo || '12R 0001');
+      setRedemptionDate(resolvedData.redeemedAt || new Date().toISOString().substring(0, 10));
+      setCustomerName(resolvedData.cName || '');
+      setNic(resolvedData.cNic || '');
+      setPhone(resolvedData.cPhone || '');
+      setCustomerAddress(resolvedData.cAddress || '');
+      setDescription(getCleanDescription(resolvedData.pawn) || 'Gold Collateral');
+      setAppraisedValuation(String(resolvedData.pawn?.appraised_value || 0));
+      setWeight(resolvedData.weightStr || '0.00');
+      setPrincipal(String(resolvedData.principal || 0));
+      setDays(String(resolvedData.days || 0));
+      setInterest(String(resolvedData.interest || 0));
+      setInsurance(String(resolvedData.insurance || 0));
+      setSettlement(String(resolvedData.settlement || 0));
     }
-  }, [data, hasAutoPrintedReceipt]);
+  }, [data]);
 
   if (!data) return null;
 
-  const { pawn, journalEntryId, days, insurance, principal, interest, settlement, redeemedAt } = resolvedData!;
-  const { billNo, cName, cAddress, cNic, bAddress } = resolvedData!;
+  const handleRecalcSettlement = (pVal: string, iVal: string, insVal: string) => {
+    const p = parseFloat(pVal) || 0;
+    const i = parseFloat(iVal) || 0;
+    const ins = parseFloat(insVal) || 0;
+    setSettlement(String(p + i + ins));
+  };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank', 'width=800,height=900');
-    if (!printWindow) return;
+  const resetFormDefaults = () => {
+    if (resolvedData) {
+      setCompanyTitle('RUPASINGHE TRUST INVESTMENTS LTD.');
+      setBranchAddress(resolvedData.bAddress || 'No. 3/B/1, Station Road, Dehiwala. Tel: 011 7006588');
+      setBillNoState(resolvedData.billNo || '12R 0001');
+      setRedemptionDate(resolvedData.redeemedAt || new Date().toISOString().substring(0, 10));
+      setCustomerName(resolvedData.cName || '');
+      setNic(resolvedData.cNic || '');
+      setPhone(resolvedData.cPhone || '');
+      setCustomerAddress(resolvedData.cAddress || '');
+      setDescription(getCleanDescription(resolvedData.pawn) || 'Gold Collateral');
+      setAppraisedValuation(String(resolvedData.pawn?.appraised_value || 0));
+      setWeight(resolvedData.weightStr || '0.00');
+      setPrincipal(String(resolvedData.principal || 0));
+      setDays(String(resolvedData.days || 0));
+      setInterest(String(resolvedData.interest || 0));
+      setInsurance(String(resolvedData.insurance || 0));
+      setSettlement(String(resolvedData.settlement || 0));
+    }
+  };
+
+  // 1. Web Bluetooth ESC/POS Printing Handler (Direct to 80mm Thermal Receipt Printer)
+  const handleBluetoothPrint = async () => {
+    setIsBluetoothPrinting(true);
+    const toastId = toast.loading('Connecting to Bluetooth Printer...');
+
+    try {
+      const transport = new WebBluetoothTransport();
+      const connected = await transport.connect();
+      if (!connected) throw new Error('Could not connect to printer.');
+
+      toast.loading('Sending receipt to printer...', { id: toastId });
+
+      const adapter = new EscPosAdapter();
+      const sep  = '----------------------------------------';
+      const fmt  = (n: number) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      const pAmt   = parseFloat(principal || '0');
+      const iAmt   = parseFloat(interest || '0');
+      const insAmt = parseFloat(insurance || '0');
+      const totAmt = parseFloat(settlement || '0');
+      const appAmt = parseFloat(appraisedValuation || '0');
+
+      const lines: Uint8Array[] = [
+        adapter.init(),
+        // ── HEADER (centered) ──
+        adapter.align(1),
+        adapter.text(`${companyTitle || 'RUPASINGHE TRUST INVESTMENTS LTD.'}\n`, true, true, true),
+        adapter.text(`${branchAddress || 'No. 3/B/1, Station Road, Dehiwala.'}\n`),
+        adapter.text(`${sep}\n`),
+        adapter.text('PAWN REDEMPTION RECEIPT\n', true, false, true),
+        adapter.text(`${sep}\n`),
+        // ── META (left) ──
+        adapter.align(0),
+        adapter.text(`Receipt No: ${billNo}\n`, true),
+        adapter.text(`Date: ${redemptionDate}\n`),
+        adapter.text(`${sep}\n`),
+        // ── CUSTOMER (left) ──
+        adapter.text(`Customer: ${customerName}\n`),
+        adapter.text(`NIC: ${nic}  Phone: ${phone}\n`),
+        adapter.text(`Address: ${customerAddress}\n`),
+        adapter.text(`${sep}\n`),
+        // ── ARTICLE (left) ──
+        adapter.text(`Article: ${description}\n`, true),
+        adapter.text(`Appraised: Rs. ${fmt(appAmt)}\n`),
+        adapter.text(`Weight: ${weight} g\n`),
+        adapter.text(`${sep}\n`),
+        // ── BREAKDOWN ──
+        adapter.text(`Principal: Rs. ${fmt(pAmt)}\n`),
+        adapter.text(`Interest (${days} Days): Rs. ${fmt(iAmt)}\n`),
+        adapter.text(`Insurance & Charges: Rs. ${fmt(insAmt)}\n`),
+        adapter.text(`${sep}\n`),
+        // ── TOTAL SETTLEMENT ──
+        adapter.align(1),
+        adapter.text(`TOTAL SETTLEMENT: Rs. ${fmt(totAmt)}\n`, true, false, true),
+        adapter.text(`${sep}\n`),
+        adapter.feed(2),
+        adapter.align(0),
+        adapter.text('Customer Signature      Cashier Signature\n'),
+        adapter.text('-------------------     -------------------\n'),
+        adapter.feed(4),
+        adapter.cut(),
+      ];
+
+      const payload = EscPosAdapter.concat(lines);
+      await transport.write(payload);
+
+      toast.success('Redemption Receipt Printed via Bluetooth!', { id: toastId });
+      setTimeout(() => transport.disconnect(), 1000);
+
+    } catch (err: any) {
+      if (err.name === 'NotFoundError' || err.message?.includes('cancel')) {
+        toast.error('Bluetooth connection cancelled.', { id: toastId });
+      } else {
+        toast.error('Bluetooth Print Failed', { description: err.message, id: toastId });
+      }
+    } finally {
+      setIsBluetoothPrinting(false);
+    }
+  };
+
+  // 2. Standard Web Browser 80mm Print Handler
+  const handleStandardPrint = () => {
+    const printWindow = window.open('', '_blank', 'width=650,height=800');
+    if (!printWindow) {
+      toast.error('Popup blocked. Please allow popups to print.');
+      return;
+    }
+    const fmt = (n: number) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pAmt   = parseFloat(principal || '0');
+    const iAmt   = parseFloat(interest || '0');
+    const insAmt = parseFloat(insurance || '0');
+    const totAmt = parseFloat(settlement || '0');
+    const appAmt = parseFloat(appraisedValuation || '0');
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8"/>
         <title>Pawn Redemption Receipt - ${billNo}</title>
-        <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
-            @page { size: A4 portrait; margin: 15mm; }
-            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+            @page { size: 80mm auto; margin: 0; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; margin: 0; padding: 10px; }
           }
-          body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 24px; background: white; color: #0f172a; }
+          body { font-family: 'Courier New', monospace; font-size: 12px; width: 300px; margin: 0 auto; padding: 16px; background: white; color: #000; }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          .bold { font-weight: bold; }
+          .sep { border-top: 1px dashed #000; margin: 8px 0; }
+          .row { display: flex; justify-space-between; margin-bottom: 4px; }
         </style>
       </head>
       <body>
-        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 28px; border: 2px solid #6b21a8; border-radius: 16px;">
-          <div style="text-align: center; border-bottom: 2px solid #6b21a8; padding-bottom: 12px; margin-bottom: 16px;">
-            <div style="font-size: 11px; font-weight: 900; color: #6b21a8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">OFFICIAL PAWN REDEMPTION RECEIPT</div>
-            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #581c87; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
-            <p style="font-size: 13px; font-weight: 700; color: #6b21a8; margin: 2px 0 0 0;">උගස් නිදහස් කිරීමේ රසීද පත්‍රය</p>
-            <p style="font-size: 11px; color: #475569; margin-top: 4px;">${bAddress}</p>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 16px; background: #faf5ff; padding: 10px 14px; border-radius: 10px; border: 1px solid #e9d5ff;">
-            <div><span>Pawn Bill No: </span> <span style="font-family: monospace; color: #6b21a8; font-weight: 900;">${billNo}</span></div>
-            <div><span>Redemption Date: </span> <span style="font-family: monospace; color: #0f172a;">${redeemedAt}</span></div>
-          </div>
-
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
-            <div><strong>Customer Name (නම):</strong> ${cName}</div>
-            <div><strong>NIC No (හැඳුනුම්පත් අංකය):</strong> ${cNic}</div>
-            <div><strong>Address (ලිපිනය):</strong> ${cAddress}</div>
-            <div><strong>Item Description (උගස් භාණ්ඩය):</strong> ${getCleanDescription(pawn)}</div>
-          </div>
-
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
-            <thead>
-              <tr style="background: #f3e8ff; color: #581c87; text-align: left;">
-                <th style="padding: 10px; border: 1px solid #e9d5ff;">Payment Description</th>
-                <th style="padding: 10px; border: 1px solid #e9d5ff; text-align: right;">Amount (LKR)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Principal Loan Amount Disbursed (මූලික ණය මුදල)</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Accrued Interest (${days} Days) (පොලී මුදල)</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Insurance & Service Charges (රක්ෂණ / සේවා ගාස්තු)</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr style="background: #581c87; color: white;">
-                <td style="padding: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase;">Total Settlement Amount Paid (මුළු ගෙවූ මුදල)</td>
-                <td style="padding: 12px; font-family: monospace; font-weight: 900; font-size: 16px; text-align: right;">Rs. ${settlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div style="font-size: 10px; color: #64748b; margin-bottom: 24px; font-style: italic;">
-            Posted GL Journal Entry: <span style="font-family: monospace; font-weight: bold; color: #475569;">${journalEntryId || 'N/A'}</span>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px;">
-            <div style="text-align: center; font-size: 11px;">
-              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
-              <span>Customer Signature / පාරිභෝගික අත්සන</span>
-            </div>
-            <div style="text-align: center; font-size: 11px;">
-              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
-              <span>Cashier / Authorized Signature</span>
-            </div>
-          </div>
+        <div class="center bold" style="font-size: 14px;">${companyTitle}</div>
+        <div class="center" style="font-size: 10px;">${branchAddress}</div>
+        <div class="sep"></div>
+        <div class="center bold">PAWN REDEMPTION RECEIPT</div>
+        <div class="sep"></div>
+        <div class="row"><span>Receipt No: <strong>${billNo}</strong></span><span>Date: ${redemptionDate}</span></div>
+        <div class="sep"></div>
+        <div>Customer: <strong>${customerName}</strong></div>
+        <div>NIC: ${nic} | Phone: ${phone}</div>
+        <div>Address: ${customerAddress}</div>
+        <div class="sep"></div>
+        <div>Article: <strong>${description}</strong></div>
+        <div class="row"><span>Appraised: Rs. ${fmt(appAmt)}</span><span>Weight: ${weight}g</span></div>
+        <div class="sep"></div>
+        <div class="row"><span>Principal Disbursed:</span><span>Rs. ${fmt(pAmt)}</span></div>
+        <div class="row"><span>Interest (${days} Days):</span><span>Rs. ${fmt(iAmt)}</span></div>
+        <div class="row"><span>Insurance & Charges:</span><span>Rs. ${fmt(insAmt)}</span></div>
+        <div class="sep"></div>
+        <div class="row bold" style="font-size: 13px;"><span>TOTAL SETTLEMENT:</span><span>Rs. ${fmt(totAmt)}</span></div>
+        <div class="sep"></div>
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; font-size: 10px;" class="center">
+          <div><div>-------------------</div>Customer Signature</div>
+          <div><div>-------------------</div>Cashier Signature</div>
         </div>
         <script>
-          setTimeout(() => {
-            window.print();
-            window.close();
-          }, 600);
+          setTimeout(() => { window.print(); window.close(); }, 500);
         </script>
       </body>
       </html>
@@ -2731,182 +2846,340 @@ function RedemptionReceiptModal({
     printWindow.document.close();
   };
 
-  const handleDownloadPdf = () => {
-    // Open print-ready popup so user can Save as PDF
-    const printWin = window.open('', '_blank', 'width=800,height=900');
-    if (!printWin) {
-      toast.error('Popup blocked. Please allow popups and try again.');
-      return;
-    }
-    printWin.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8"/>
-        <title>Pawn Redemption Receipt - ${billNo}</title>
-        <style>
-          @media print {
-            @page { size: A4 portrait; margin: 15mm; }
-            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
-            .no-print { display: none !important; }
-          }
-          body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 24px; background: white; color: #0f172a; }
-          .save-btn { position: fixed; top: 12px; right: 12px; background: #6b21a8; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 900; cursor: pointer; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-          .save-btn:hover { background: #7c3aed; }
-        </style>
-      </head>
-      <body>
-        <button class="save-btn no-print" onclick="window.print()">⬇ Save as PDF / Print</button>
-        <div style="max-width: 650px; margin: 0 auto; background: white; color: #0f172a; padding: 28px; border: 2px solid #6b21a8; border-radius: 16px;">
-          <div style="text-align: center; border-bottom: 2px solid #6b21a8; padding-bottom: 12px; margin-bottom: 16px;">
-            <div style="font-size: 11px; font-weight: 900; color: #6b21a8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">OFFICIAL PAWN REDEMPTION RECEIPT</div>
-            <h2 style="font-size: 22px; font-weight: 900; text-transform: uppercase; color: #581c87; margin: 0;">RUPASINGHE TRUST INVESTMENTS LTD.</h2>
-            <p style="font-size: 13px; font-weight: 700; color: #6b21a8; margin: 2px 0 0 0;">උගස් නිදහස් කිරීමේ රසීද පත්‍රය</p>
-            <p style="font-size: 11px; color: #475569; margin-top: 4px;">${bAddress}</p>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 16px; background: #faf5ff; padding: 10px 14px; border-radius: 10px; border: 1px solid #e9d5ff;">
-            <div><span>Pawn Bill No: </span> <span style="font-family: monospace; color: #6b21a8; font-weight: 900;">${billNo}</span></div>
-            <div><span>Redemption Date: </span> <span style="font-family: monospace; color: #0f172a;">${redeemedAt}</span></div>
-          </div>
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
-            <div><strong>Customer Name (නම):</strong> ${cName}</div>
-            <div><strong>NIC No (හැඳුනුම්පත් අංකය):</strong> ${cNic}</div>
-            <div><strong>Address (ලිපිනය):</strong> ${cAddress}</div>
-            <div><strong>Item Description (උගස් භාණ්ඩය):</strong> ${getCleanDescription(pawn)}</div>
-          </div>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
-            <thead>
-              <tr style="background: #f3e8ff; color: #581c87; text-align: left;">
-                <th style="padding: 10px; border: 1px solid #e9d5ff;">Payment Description</th>
-                <th style="padding: 10px; border: 1px solid #e9d5ff; text-align: right;">Amount (LKR)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Principal Loan Amount Disbursed (මූලික ණය මුදල)</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Accrued Interest (${days} Days) (පොලී මුදල)</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">Insurance &amp; Service Charges (රක්ෂණ / සේවා ගාස්තු)</td>
-                <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; text-align: right;">Rs. ${parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr style="background: #581c87; color: white;">
-                <td style="padding: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase;">Total Settlement Amount Paid (මුළු ගෙවූ මුදල)</td>
-                <td style="padding: 12px; font-family: monospace; font-weight: 900; font-size: 16px; text-align: right;">Rs. ${settlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div style="font-size: 10px; color: #64748b; margin-bottom: 24px; font-style: italic;">
-            Posted GL Journal Entry: <span style="font-family: monospace; font-weight: bold; color: #475569;">${journalEntryId || 'N/A'}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px;">
-            <div style="text-align: center; font-size: 11px;">
-              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
-              <span>Customer Signature / පාරිභෝගික අත්සන</span>
-            </div>
-            <div style="text-align: center; font-size: 11px;">
-              <div style="width: 140px; border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
-              <span>Cashier / Authorized Signature</span>
-            </div>
-          </div>
-        </div>
-        <script>setTimeout(() => { window.print(); }, 500);</script>
-      </body>
-      </html>
-    `);
-    printWin.document.close();
-    toast.success('Print dialog opened — select "Save as PDF" to download.');
-  };
-
-
-
   return (
     <Dialog open={!!data} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl max-w-2xl w-[95vw] border border-purple-200 shadow-2xl rounded-3xl p-6 bg-white text-slate-900">
-        <DialogHeader className="border-b border-purple-100 pb-4">
+      <DialogContent className="sm:max-w-5xl max-w-5xl w-[95vw] max-h-[94vh] border border-slate-700 shadow-2xl rounded-3xl p-5 bg-slate-950 text-slate-100 flex flex-col overflow-y-auto">
+        
+        {/* Modal Header */}
+        <DialogHeader className="border-b border-slate-800 pb-3 shrink-0">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-purple-700">
-              <Coins className="w-6 h-6" />
-              <DialogTitle className="text-xl font-black tracking-tight text-purple-900">
-                Pawn Redemption Receipt / උගස් නිදහස් කිරීමේ රසීද පත්‍රය
+            <div className="flex items-center gap-2 text-purple-400">
+              <Coins className="w-5 h-5" />
+              <DialogTitle className="text-xl font-black tracking-tight text-white">
+                Pawn Redemption Receipt (80mm Thermal POS Printer)
               </DialogTitle>
             </div>
+
             <div className="flex items-center gap-2">
               <Button
-                onClick={handleDownloadPdf}
+                onClick={resetFormDefaults}
                 type="button"
                 variant="outline"
-                className="border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl"
               >
-                <Download className="w-4 h-4" /> Download PDF
+                Reset Form
               </Button>
+              
               <Button
-                onClick={handlePrint}
+                onClick={handleBluetoothPrint}
+                disabled={isBluetoothPrinting}
                 type="button"
-                className="bg-purple-700 hover:bg-purple-800 text-white font-black text-xs uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
+                className="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-lg shadow-purple-600/30"
               >
-                <Printer className="w-4 h-4" /> Print Redemption Bill
+                <Bluetooth className="w-4 h-4" />
+                {isBluetoothPrinting ? 'PRINTING...' : 'BLUETOOTH PRINT (80mm)'}
+              </Button>
+
+              <Button
+                onClick={handleStandardPrint}
+                type="button"
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-1.5"
+              >
+                <Printer className="w-4 h-4" /> Web Print
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Receipt Display Content */}
-        <div className="py-4 space-y-4">
-          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5 space-y-3">
-            <div className="flex justify-between items-center text-xs font-bold text-purple-900 border-b border-purple-200 pb-2">
-              <span>Pawn Bill No: <strong className="font-mono text-purple-700 text-sm">{billNo}</strong></span>
-              <span>Redemption Date: <strong className="font-mono">{redeemedAt}</strong></span>
+        {/* Main 2-Column Container */}
+        <div className="py-4 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+          {/* LEFT 5 COLS: EDITABLE INPUTS */}
+          <div className="lg:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3.5 text-xs">
+            <div className="border-b border-slate-800 pb-2 flex items-center justify-between">
+              <span className="font-extrabold text-xs text-purple-300 uppercase tracking-wider">Editable Bill Fields</span>
+              <span className="text-[10px] text-slate-500">Real-time update</span>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-xs">
+
+            {/* Header */}
+            <div className="space-y-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">1. Header Information</span>
               <div>
-                <span className="text-slate-500 font-bold block text-[10px] uppercase">Customer Name</span>
-                <span className="font-black text-slate-900">{cName}</span>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Company Title</label>
+                <input
+                  type="text"
+                  value={companyTitle}
+                  onChange={(e) => setCompanyTitle(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-white font-bold focus:outline-none focus:border-purple-500 text-xs"
+                />
               </div>
               <div>
-                <span className="text-slate-500 font-bold block text-[10px] uppercase">NIC Number</span>
-                <span className="font-mono font-bold text-slate-900">{cNic}</span>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Branch Address & Tel</label>
+                <input
+                  type="text"
+                  value={branchAddress}
+                  onChange={(e) => setBranchAddress(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                />
               </div>
-              <div className="col-span-2">
-                <span className="text-slate-500 font-bold block text-[10px] uppercase">Item Description</span>
-                <span className="font-bold text-slate-800">{getCleanDescription(pawn)}</span>
+            </div>
+
+            {/* Bill & Customer */}
+            <div className="space-y-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">2. Receipt & Customer Info</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Bill No</label>
+                  <input
+                    type="text"
+                    value={billNo}
+                    onChange={(e) => setBillNoState(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono font-bold text-purple-300 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Redemption Date</label>
+                  <input
+                    type="text"
+                    value={redemptionDate}
+                    onChange={(e) => setRedemptionDate(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Customer Name</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-bold text-white focus:outline-none focus:border-purple-500 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">NIC Number</label>
+                  <input
+                    type="text"
+                    value={nic}
+                    onChange={(e) => setNic(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Phone Number</label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Customer Address</label>
+                <input
+                  type="text"
+                  value={customerAddress}
+                  onChange={(e) => setCustomerAddress(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-300 focus:outline-none focus:border-purple-500 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Article */}
+            <div className="space-y-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">3. Article Description</span>
+              <div>
+                <label className="text-[10px] text-slate-400 block mb-0.5">Item Description</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-bold text-amber-300 focus:outline-none focus:border-purple-500 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Appraised Value (Rs.)</label>
+                  <input
+                    type="number"
+                    value={appraisedValuation}
+                    onChange={(e) => setAppraisedValuation(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-amber-300 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Weight (g)</label>
+                  <input
+                    type="text"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Breakdown */}
+            <div className="space-y-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">4. Payment Breakdown</span>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Principal Loan (Rs.)</label>
+                  <input
+                    type="number"
+                    value={principal}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPrincipal(v);
+                      handleRecalcSettlement(v, interest, insurance);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono font-bold text-emerald-400 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Days Count</label>
+                  <input
+                    type="number"
+                    value={days}
+                    onChange={(e) => setDays(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Interest (Rs.)</label>
+                  <input
+                    type="number"
+                    value={interest}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setInterest(v);
+                      handleRecalcSettlement(principal, v, insurance);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono font-bold text-purple-300 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-0.5">Insurance & Charges (Rs.)</label>
+                  <input
+                    type="number"
+                    value={insurance}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setInsurance(v);
+                      handleRecalcSettlement(principal, interest, v);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="text-[10px] text-emerald-400 font-bold block mb-0.5">Total Settlement Paid (Rs.)</label>
+                <input
+                  type="number"
+                  value={settlement}
+                  onChange={(e) => setSettlement(e.target.value)}
+                  className="w-full bg-emerald-950 border border-emerald-500/50 rounded px-3 py-1.5 font-mono font-bold text-emerald-300 text-sm focus:outline-none"
+                />
               </div>
             </div>
           </div>
 
-          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <table className="w-full text-xs">
-              <thead className="bg-purple-100/60 text-purple-900 font-black uppercase text-[10px]">
-                <tr>
-                  <th className="p-3 text-left">Payment Breakdown</th>
-                  <th className="p-3 text-right">Amount (LKR)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-bold">
-                <tr>
-                  <td className="p-3 text-slate-700">Principal Disbursed Amount (මූලික ණය මුදල)</td>
-                  <td className="p-3 text-right font-mono text-slate-900">Rs. {principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                </tr>
-                <tr>
-                  <td className="p-3 text-slate-700">Accrued Interest ({days} Days) (පොලී මුදල)</td>
-                  <td className="p-3 text-right font-mono text-purple-700">Rs. {interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                </tr>
-                <tr>
-                  <td className="p-3 text-slate-700">Insurance & Service Fee (රක්ෂණ / සේවා ගාස්තු)</td>
-                  <td className="p-3 text-right font-mono text-slate-900">Rs. {parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                </tr>
-                <tr className="bg-purple-900 text-white font-black text-sm">
-                  <td className="p-3.5 uppercase tracking-wider">Total Settlement Paid (මුළු ගෙවූ මුදල)</td>
-                  <td className="p-3.5 text-right font-mono tracking-tight">Rs. {settlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                </tr>
-              </tbody>
-            </table>
+          {/* RIGHT 7 COLS: 80MM POS THERMAL RECEIPT REAL-TIME PREVIEW */}
+          <div className="lg:col-span-7 flex justify-center">
+            <div className="w-[576px] max-w-full bg-white text-black p-5 rounded-xl shadow-2xl font-mono text-xs border border-slate-300 space-y-2">
+              
+              {/* Header */}
+              <div className="text-center space-y-0.5 mb-2">
+                <div className="text-base font-black tracking-wide text-black">
+                  {companyTitle}
+                </div>
+                <div className="text-[11px] text-slate-800">
+                  {branchAddress}
+                </div>
+              </div>
+
+              <div className="border-t border-b border-black py-1 my-2 text-center font-bold text-sm tracking-wider uppercase">
+                PAWN REDEMPTION RECEIPT
+              </div>
+
+              {/* Meta */}
+              <div className="flex justify-between py-1 border-b border-slate-300 text-xs">
+                <span>Receipt No: <strong>{billNo}</strong></span>
+                <span>Date: <strong>{redemptionDate}</strong></span>
+              </div>
+
+              {/* Customer Info */}
+              <div className="py-2 border-b border-slate-300 space-y-1 text-xs">
+                <div>Customer: <strong>{customerName}</strong></div>
+                <div>NIC: <strong>{nic}</strong> | Phone: {phone}</div>
+                <div>Address: {customerAddress}</div>
+              </div>
+
+              {/* Item Info */}
+              <div className="py-2 border-b border-slate-300 space-y-1 text-xs">
+                <div>Article: <strong>{description}</strong></div>
+                <div className="flex justify-between text-[11px]">
+                  <span>Appraised: <strong>Rs. {parseFloat(appraisedValuation || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                  <span>Weight: <strong>{weight} g</strong></span>
+                </div>
+              </div>
+
+              {/* Payment Breakdown */}
+              <div className="py-2 space-y-1.5 border-b border-black text-xs">
+                <div className="flex justify-between">
+                  <span>Principal Disbursed:</span>
+                  <span>Rs. {parseFloat(principal || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Accrued Interest ({days} Days):</span>
+                  <span>Rs. {parseFloat(interest || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Insurance & Charges:</span>
+                  <span>Rs. {parseFloat(insurance || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+
+              {/* Total Settlement Paid */}
+              <div className="py-2 my-1 flex justify-between items-center text-sm font-black border-b-2 border-black">
+                <span>TOTAL SETTLEMENT:</span>
+                <span className="text-base font-black">Rs. {parseFloat(settlement || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+
+              {/* Signatures & Notice */}
+              <div className="pt-4 space-y-6 text-[11px]">
+                <div className="text-[10px] text-center text-slate-700 italic">
+                  Official receipt for pawn redemption & article release.
+                </div>
+
+                <div className="flex justify-between items-end pt-4">
+                  <div className="text-center">
+                    <div className="border-b border-black w-32 mb-1"></div>
+                    <div>Customer Signature</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="border-b border-black w-32 mb-1"></div>
+                    <div>Cashier Signature</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
+
         </div>
+
       </DialogContent>
     </Dialog>
   );
