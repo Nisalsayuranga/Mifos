@@ -206,10 +206,13 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    // If database table does not contain transfer_in_type/transfer_out_type columns, retry without them
+    // If database table does not contain recently added columns, retry without them
     if (ledgerErr && (ledgerErr.message?.includes('transfer_in_type') || ledgerErr.message?.includes('transfer_out_type') || ledgerErr.code === 'PGRST204')) {
       delete ledgerPayload.transfer_in_type;
       delete ledgerPayload.transfer_out_type;
+      delete ledgerPayload.opening_capital;
+      delete ledgerPayload.actual_cash_count;
+      delete ledgerPayload.variance;
 
       const retryRes = await adminSupabase
         .from('daily_ledgers')
