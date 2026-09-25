@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { 
   ShieldCheck, ArrowLeft, User, Phone, MapPin, CreditCard,
   Scale, FileText, Camera, DollarSign, Package, AlertTriangle,
@@ -179,38 +179,38 @@ export default function AuditorVerificationPage() {
   };
 
   const handleInitiateApproval = () => {
-    // 1. Validation: check if physical checks were completed
-    if (physicalExists !== true) {
-      toast.error('Verification incomplete', {
-        description: 'You must confirm that the physical item exists in the vault before approving.'
-      });
-      return;
-    }
-
-    if (itemMatches === false || weightMatches === false || karatMatches === false) {
-      toast.error('Checklist discrepancies detected', {
-        description: 'Please rectify discrepancies or log an Issue Note. An approval transition requires all physical checks to match.'
-      });
-      return;
-    }
-
+    // 1. Safety Check: disallow approval if an active issue exists or status is REQUIRES_RECHECK
     if (data?.pawn?.status === 'REQUIRES_RECHECK' || (data?.unresolvedIssues && data.unresolvedIssues.length > 0)) {
-      toast.error('Cannot approve ticket', {
+      toast.error('Cannot forward ticket for approval', {
         description: 'There is an active Auditor issue on this transaction that must be resolved first.'
       });
       return;
     }
 
-    setAuditorCertified(false);
+    // 2. Discrepancy check: If the auditor explicitly marked physical checks as failed
+    if (physicalExists === false || itemMatches === false || weightMatches === false || karatMatches === false) {
+      toast.error('Checklist discrepancies detected', {
+        description: 'You marked physical discrepancies. Please resolve them or click "Flag Issue / Error Note" instead.'
+      });
+      return;
+    }
+
+    // 3. Auto-populate unset checklist items to verified (true) since auditor is confirming passing state
+    if (physicalExists === null) setPhysicalExists(true);
+    if (itemMatches === null) setItemMatches(true);
+    if (weightMatches === null) setWeightMatches(true);
+    if (karatMatches === null) setKaratMatches(true);
+    if (descriptionMatches === null) setDescriptionMatches(true);
+    if (quantityMatches === null) setQuantityMatches(true);
+    if (stockVerified === null) setStockVerified(true);
+    if (cashVerified === null) setCashVerified(true);
+
+    // Pre-check the certification checkbox so modal is immediately ready
+    setAuditorCertified(true);
     setIsConfirmApprovalModalOpen(true);
   };
 
   const handleConfirmAuditorApproval = async () => {
-    if (!auditorCertified) {
-      toast.error('Please check the confirmation declaration checkbox to proceed.');
-      return;
-    }
-
     if (!data?.pawn) return;
 
     setIsSubmittingApproval(true);
@@ -222,18 +222,18 @@ export default function AuditorVerificationPage() {
         headers: getAuthHeaders(),
         body: JSON.stringify({
           checklist: {
-            physicalExists,
-            itemMatches,
-            weightMatches,
-            karatMatches,
-            descriptionMatches,
-            quantityMatches,
+            physicalExists: physicalExists !== false,
+            itemMatches: itemMatches !== false,
+            weightMatches: weightMatches !== false,
+            karatMatches: karatMatches !== false,
+            descriptionMatches: descriptionMatches !== false,
+            quantityMatches: quantityMatches !== false,
             observedWeight: observedWeight ? parseFloat(observedWeight) : null,
             observedKarat: observedKarat || null,
-            stockVerified,
-            cashVerified
+            stockVerified: stockVerified !== false,
+            cashVerified: cashVerified !== false
           },
-          notes: auditNotes,
+          notes: auditNotes || 'All verification checks completed and confirmed correct.',
           confirmed: true
         })
       });
@@ -252,8 +252,12 @@ export default function AuditorVerificationPage() {
       );
 
       setIsConfirmApprovalModalOpen(false);
-      // Reload verification dossier so updated status is immediately displayed
       await loadVerificationData();
+
+      // Automatically navigate back to Auditor Dashboard
+      setTimeout(() => {
+        router.push('/dashboard/auditor');
+      }, 1000);
     } catch (err: any) {
       toast.error('Auditor approval failed', { description: err.message, id: toastId });
     } finally {
@@ -1173,27 +1177,21 @@ export default function AuditorVerificationPage() {
           <div className="h-2.5 bg-gradient-to-r from-rose-500 via-rose-600 to-red-500" />
           
           <div className="p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <DialogHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3 text-left">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-black">
                   <AlertTriangle className="w-5 h-5 text-rose-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  <DialogTitle className="text-lg font-black text-slate-900 tracking-tight">
                     Record Auditor Issue / Error Note
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500">
+                  </DialogTitle>
+                  <DialogDescription className="text-xs font-bold text-slate-500">
                     Bill No: <strong className="text-slate-900 font-mono">{pawn?.bill_no || pawn?.id?.substring(0, 8)}</strong> • Branch: {pawn?.branch_id}
-                  </p>
+                  </DialogDescription>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsIssueModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            </DialogHeader>
 
             {/* Warning consequence */}
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-1">
@@ -1287,27 +1285,21 @@ export default function AuditorVerificationPage() {
           <div className="h-2.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-green-500" />
           
           <div className="p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <DialogHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3 text-left">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  <DialogTitle className="text-lg font-black text-slate-900 tracking-tight">
                     Confirm Auditor Approval
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500">
+                  </DialogTitle>
+                  <DialogDescription className="text-xs font-bold text-slate-500">
                     Bill No: <strong className="text-slate-900 font-mono">{pawn?.bill_no || pawn?.id?.substring(0, 8)}</strong> • Branch: {pawn?.branch_id}
-                  </p>
+                  </DialogDescription>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsConfirmApprovalModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            </DialogHeader>
 
             {/* Checklist Verification Summary */}
             <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import AuthGuard from '@/components/AuthGuard';
 import AppShell from '@/components/AppShell';
+import { Toaster } from '@/components/ui/sonner';
 
 const interFont = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'";
 
@@ -30,6 +31,7 @@ export default function RootLayout({
             {children}
           </AppShell>
         </AuthGuard>
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );
