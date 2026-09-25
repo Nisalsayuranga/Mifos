@@ -3,21 +3,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Camera, AlertCircle, RefreshCw, Activity, PackageSearch } from 'lucide-react';
+import { Camera, AlertCircle, RefreshCw, Activity, PackageSearch, CheckCircle2 } from 'lucide-react';
 import { WebcamCapture } from './WebcamCapture';
-import { createClient } from '@supabase/supabase-js';
 
-// Fallback to anon key if env not set (for demo/development)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDE1NTksImV4cCI6MjA5OTY3NzU1OX0.YKLOHhXhUCgG1eMZiksR4H7UwySjhWzc0e_pomh_0oI'
-);
-
-interface EvaluationResult {
+export interface EvaluationResult {
   airWeight: number;
   waterWeight: number;
   askingAmount: number;
   trueValue: number;
+  airWeightPhoto?: string | null;
+  waterWeightPhoto?: string | null;
 }
 
 interface ItemEvaluationModalProps {
@@ -45,6 +40,7 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
 
   // Calculate SG when weights change
   useEffect(() => {
@@ -122,41 +118,76 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
   const handleReject = async () => {
     setIsRejecting(true);
     try {
-      // Create a record in Supabase
-      const { error } = await supabase.from('rejected_evaluations').insert([{
-        air_weight: parseFloat(airWeight) || 0,
-        water_weight: parseFloat(waterWeight) || 0,
-        specific_gravity: specificGravity,
-        estimated_karat: estimatedKarat,
-        asking_amount: parseFloat(askingAmount) || 0,
-        true_value: parseFloat(trueValue) || 0,
-        status: 'REJECTED',
-        // In a real app, upload base64 to storage bucket first, then save URL
-        air_weight_photo_url: airWeightPhoto ? 'uploaded_to_bucket' : null,
-        water_weight_photo_url: waterWeightPhoto ? 'uploaded_to_bucket' : null,
-      }]);
-      
-      if (error) {
-        console.error("Error saving rejection:", error);
-        alert("Failed to save rejection record.");
-      } else {
-        alert("Item rejected and recorded.");
-        resetForm();
-        onOpenChange(false);
+      // Save rejection record and captured images into the database
+      const res = await fetch('/api/evaluations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          airWeight: parseFloat(airWeight) || 0,
+          waterWeight: parseFloat(waterWeight) || 0,
+          specificGravity,
+          estimatedKarat,
+          askingAmount: parseFloat(askingAmount) || 0,
+          trueValue: parseFloat(trueValue) || 0,
+          status: 'REJECTED',
+          airWeightPhoto: airWeightPhoto || null,
+          waterWeightPhoto: waterWeightPhoto || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to save rejection record');
       }
-    } catch (err) {
-      console.error(err);
+
+      alert("Item rejected and evaluation record stored in database.");
+      resetForm();
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error("Error saving rejection:", err);
+      alert(err.message || "Failed to save rejection record.");
     } finally {
       setIsRejecting(false);
     }
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
+    setIsAccepting(true);
+    try {
+      // Store evaluation and captured air/water weight photos in the database
+      const res = await fetch('/api/evaluations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          airWeight: parseFloat(airWeight) || 0,
+          waterWeight: parseFloat(waterWeight) || 0,
+          specificGravity,
+          estimatedKarat,
+          askingAmount: parseFloat(askingAmount) || 0,
+          trueValue: parseFloat(trueValue) || 0,
+          status: 'ACCEPTED',
+          airWeightPhoto: airWeightPhoto || null,
+          waterWeightPhoto: waterWeightPhoto || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        console.warn("Evaluation save notice:", errJson);
+      }
+    } catch (err) {
+      console.warn("Could not persist evaluation to API, proceeding:", err);
+    } finally {
+      setIsAccepting(false);
+    }
+
     onAccept({
       airWeight: parseFloat(airWeight) || 0,
       waterWeight: parseFloat(waterWeight) || 0,
       askingAmount: parseFloat(askingAmount) || 0,
       trueValue: parseFloat(trueValue) || 0,
+      airWeightPhoto,
+      waterWeightPhoto,
     });
     resetForm();
     onOpenChange(false);
@@ -192,7 +223,7 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
                     <PackageSearch className="w-6 h-6" />
                   </div>
                   <DialogTitle className="text-2xl font-black text-slate-900">
-                    Customer Registration
+                    Pawning Registration
                   </DialogTitle>
                 </div>
                 <DialogDescription className="font-semibold text-slate-500 text-sm mt-2">
@@ -228,8 +259,15 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
               {/* Weights Input */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Air Weight (mg)</Label>
-                  <div className="flex gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Air Weight (mg)</Label>
+                    {airWeightPhoto && (
+                      <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Photo saved
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 items-center">
                     <Input 
                       type="number" 
                       value={airWeight}
@@ -237,21 +275,47 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
                       placeholder="e.g. 12500"
                       className="font-mono font-bold"
                     />
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => openCamera('AIR')}
-                      className={airWeightPhoto ? 'border-green-500 text-green-600 bg-green-50' : ''}
-                      title="Take Photo Proof"
-                    >
-                      <Camera className="w-4 h-4" />
-                    </Button>
+                    {airWeightPhoto ? (
+                      <button
+                        type="button"
+                        onClick={() => openCamera('AIR')}
+                        className="relative shrink-0 group rounded-lg overflow-hidden border-2 border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        title="Click to view/retake photo"
+                      >
+                        <img 
+                          src={airWeightPhoto} 
+                          alt="Air weight proof" 
+                          className="w-10 h-10 object-cover" 
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Camera className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        type="button"
+                        onClick={() => openCamera('AIR')}
+                        className="shrink-0"
+                        title="Take Photo Proof"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Water Weight (mg)</Label>
-                  <div className="flex gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Water Weight (mg)</Label>
+                    {waterWeightPhoto && (
+                      <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Photo saved
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 items-center">
                     <Input 
                       type="number" 
                       value={waterWeight}
@@ -259,15 +323,34 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
                       placeholder="e.g. 11800"
                       className="font-mono font-bold"
                     />
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => openCamera('WATER')}
-                      className={waterWeightPhoto ? 'border-green-500 text-green-600 bg-green-50' : ''}
-                      title="Take Photo Proof"
-                    >
-                      <Camera className="w-4 h-4" />
-                    </Button>
+                    {waterWeightPhoto ? (
+                      <button
+                        type="button"
+                        onClick={() => openCamera('WATER')}
+                        className="relative shrink-0 group rounded-lg overflow-hidden border-2 border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        title="Click to view/retake photo"
+                      >
+                        <img 
+                          src={waterWeightPhoto} 
+                          alt="Water weight proof" 
+                          className="w-10 h-10 object-cover" 
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Camera className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        type="button"
+                        onClick={() => openCamera('WATER')}
+                        className="shrink-0"
+                        title="Take Photo Proof"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -322,7 +405,7 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
               <Button 
                 variant="outline" 
                 onClick={handleReject} 
-                disabled={isRejecting || isProcessingOcr || (!airWeight && !waterWeight)}
+                disabled={isRejecting || isAccepting || isProcessingOcr || (!airWeight && !waterWeight)}
                 className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold h-12"
               >
                 {isRejecting ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -330,9 +413,10 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
               </Button>
               <Button 
                 onClick={handleAccept} 
-                disabled={isRejecting || isProcessingOcr || !airWeight || !waterWeight || !trueValue}
+                disabled={isRejecting || isAccepting || isProcessingOcr || !airWeight || !waterWeight || !trueValue}
                 className="flex-[2] bg-amber-500 hover:bg-amber-600 text-white font-black h-12 text-lg shadow-lg shadow-amber-500/20"
               >
+                {isAccepting ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                 Accept & Continue
               </Button>
             </div>

@@ -72,6 +72,26 @@ export async function GET(request: Request) {
       }
     }
 
+    // Fetch evaluation records to attach weight photos
+    let evalsByBillMap: Record<string, any> = {};
+    try {
+      const { data: allEvals } = await adminSupabase
+        .from('rejected_evaluations')
+        .select('status, air_weight, water_weight, air_weight_photo_url, water_weight_photo_url, created_at')
+        .not('status', 'eq', 'REJECTED');
+
+      if (allEvals) {
+        allEvals.forEach((ev: any) => {
+          if (ev.status && ev.status.startsWith('BILL:')) {
+            const bNo = ev.status.replace('BILL:', '').trim();
+            evalsByBillMap[bNo] = ev;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Could not fetch evaluation photos for pawns:', e);
+    }
+
     const mappedData = (data || []).map((pawn: any) => {
        const pItems = itemsMap[pawn.id] || [];
        let totalWeight = (parseFloat(pawn.weight_grams) || 0) + ((parseFloat(pawn.weight_mg) || 0) / 1000);
@@ -85,6 +105,16 @@ export async function GET(request: Request) {
        
        if (!pawn.clients && pawn.client_id && clientsByIdMap[pawn.client_id]) {
          pawn.clients = clientsByIdMap[pawn.client_id];
+       }
+
+       // Attach scale evaluation photos by bill number
+       const cleanBill = (pawn.bill_no || '').trim();
+       const matchedEval = cleanBill ? evalsByBillMap[cleanBill] : null;
+       if (matchedEval) {
+         pawn.air_weight_photo_url = matchedEval.air_weight_photo_url;
+         pawn.water_weight_photo_url = matchedEval.water_weight_photo_url;
+         pawn.evaluation_air_weight = matchedEval.air_weight;
+         pawn.evaluation_water_weight = matchedEval.water_weight;
        }
 
        return pawn;
@@ -101,7 +131,7 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { clientId, clientName, customerName, phone: clientPhone, address: clientAddress, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, interestRate, periodMonths, itemType, items } = body;
+    const { clientId, clientName, customerName, phone: clientPhone, address: clientAddress, description, appraisedValue, disbursedAmount, branchId, createdByUserId, billNo, weight, weightGrams, weightMg, interestRate, periodMonths, itemType, items, airWeightPhoto, waterWeightPhoto, waterWeight, specificGravity, estimatedKarat } = body;
 
     if (!clientId || !disbursedAmount) {
       return NextResponse.json({ error: 'Missing required fields: Customer and Disbursed Amount' }, { status: 400 });
@@ -231,6 +261,26 @@ export async function POST(request: Request) {
       .single();
 
     if (pawnErr) throw pawnErr;
+
+    // Record Air Weight & Water Weight evaluation photos linked to the bill number
+    const targetBill = billNo;
+    if (targetBill && (airWeightPhoto || waterWeightPhoto)) {
+      try {
+        await adminSupabase.from('rejected_evaluations').insert([{
+          air_weight: parseFloat(weightMg) || 0,
+          water_weight: parseFloat(waterWeight) || 0,
+          specific_gravity: parseFloat(specificGravity) || 0,
+          estimated_karat: estimatedKarat || '22K',
+          asking_amount: finalDisbursed,
+          true_value: finalAppraised,
+          status: `BILL:${targetBill}`,
+          air_weight_photo_url: airWeightPhoto || null,
+          water_weight_photo_url: waterWeightPhoto || null,
+        }]);
+      } catch (evalErr) {
+        console.warn("Could not insert evaluation photos for bill:", evalErr);
+      }
+    }
 
     // 3. Insert pawn collateral items into pawn_items and stock_items with sub-bill numbers (+)
     const baseBill = billNo || pawnId.substring(0, 8).toUpperCase();

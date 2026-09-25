@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -38,7 +38,9 @@ import {
   Tag,
   Percent,
   Save,
-  Plus
+  Plus,
+  ImageIcon,
+  Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -362,6 +364,12 @@ function EndOfDayContent() {
   const [showBillCustomerModal, setShowBillCustomerModal] = useState(false);
   const [selectedBillForCustomerView, setSelectedBillForCustomerView] = useState<string | null>(null);
 
+  // Bill Item Image States
+  const [billImages, setBillImages] = useState<Record<string, string>>({});
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showImagePreviewModal, setShowImagePreviewModal] = useState(false);
+  const billImageInputRef = useRef<HTMLInputElement>(null);
+
   // Add Customer Form States
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
@@ -483,6 +491,80 @@ function EndOfDayContent() {
     setStockInterests(updated);
     localStorage.setItem('local_stock_interests', JSON.stringify(updated));
     toast.success("Interest entry removed.");
+  };
+
+  const handleBillImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedBillForCustomerView) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (JPG, PNG, WEBP)');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const toastId = toast.loading(`Uploading image for bill ${selectedBillForCustomerView}...`);
+
+    try {
+      let publicUrl = '';
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const cleanBill = selectedBillForCustomerView.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filePath = `bills/${cleanBill}_${Date.now()}.${fileExt}`;
+
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('pawn_images')
+          .upload(filePath, file, { upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from('pawn_images')
+            .getPublicUrl(filePath);
+          publicUrl = urlData?.publicUrl || '';
+        }
+      } catch (storageErr) {
+        console.warn("Supabase storage error, using fallback data URL:", storageErr);
+      }
+
+      if (!publicUrl) {
+        publicUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const updated = {
+        ...billImages,
+        [selectedBillForCustomerView]: publicUrl
+      };
+      setBillImages(updated);
+      try {
+        localStorage.setItem('local_stock_bill_images', JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not save to localStorage", err);
+      }
+
+      toast.success(`Image uploaded for bill ${selectedBillForCustomerView}!`, { id: toastId });
+    } catch (err: any) {
+      console.error("Failed to upload image:", err);
+      toast.error(err.message || 'Failed to upload image', { id: toastId });
+    } finally {
+      setIsUploadingImage(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemoveBillImage = (billNo: string) => {
+    const updated = { ...billImages };
+    delete updated[billNo];
+    setBillImages(updated);
+    try {
+      localStorage.setItem('local_stock_bill_images', JSON.stringify(updated));
+    } catch (e) {}
+    toast.success(`Image removed for bill ${billNo}`);
+    setShowImagePreviewModal(false);
   };
 
   // Stock Daily Matrix State & Handlers
@@ -763,6 +845,12 @@ function EndOfDayContent() {
     const today = new Date().toISOString().split('T')[0];
     setDate(today);
     setWithdrawalDate(today);
+    try {
+      const saved = localStorage.getItem('local_stock_bill_images');
+      if (saved) {
+        setBillImages(JSON.parse(saved));
+      }
+    } catch (e) {}
   }, []);
 
   // Fetch Stock items
@@ -3397,10 +3485,21 @@ function EndOfDayContent() {
               </DialogDescription>
             </DialogHeader>
 
+            {/* Hidden file input for uploading item picture */}
+            <input 
+              ref={billImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBillImageUpload}
+            />
+
             <div className="mt-6 space-y-4">
               {(() => {
                 if (!selectedBillForCustomerView) return null;
                 const cust = getCustomerForBill(selectedBillForCustomerView);
+                const currentBillImage = billImages[selectedBillForCustomerView];
+
                 if (cust) {
                   return (
                     <div className="space-y-4">
@@ -3427,6 +3526,48 @@ function EndOfDayContent() {
                           )}
                         </div>
                       </div>
+
+                      {/* Item Image Attached Card */}
+                      {currentBillImage && (
+                        <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
+                          <div className="relative h-36 w-full overflow-hidden bg-slate-100 flex items-center justify-center group">
+                            <img 
+                              src={currentBillImage} 
+                              alt={`Item for ${selectedBillForCustomerView}`} 
+                              className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                              onClick={() => setShowImagePreviewModal(true)}
+                            />
+                            <div 
+                              onClick={() => setShowImagePreviewModal(true)}
+                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white font-bold text-xs gap-1.5"
+                            >
+                              <Search className="w-3.5 h-3.5" /> View Photo
+                            </div>
+                          </div>
+                          <div className="px-3 py-2 bg-white flex items-center justify-between border-t border-slate-100">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                              <ImageIcon className="w-3 h-3 text-amber-600" /> Item Photo Attached
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                type="button"
+                                onClick={() => billImageInputRef.current?.click()}
+                                className="text-[10px] font-black text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                              >
+                                Change
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={() => selectedBillForCustomerView && handleRemoveBillImage(selectedBillForCustomerView)}
+                                className="text-[10px] font-black text-rose-500 hover:text-rose-700 transition-colors cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap justify-end gap-2 pt-2">
                         <Button 
                           onClick={() => {
@@ -3435,6 +3576,25 @@ function EndOfDayContent() {
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-[9px] h-9 px-3.5 rounded-xl shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
                         >
                           <Percent className="w-3.5 h-3.5" /> Add Interest
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            if (currentBillImage) {
+                              setShowImagePreviewModal(true);
+                            } else {
+                              billImageInputRef.current?.click();
+                            }
+                          }}
+                          disabled={isUploadingImage}
+                          className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest text-[9px] h-9 px-3.5 rounded-xl shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
+                          title="Upload or view picture of the item"
+                        >
+                          {isUploadingImage ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3.5 h-3.5" />
+                          )}
+                          Image
                         </Button>
                         <Button 
                           onClick={() => {
@@ -3511,6 +3671,48 @@ function EndOfDayContent() {
                         <p className="text-xs font-black text-slate-700 uppercase tracking-wide">No Customer Profile Linked</p>
                         <p className="text-[11px] text-slate-400 font-semibold mt-1">There is no customer details registered under this bill number.</p>
                       </div>
+
+                      {/* Item Image Attached Card */}
+                      {currentBillImage && (
+                        <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm text-left">
+                          <div className="relative h-36 w-full overflow-hidden bg-slate-100 flex items-center justify-center group">
+                            <img 
+                              src={currentBillImage} 
+                              alt={`Item for ${selectedBillForCustomerView}`} 
+                              className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                              onClick={() => setShowImagePreviewModal(true)}
+                            />
+                            <div 
+                              onClick={() => setShowImagePreviewModal(true)}
+                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white font-bold text-xs gap-1.5"
+                            >
+                              <Search className="w-3.5 h-3.5" /> View Photo
+                            </div>
+                          </div>
+                          <div className="px-3 py-2 bg-white flex items-center justify-between border-t border-slate-100">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                              <ImageIcon className="w-3 h-3 text-amber-600" /> Item Photo Attached
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                type="button"
+                                onClick={() => billImageInputRef.current?.click()}
+                                className="text-[10px] font-black text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                              >
+                                Change
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={() => selectedBillForCustomerView && handleRemoveBillImage(selectedBillForCustomerView)}
+                                className="text-[10px] font-black text-rose-500 hover:text-rose-700 transition-colors cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap justify-center gap-2 pt-2">
                         <Button 
                           onClick={() => {
@@ -3528,6 +3730,25 @@ function EndOfDayContent() {
                           className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-4 rounded-xl shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
                         >
                           <UserPlus className="w-3.5 h-3.5" /> Add Customer Details
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            if (currentBillImage) {
+                              setShowImagePreviewModal(true);
+                            } else {
+                              billImageInputRef.current?.click();
+                            }
+                          }}
+                          disabled={isUploadingImage}
+                          className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-4 rounded-xl shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95 gap-1.5"
+                          title="Upload or view picture of the item"
+                        >
+                          {isUploadingImage ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3.5 h-3.5" />
+                          )}
+                          Image
                         </Button>
                       </div>
 
@@ -3580,6 +3801,87 @@ function EndOfDayContent() {
                   );
                 }
               })()}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: PAWN ITEM IMAGE VIEW & FULL PREVIEW */}
+      <Dialog open={showImagePreviewModal} onOpenChange={setShowImagePreviewModal}>
+        <DialogContent className="sm:max-w-[480px] bg-white border border-slate-200 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+          <div className="h-2 bg-amber-500" />
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black tracking-tight text-slate-900 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-amber-600" /> Pawn Item Photo
+                </span>
+                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                  Bill: {selectedBillForCustomerView}
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400 font-semibold mt-0.5">
+                Attached photo of the collateral item for this pawn bill.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4">
+              {selectedBillForCustomerView && billImages[selectedBillForCustomerView] ? (
+                <div className="space-y-4">
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center max-h-[360px]">
+                    <img 
+                      src={billImages[selectedBillForCustomerView]} 
+                      alt={`Item for ${selectedBillForCustomerView}`} 
+                      className="max-h-[360px] w-auto max-w-full object-contain rounded-xl"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => billImageInputRef.current?.click()}
+                      className="rounded-xl font-bold text-xs h-9 border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-blue-600" /> Replace Image
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => selectedBillForCustomerView && handleRemoveBillImage(selectedBillForCustomerView)}
+                        className="rounded-xl font-bold text-xs h-9 border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setShowImagePreviewModal(false)}
+                        className="rounded-xl font-bold bg-slate-900 hover:bg-slate-800 text-white text-xs h-9 px-4 cursor-pointer"
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-100">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">No image uploaded yet</p>
+                  <p className="text-xs text-slate-400">Upload a picture of the collateral item for Bill {selectedBillForCustomerView}.</p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowImagePreviewModal(false);
+                      billImageInputRef.current?.click();
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-black text-xs h-9 px-4 rounded-xl shadow-md gap-1.5 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" /> Upload Image
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>

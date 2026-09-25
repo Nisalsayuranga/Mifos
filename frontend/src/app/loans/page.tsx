@@ -78,6 +78,54 @@ export default function PawnesPage() {
   const [filterBranch, setFilterBranch] = useState('ALL');
   const [redemptionReceiptData, setRedemptionReceiptData] = useState<any>(null);
 
+  // Weight Photos Viewer Modal State
+  const [viewPhotoModal, setViewPhotoModal] = useState<{
+    isOpen: boolean;
+    billNo: string;
+    airPhoto?: string | null;
+    waterPhoto?: string | null;
+    airWeight?: number | string | null;
+    waterWeight?: number | string | null;
+  }>({
+    isOpen: false,
+    billNo: '',
+    airPhoto: null,
+    waterPhoto: null,
+  });
+
+  const handleOpenPhotoViewer = async (pawn: any) => {
+    let air = pawn.air_weight_photo_url || null;
+    let water = pawn.water_weight_photo_url || null;
+    let aw = pawn.evaluation_air_weight || pawn.weight_mg || null;
+    let ww = pawn.evaluation_water_weight || null;
+
+    const cleanBill = getBillNo(pawn);
+    if (!air && !water && cleanBill) {
+      try {
+        const res = await fetch(`/api/evaluations?billNo=${encodeURIComponent(cleanBill)}`);
+        const json = await res.json();
+        if (json.evaluations && json.evaluations.length > 0) {
+          const ev = json.evaluations[0];
+          air = ev.air_weight_photo_url;
+          water = ev.water_weight_photo_url;
+          aw = ev.air_weight;
+          ww = ev.water_weight;
+        }
+      } catch (err) {
+        console.warn('Could not fetch weight photos:', err);
+      }
+    }
+
+    setViewPhotoModal({
+      isOpen: true,
+      billNo: cleanBill || 'Pawn Collateral',
+      airPhoto: air,
+      waterPhoto: water,
+      airWeight: aw,
+      waterWeight: ww
+    });
+  };
+
   // Form state
   const BILL_PREFIXES = ['1R', '3M', '3R', '6R', '12R', '6M', 'A'];
   const ITEM_OPTIONS = [
@@ -608,7 +656,12 @@ export default function PawnesPage() {
           weightMg,
           periodMonths,
           itemType,
-          items: itemsList
+          items: itemsList,
+          airWeightPhoto: evaluationData?.airWeightPhoto || null,
+          waterWeightPhoto: evaluationData?.waterWeightPhoto || null,
+          waterWeight: evaluationData?.waterWeight || null,
+          specificGravity: evaluationData?.specificGravity || null,
+          estimatedKarat: evaluationData?.estimatedKarat || null
         }),
       });
 
@@ -1598,15 +1651,16 @@ export default function PawnesPage() {
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed (LKR)</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Date</TableHead>
+              <TableHead className="px-4 py-3 text-center font-black text-[10px] uppercase tracking-widest text-slate-400">Weight Photos</TableHead>
               <TableHead className="px-4 py-3 text-right font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-slate-50">
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Loading pawn registry...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Loading pawn registry...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-64 text-center">
+                <TableCell colSpan={9} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <FileText className="h-12 w-12 text-slate-200" />
                     <p className="text-slate-400 font-bold">{search ? 'No matching pawn items found.' : "No active pawn items. Click 'Originate Pawn' to begin."}</p>
@@ -1664,6 +1718,44 @@ export default function PawnesPage() {
                   </TableCell>
                   <TableCell className="px-4 py-3 text-slate-400 font-bold text-xs uppercase tracking-widest whitespace-nowrap">
                     {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-center whitespace-nowrap">
+                    {pawn.air_weight_photo_url || pawn.water_weight_photo_url ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPhotoViewer(pawn)}
+                        className="inline-flex items-center gap-1.5 p-1 bg-amber-50/90 hover:bg-amber-100 border border-amber-200/90 rounded-xl transition-all shadow-sm hover:scale-105 cursor-pointer group"
+                        title="Click to view captured Air & Water Weight Photos"
+                      >
+                        {pawn.air_weight_photo_url ? (
+                          <img 
+                            src={pawn.air_weight_photo_url} 
+                            alt="Air proof" 
+                            className="w-7 h-7 object-cover rounded-lg border border-amber-400"
+                          />
+                        ) : null}
+                        {pawn.water_weight_photo_url ? (
+                          <img 
+                            src={pawn.water_weight_photo_url} 
+                            alt="Water proof" 
+                            className="w-7 h-7 object-cover rounded-lg border border-blue-400"
+                          />
+                        ) : null}
+                        <span className="text-[10px] font-black text-amber-900 group-hover:text-amber-800 px-1">
+                          View
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPhotoViewer(pawn)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
+                        title="Check Weight Photos"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-[10px]">Photo</span>
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-right">
                     <div className="flex items-center gap-1.5 justify-end">
@@ -1985,6 +2077,114 @@ export default function PawnesPage() {
         getClientNic={getClientNic}
         getCleanDescription={getCleanDescription}
       />
+
+      {/* Captured Weight Photos Viewer Modal */}
+      <Dialog 
+        open={viewPhotoModal.isOpen} 
+        onOpenChange={(v) => setViewPhotoModal(prev => ({ ...prev, isOpen: v }))}
+      >
+        <DialogContent className="w-[95vw] sm:w-[90vw] lg:max-w-3xl bg-white border border-slate-200 shadow-2xl p-0 rounded-2xl sm:rounded-[2.5rem] flex flex-col overflow-hidden">
+          <div className="h-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 shrink-0" />
+          <div className="p-6 border-b border-slate-100">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600">
+                    <Camera className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900">
+                      Captured Weight Photos
+                    </DialogTitle>
+                    <DialogDescription className="text-xs font-bold text-slate-500 mt-0.5">
+                      Scale proof for Bill: <span className="font-mono text-primary font-black">{viewPhotoModal.billNo}</span>
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+            {(!viewPhotoModal.airPhoto && !viewPhotoModal.waterPhoto) ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <Camera className="w-12 h-12 text-slate-300 mb-2" />
+                <p className="text-sm font-bold text-slate-600">No Weight Photos Recorded</p>
+                <p className="text-xs text-slate-400 mt-1">There are no scale photos currently linked to this bill ticket.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Air Weight Photo Card */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-between mb-3">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Air Weight Photo
+                    </span>
+                    {viewPhotoModal.airWeight ? (
+                      <span className="text-xs font-mono font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        {viewPhotoModal.airWeight} mg
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                    {viewPhotoModal.airPhoto ? (
+                      <img 
+                        src={viewPhotoModal.airPhoto} 
+                        alt="Air weight scale photo" 
+                        className="w-full h-full object-contain cursor-zoom-in"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${viewPhotoModal.airPhoto}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 font-bold">No photo taken</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Water Weight Photo Card */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-between mb-3">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Water Weight Photo
+                    </span>
+                    {viewPhotoModal.waterWeight ? (
+                      <span className="text-xs font-mono font-black text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                        {viewPhotoModal.waterWeight} mg
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                    {viewPhotoModal.waterPhoto ? (
+                      <img 
+                        src={viewPhotoModal.waterPhoto} 
+                        alt="Water weight scale photo" 
+                        className="w-full h-full object-contain cursor-zoom-in"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${viewPhotoModal.waterPhoto}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 font-bold">No photo taken</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <Button 
+              type="button" 
+              onClick={() => setViewPhotoModal(prev => ({ ...prev, isOpen: false }))}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 rounded-xl"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
