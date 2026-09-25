@@ -92,6 +92,22 @@ const tellerNavItems = [
   { name: 'Profile', href: '/profile', icon: UserCircle },
 ];
 
+const auditorNavItems = [
+  { name: 'Audit Dashboard', href: '/dashboard/auditor', icon: ShieldCheck },
+  { name: 'System Logs', href: '/operations/audit-logs', icon: FileText },
+  { name: 'CCTV Logs', href: '/cctv/audit-logs', icon: Video },
+  { name: 'Profile', href: '/profile', icon: UserCircle },
+];
+
+const managerNavItems = [
+  { name: 'Approvals', href: '/operations/approvals', icon: CheckSquare },
+  { name: 'Overview', href: '/', icon: LayoutDashboard },
+  { name: 'Pawn Review', href: '/loans', icon: Wallet },
+  { name: 'Transactions', href: '/transactions', icon: ArrowRightLeft },
+  { name: 'End-of-Day', href: '/operations/eod', icon: ShieldCheck },
+  { name: 'Profile', href: '/profile', icon: UserCircle },
+];
+
 export default function DashboardSidebar({ 
   isCollapsed, 
   setIsCollapsed,
@@ -240,6 +256,90 @@ export default function DashboardSidebar({
                   )} />
                   {!isCollapsed && (
                     <span className={cn("text-[12.5px] tracking-tight", isActive ? "font-black text-[#202020]" : "font-semibold")}>
+                      {item.name}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ) : user?.role === 'AUDITOR' ? (
+          <div className="space-y-1.5 pt-1">
+            <div className={cn(
+              "px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-400/90",
+              isCollapsed && "text-center text-[8.5px] px-0"
+            )}>
+              {!isCollapsed ? "Auditor Portal" : "Audit"}
+            </div>
+            {auditorNavItems.map((item) => {
+              const isActive = pathname === item.href || (item.href.includes('?') && pathname === item.href.split('?')[0]);
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => {
+                    if (window.innerWidth < 768 && setIsMobileOpen) {
+                      setIsMobileOpen(false);
+                    }
+                  }}
+                  className={cn(
+                    "group flex items-center h-10 rounded-xl transition-all duration-300 relative overflow-hidden",
+                    isCollapsed ? "justify-center" : "px-3.5",
+                    isActive
+                      ? "bg-amber-500 text-slate-950 font-black shadow-md"
+                      : "text-slate-300 hover:bg-[#333533] hover:text-amber-300"
+                  )}
+                >
+                  <ItemIcon className={cn(
+                    "w-4 h-4 shrink-0 transition-all duration-300 group-hover:scale-105",
+                    isActive ? "text-slate-950" : "text-amber-400 group-hover:text-amber-300",
+                    !isCollapsed && "mr-3"
+                  )} />
+                  {!isCollapsed && (
+                    <span className={cn("text-[12.5px] tracking-tight", isActive ? "font-black text-slate-950" : "font-semibold")}>
+                      {item.name}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ) : user?.role === 'MANAGER' ? (
+          <div className="space-y-1.5 pt-1">
+            <div className={cn(
+              "px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-purple-400/90",
+              isCollapsed && "text-center text-[8.5px] px-0"
+            )}>
+              {!isCollapsed ? "Manager Portal" : "Manager"}
+            </div>
+            {managerNavItems.map((item) => {
+              const isActive = pathname === item.href || (item.href.includes('?') && pathname === item.href.split('?')[0]);
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => {
+                    if (window.innerWidth < 768 && setIsMobileOpen) {
+                      setIsMobileOpen(false);
+                    }
+                  }}
+                  className={cn(
+                    "group flex items-center h-10 rounded-xl transition-all duration-300 relative overflow-hidden",
+                    isCollapsed ? "justify-center" : "px-3.5",
+                    isActive
+                      ? "bg-purple-600 text-white font-black shadow-md"
+                      : "text-slate-300 hover:bg-[#333533] hover:text-purple-300"
+                  )}
+                >
+                  <ItemIcon className={cn(
+                    "w-4 h-4 shrink-0 transition-all duration-300 group-hover:scale-105",
+                    isActive ? "text-white" : "text-purple-400 group-hover:text-purple-300",
+                    !isCollapsed && "mr-3"
+                  )} />
+                  {!isCollapsed && (
+                    <span className={cn("text-[12.5px] tracking-tight", isActive ? "font-black text-white" : "font-semibold")}>
                       {item.name}
                     </span>
                   )}

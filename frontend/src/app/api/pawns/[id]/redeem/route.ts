@@ -25,7 +25,11 @@ export async function POST(
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    if (session && session.role === 'TELLER' && normalizeBranchId(pawn.branch_id) !== normalizeBranchId(session.branchId)) {
+    if (session && session.role === 'AUDITOR') {
+      return NextResponse.json({ error: 'Forbidden. Auditors are not permitted to redeem loans.' }, { status: 403 });
+    }
+
+    if (session && (session.role === 'TELLER' || session.role === 'MANAGER') && normalizeBranchId(pawn.branch_id) !== normalizeBranchId(session.branchId)) {
       return NextResponse.json({ error: 'Forbidden. You cannot redeem pawn tickets belonging to another branch.' }, { status: 403 });
     }
 

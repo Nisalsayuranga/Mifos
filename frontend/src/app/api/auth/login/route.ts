@@ -55,13 +55,18 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     const isAdminEmail = loginEmail.includes('admin') || loginEmail === 'erandiperera25@gmail.com' || loginEmail === 'madushaniperera9617@gmail.com';
-    const role = profile?.role || authData.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER');
-    const effectiveBranch = normalizeBranchId(branch || profile?.branch_id || 'HQ');
+    const role = (profile?.role || authData.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER')).toUpperCase();
+    
+    // For TELLER, prioritize assigned profile branch if set; Managers and Auditors can access all branches including Head Office
+    let effectiveBranch = normalizeBranchId(branch || profile?.branch_id || 'HQ');
+    if (role === 'TELLER' && profile?.branch_id && normalizeBranchId(profile.branch_id) !== 'HQ') {
+      effectiveBranch = normalizeBranchId(profile.branch_id);
+    }
 
-    // Tellers are strictly forbidden from logging into Head Office (HQ)
+    // Only Tellers are forbidden from logging into Head Office (HQ)
     if (role === 'TELLER' && (effectiveBranch === 'HQ' || effectiveBranch === 'HEAD OFFICE')) {
       return NextResponse.json(
-        { error: 'Tellers are not authorized to log into Head Office. Please select your assigned operating branch.' },
+        { error: `Tellers are not authorized to log into Head Office. Please select your assigned operating branch.` },
         { status: 403 }
       );
     }

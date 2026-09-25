@@ -28,23 +28,85 @@ export async function POST(
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    if (session && session.role === 'TELLER' && normalizeBranchId(pawn.branch_id) !== normalizeBranchId(session.branchId)) {
-      return NextResponse.json({ error: 'Forbidden. Tellers cannot approve pawns belonging to another branch.' }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
     }
 
-    if (pawn.status !== 'PENDING_APPROVAL') {
-      return NextResponse.json({ error: 'Pawn ticket is already approved or not pending' }, { status: 400 });
+    // Role check: Only ADMIN and MANAGER can approve pawn transactions
+    if (session.role !== 'ADMIN' && session.role !== 'MANAGER') {
+      return NextResponse.json({ error: `Forbidden. Role '${session.role}' is not authorized to approve loans.` }, { status: 403 });
+    }
+
+    // Managers and Admins can approve transactions across all branches including Head Office
+
+    // Auditor Unresolved Issue Check: Transaction must NOT proceed to Manager approval when Auditor has raised an unresolved issue
+    if (pawn.status === 'REQUIRES_RECHECK') {
+      return NextResponse.json({ 
+        error: 'Cannot approve transaction. The Auditor has raised an issue/error note. This transaction requires correction and recheck before it can be approved.' 
+      }, { status: 409 });
+    }
+
+    const cleanBill = (pawn.bill_no || '').trim();
+    let issueQuery = adminSupabase.from('audit_logs').select('*').eq('action', 'AUDIT_ISSUE_RAISED');
+    if (cleanBill) {
+      issueQuery = issueQuery.or(`resource.eq.${cleanBill},resource.eq.${pawn.id}`);
+    } else {
+      issueQuery = issueQuery.eq('resource', pawn.id);
+    }
+    const { data: issues } = await issueQuery;
+    const hasUnresolvedIssue = (issues || []).some((l: any) => l.details?.status === 'REQUIRES_RECHECK' || l.details?.resolved === false);
+
+    if (hasUnresolvedIssue) {
+      return NextResponse.json({ 
+        error: 'Cannot approve transaction. There is an active, unresolved Auditor issue note on this transaction.' 
+      }, { status: 409 });
+    }
+
+    if (pawn.status !== 'PENDING_APPROVAL' && pawn.status !== 'AUDITED_PENDING_APPROVAL') {
+      return NextResponse.json({ error: 'Pawn ticket is already approved or not pending approval' }, { status: 400 });
     }
 
     const principal = pawn.disbursed_amount || 0;
+    const managerId = session.user?.id || (session as any).id || approvedBy || 'MANAGER';
+    const managerEmail = session.user?.email || (session as any).email || 'manager@mifos.lk';
+    const approvalTimestamp = new Date().toISOString();
 
-    // 2. Update Pawn Status to ACTIVE
+    // 2. Update Pawn Status to ACTIVE with Manager Approval Metadata
     const { error: updateError } = await adminSupabase
       .from('pawns')
-      .update({ status: 'ACTIVE' })
+      .update({ 
+        status: 'ACTIVE',
+        approved_by: managerId,
+        approved_at: approvalTimestamp
+      })
       .eq('id', id);
 
     if (updateError) throw updateError;
+
+    // 2b. Record Manager Approval in audit_logs
+    try {
+      await adminSupabase.from('audit_logs').insert([{
+        user_id: managerId,
+        user_email: managerEmail,
+        role: session.role || 'MANAGER',
+        branch_id: pawn.branch_id,
+        action: 'MANAGER_APPROVED',
+        resource: cleanBill,
+        details: {
+          pawn_id: pawn.id,
+          bill_no: cleanBill,
+          manager_id: managerId,
+          manager_email: managerEmail,
+          branch_id: pawn.branch_id,
+          action: 'FINAL_APPROVED',
+          status: 'ACTIVE',
+          approved_at: approvalTimestamp
+        },
+        created_at: approvalTimestamp
+      }]);
+    } catch (logErr) {
+      console.warn("Audit log insert warning:", logErr);
+    }
 
     // 3. Log Disbursement Transaction (Soft Fallback)
     try {

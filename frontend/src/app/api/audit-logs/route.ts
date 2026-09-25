@@ -15,15 +15,15 @@ export async function GET(request: Request) {
 
     let query = adminSupabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(250);
 
-    if (session) {
-      if (session.role === 'TELLER') {
-        query = query.ilike('branch_id', `%${session.branchId}%`);
-      } else if (session.role === 'ADMIN') {
-        if (requestedBranch && requestedBranch !== 'ALL') {
-          query = query.ilike('branch_id', `%${requestedBranch}%`);
-        }
-      }
-    } else {
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized. Valid session token required to view audit logs.' }, { status: 401 });
+    }
+
+    if (session.role === 'TELLER') {
+      // Tellers can only access audit logs for their assigned operating branch
+      query = query.ilike('branch_id', `%${session.branchId}%`);
+    } else if (session.role === 'ADMIN' || session.role === 'MANAGER' || session.role === 'AUDITOR') {
+      // Admins, Managers, and Auditors can access audit logs across all branches including Head Office
       if (requestedBranch && requestedBranch !== 'ALL') {
         query = query.ilike('branch_id', `%${requestedBranch}%`);
       }

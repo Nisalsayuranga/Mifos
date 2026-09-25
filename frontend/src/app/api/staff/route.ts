@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
-    if (session && session.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden. Admin privileges required to manage staff.' }, { status: 403 });
+    if (session && session.role !== 'ADMIN' && session.role !== 'MANAGER') {
+      return NextResponse.json({ error: 'Forbidden. Admin or Manager privileges required to view staff.' }, { status: 403 });
     }
 
     // Get all auth users
@@ -99,6 +99,11 @@ export async function POST(request: Request) {
        throw new Error('Auth user creation failed (no user object returned)');
     }
 
+    const normalizedRole = (role || 'TELLER').toUpperCase();
+    if ((normalizedRole === 'TELLER' || normalizedRole === 'AUDITOR' || normalizedRole === 'MANAGER') && (branchId === 'HQ' || branchId === 'HEAD OFFICE')) {
+      return NextResponse.json({ error: `${normalizedRole} accounts must be assigned to an operating branch, not Head Office.` }, { status: 400 });
+    }
+
     // 2. Create the profile record
     console.log('[DEBUG] POST /api/staff creating profile record for user:', newUser.user.id);
     const { error: profileError } = await adminSupabase.from('profiles').insert({
@@ -106,7 +111,7 @@ export async function POST(request: Request) {
       email,
       branch_id: branchId,
       branch_name: branchName,
-      role: role || 'TELLER',
+      role: normalizedRole,
       created_at: new Date().toISOString(),
     });
 

@@ -18,7 +18,7 @@ import { getAuthHeaders } from '@/lib/getAuthHeaders';
 
 // Branches will be fetched dynamically from /api/branches
 
-const ROLES = ['TELLER', 'ADMIN', 'AUDITOR'];
+const ROLES = ['TELLER', 'ADMIN', 'AUDITOR', 'MANAGER'];
 
 export default function StaffPage() {
   const [staff, setStaff]             = useState<any[]>([]);
@@ -303,6 +303,7 @@ export default function StaffPage() {
   const roleColor = (r: string) => {
     if (r === 'ADMIN') return 'bg-indigo-100 text-indigo-700 border-indigo-200';
     if (r === 'AUDITOR') return 'bg-amber-100 text-amber-900 border-amber-300';
+    if (r === 'MANAGER') return 'bg-purple-100 text-purple-800 border-purple-200';
     return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   };
 
@@ -340,11 +341,12 @@ export default function StaffPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         {[
           { label: 'Total Users',  value: staff.length,                                              color: 'text-slate-900' },
           { label: 'Branches',     value: branches.length,                                           color: 'text-emerald-600' },
           { label: 'Admins',       value: staff.filter(s => s.role === 'ADMIN').length,              color: 'text-indigo-600' },
+          { label: 'Managers',     value: staff.filter(s => s.role === 'MANAGER').length,            color: 'text-purple-600' },
           { label: 'Auditors',     value: staff.filter(s => s.role === 'AUDITOR').length,            color: 'text-amber-600' },
           { label: 'Reset Requests', value: resetRequests.filter(r => r.status === 'PENDING').length, color: 'text-rose-600' },
         ].map(s => (
@@ -617,19 +619,29 @@ export default function StaffPage() {
                           <ShieldCheck className="w-3.5 h-3.5" /> All Branches (Admin)
                         </span>
                       ) : user.role === 'AUDITOR' ? (
-                        <span className="text-amber-700 font-bold flex items-center gap-1.5">
-                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> All Branches (Auditor)
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-amber-800 font-bold flex items-center gap-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> {user.branch_name || 'Assigned Branch'}
+                          </span>
+                          <span className="text-[10px] text-amber-600/70 font-semibold">Branch Auditor</span>
+                        </div>
+                      ) : user.role === 'MANAGER' ? (
+                        <div className="flex flex-col">
+                          <span className="text-purple-800 font-bold flex items-center gap-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-purple-600" /> {user.branch_name || 'Assigned Branch'}
+                          </span>
+                          <span className="text-[10px] text-purple-600/70 font-semibold">Branch Manager</span>
+                        </div>
                       ) : (
                         <div className="flex flex-col">
-                          <span className="text-slate-900 font-bold">{user.branch_name || 'Rotational Branch'}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">Shift Rotational</span>
+                          <span className="text-slate-900 font-bold">{user.branch_name || 'Operating Branch'}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">Counter Staff</span>
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="px-8 py-5">
                       <span className="font-black text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-lg tracking-widest" title={user.branch_id}>
-                        {(user.role === 'ADMIN' || user.role === 'AUDITOR') ? 'ALL' : ((user.branch_id && user.branch_id.length > 8) ? `${user.branch_id.substring(0, 8)}...` : (user.branch_id || 'ANY'))}
+                        {user.role === 'ADMIN' ? 'ALL' : ((user.branch_id && user.branch_id.length > 8) ? `${user.branch_id.substring(0, 8)}...` : (user.branch_id || 'BRANCH'))}
                       </span>
                     </TableCell>
                     <TableCell className="px-8 py-5">

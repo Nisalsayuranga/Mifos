@@ -6,6 +6,134 @@ export const dynamic = 'force-dynamic';
 
 const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
 
+export async function GET(request: Request, context: any) {
+  try {
+    const session = await getAuthenticatedUser(request);
+    const { id } = await context.params;
+
+    // 1. Fetch pawn details (support both UUID or bill_no)
+    let query = adminSupabase.from('pawns').select('*');
+    if (isUUID(id)) {
+      query = query.eq('id', id);
+    } else {
+      query = query.eq('bill_no', id);
+    }
+    const { data: pawn, error: fetchErr } = await query.maybeSingle();
+
+    if (fetchErr || !pawn) {
+      return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
+    }
+
+    // 2. Branch authorization check: Only TELLER is locked to their operating branch; Managers and Auditors can access all branches including Head Office
+    if (session && session.role === 'TELLER') {
+      const sessBranch = normalizeBranchId(session.branchId);
+      const pawnBranch = normalizeBranchId(pawn.branch_id);
+      if (sessBranch !== pawnBranch) {
+        return NextResponse.json({ error: 'Forbidden. You are not authorized to view transactions from another branch.' }, { status: 403 });
+      }
+    }
+
+    // 3. Fetch customer / client info
+    let client: any = null;
+    if (pawn.client_id) {
+      const { data: clientRow } = await adminSupabase
+        .from('clients')
+        .select('*')
+        .eq('id', pawn.client_id)
+        .maybeSingle();
+      client = clientRow;
+    }
+
+    // 4. Fetch pawn collateral items
+    const { data: items } = await adminSupabase
+      .from('pawn_items')
+      .select('*')
+      .eq('pawn_id', pawn.id);
+
+    // 5. Fetch Archimedes scale evidence photos from rejected_evaluations
+    let evaluationEvidence: any = null;
+    const cleanBill = (pawn.bill_no || '').trim();
+    if (cleanBill) {
+      const { data: evalRows } = await adminSupabase
+        .from('rejected_evaluations')
+        .select('*')
+        .eq('status', `BILL:${cleanBill}`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (evalRows && evalRows.length > 0) {
+        evaluationEvidence = evalRows[0];
+      }
+    }
+
+    // 6. Fetch stock item details from stock_items
+    let stockItems: any[] = [];
+    if (cleanBill) {
+      const { data: sRows } = await adminSupabase
+        .from('stock_items')
+        .select('*')
+        .ilike('bill_no', `%${cleanBill}%`);
+      stockItems = sRows || [];
+    }
+
+    // 7. Fetch cash & transaction records from transaction table
+    let transactions: any[] = [];
+    if (pawn.client_id) {
+      const { data: txRows } = await adminSupabase
+        .from('transaction')
+        .select('*')
+        .eq('client_id', pawn.client_id)
+        .order('timestamp', { ascending: false })
+        .limit(10);
+      transactions = txRows || [];
+    }
+
+    // 8. Fetch daily ledger reconciliation summary for branch on creation date
+    let dailyLedger: any = null;
+    const pawnDateStr = pawn.created_at ? pawn.created_at.split('T')[0] : '';
+    if (pawnDateStr && pawn.branch_id) {
+      const { data: ledgerRows } = await adminSupabase
+        .from('daily_ledger')
+        .select('*')
+        .eq('branch_id', pawn.branch_id)
+        .eq('date', pawnDateStr)
+        .maybeSingle();
+      dailyLedger = ledgerRows;
+    }
+
+    // 9. Fetch historical audit logs for this bill
+    let auditHistory: any[] = [];
+    let queryLogs = adminSupabase.from('audit_logs').select('*');
+    if (cleanBill) {
+      queryLogs = queryLogs.or(`resource.eq.${cleanBill},resource.eq.${pawn.id}`);
+    } else {
+      queryLogs = queryLogs.eq('resource', pawn.id);
+    }
+    const { data: aLogs } = await queryLogs.order('created_at', { ascending: false });
+    auditHistory = aLogs || [];
+
+    const unresolvedIssues = auditHistory.filter(
+      (log: any) => log.action === 'AUDIT_ISSUE_RAISED' && (log.details?.resolved === false || log.details?.status === 'REQUIRES_RECHECK')
+    );
+
+    return NextResponse.json({
+      success: true,
+      pawn,
+      client,
+      items: items || [],
+      evaluationEvidence,
+      stockItems,
+      transactions,
+      dailyLedger,
+      auditHistory,
+      unresolvedIssues
+    });
+  } catch (error: any) {
+    console.error('Pawn GET error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request, context: any) {
   try {
     const session = await getAuthenticatedUser(request);

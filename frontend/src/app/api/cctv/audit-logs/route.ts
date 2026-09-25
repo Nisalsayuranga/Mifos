@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       logs = DEMO_AUDIT_LOGS;
     }
 
-    if (session && session.role === 'TELLER') {
+    if (session && (session.role === 'TELLER' || session.role === 'AUDITOR' || session.role === 'MANAGER')) {
       const userBranch = String(session.branchId).trim().toUpperCase();
       if (userBranch !== 'HQ' && userBranch !== 'ALL') {
         logs = logs.filter((l: any) => String(l.branch_id).trim().toUpperCase() === userBranch);

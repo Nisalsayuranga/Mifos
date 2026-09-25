@@ -22,11 +22,12 @@ export async function GET(request: Request) {
 
     if (session) {
       if (session.role === 'TELLER') {
-        // Teller is restricted to their assigned branch (matches canonical and aliases)
+        // Tellers can only query pawns belonging to their assigned operating branch
         const terms = getBranchSearchTerms(session.branchId);
         const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
         query = query.or(orClause);
-      } else if (session.role === 'ADMIN') {
+      } else if (session.role === 'ADMIN' || session.role === 'MANAGER' || session.role === 'AUDITOR') {
+        // Admins, Managers, and Auditors can access ALL branches including Head Office, or filter by requested branch
         if (requestedBranch && requestedBranch !== 'ALL') {
           const terms = getBranchSearchTerms(requestedBranch);
           const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
@@ -142,7 +143,10 @@ export async function POST(request: Request) {
     let targetUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : HARDCODED_FALLBACK_USER_ID);
 
     if (session) {
-      if (session.role === 'TELLER') {
+      if (session.role === 'AUDITOR') {
+        return NextResponse.json({ error: 'Forbidden. Auditors are not permitted to originate loans.' }, { status: 403 });
+      }
+      if (session.role === 'TELLER' || session.role === 'MANAGER') {
         const normReq = normalizeBranchId(branchId);
         const normSess = normalizeBranchId(session.branchId);
         if (branchId && normReq !== normSess) {

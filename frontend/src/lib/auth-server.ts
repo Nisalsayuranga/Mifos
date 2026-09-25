@@ -10,10 +10,12 @@ export const adminSupabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+export type UserRole = 'ADMIN' | 'TELLER' | 'AUDITOR' | 'MANAGER';
+
 export interface AuthSession {
   user: any;
   profile: any;
-  role: 'ADMIN' | 'TELLER' | 'AUDITOR';
+  role: UserRole;
   branchId: string;
   branchName?: string;
   isAuthorized: boolean;
@@ -60,23 +62,27 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
       .eq('id', user.id)
       .single();
 
-    const role = (profile?.role || 'TELLER').toUpperCase() as 'ADMIN' | 'TELLER' | 'AUDITOR';
+    const role = (profile?.role || 'TELLER').toUpperCase() as UserRole;
     let branchId = normalizeBranchId(profile?.branch_id || 'HQ');
     let branchName = profile?.branch_name || '';
 
-    // Multi-branch teller support:
-    // If the client sent an x-branch-id header (the branch selected at login),
-    // override the profile's fixed branch_id for TELLER sessions.
-    // ADMIN and AUDITOR roles are not restricted to a branch, so we skip them.
+    // Only TELLER is restricted to a single operating branch.
+    // ADMIN, AUDITOR, and MANAGER roles have cross-branch and Head Office access.
     if (role === 'TELLER') {
       const selectedBranch =
         request.headers.get('x-branch-id') ||
         request.headers.get('X-Branch-Id') ||
         request.headers.get('X-BRANCH-ID');
+      
       if (selectedBranch && selectedBranch.trim() !== '') {
-        branchId = normalizeBranchId(selectedBranch.trim());
-        // branchName is cosmetic; leave it from profile if not overridden
+        const normSelected = normalizeBranchId(selectedBranch.trim());
+        if (profile?.branch_id && normalizeBranchId(profile.branch_id) !== 'HQ') {
+          branchId = normalizeBranchId(profile.branch_id);
+        } else {
+          branchId = normSelected;
+        }
       }
+
       // Tellers are strictly prohibited from operating as Head Office (HQ)
       if (branchId === 'HQ' || branchId === 'HEAD OFFICE') {
         branchId = '';
@@ -103,15 +109,15 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
  */
 export function validateBranchAccess(session: AuthSession | null, targetBranchId?: string | null): boolean {
   if (!session) return false;
-  if (session.role === 'ADMIN' || session.role === 'AUDITOR') return true;
+  // ADMIN, AUDITOR, and MANAGER have global access across all branches including Head Office
+  if (session.role === 'ADMIN' || session.role === 'AUDITOR' || session.role === 'MANAGER') return true;
 
-  // TELLER role
+  // TELLER role is strictly bound to their assigned branch
   if (!targetBranchId || targetBranchId === 'ALL' || targetBranchId === 'HQ') {
-    // Tellers cannot request ALL or HQ
     return false;
   }
 
-  return session.branchId === targetBranchId;
+  return normalizeBranchId(session.branchId) === normalizeBranchId(targetBranchId);
 }
 
 /**
@@ -120,15 +126,12 @@ export function validateBranchAccess(session: AuthSession | null, targetBranchId
  */
 export async function enforceApiAuth(
   request: Request,
-  requiredRole?: 'ADMIN' | 'TELLER' | 'AUDITOR',
+  allowedRoles?: UserRole | UserRole[],
   targetBranchId?: string | null
 ): Promise<{ session: AuthSession | null; errorResponse: NextResponse | null }> {
   const session = await getAuthenticatedUser(request);
 
   if (!session) {
-    // For legacy compatibility, if no session token is provided in headers during transitional calls,
-    // we log a warning and return null errorResponse ONLY if fallback is acceptable, but in strict production
-    // we require auth. Let's inspect parameters.
     return {
       session: null,
       errorResponse: NextResponse.json(
@@ -138,24 +141,29 @@ export async function enforceApiAuth(
     };
   }
 
-  if (requiredRole === 'ADMIN' && session.role !== 'ADMIN') {
-    return {
-      session,
-      errorResponse: NextResponse.json(
-        { error: 'Forbidden. Admin privileges required.' },
-        { status: 403 }
-      )
-    };
+  if (allowedRoles) {
+    const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+    if (!rolesArray.includes(session.role)) {
+      return {
+        session,
+        errorResponse: NextResponse.json(
+          { error: `Forbidden. Requires one of the following roles: ${rolesArray.join(', ')}.` },
+          { status: 403 }
+        )
+      };
+    }
   }
 
-  if (session.role === 'TELLER' && targetBranchId && targetBranchId !== session.branchId) {
-    return {
-      session,
-      errorResponse: NextResponse.json(
-        { error: 'Forbidden. Tellers cannot access data belonging to another branch.' },
-        { status: 403 }
-      )
-    };
+  if (session.role !== 'ADMIN' && targetBranchId) {
+    if (!validateBranchAccess(session, targetBranchId)) {
+      return {
+        session,
+        errorResponse: NextResponse.json(
+          { error: `Forbidden. You are not authorized to access or modify data for branch ${targetBranchId}.` },
+          { status: 403 }
+        )
+      };
+    }
   }
 
   return { session, errorResponse: null };

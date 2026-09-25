@@ -29,7 +29,13 @@ export async function PATCH(request: Request, context: any) {
     if (email)      profileUpdates.email       = email;
     if (branchId)   profileUpdates.branch_id   = branchId;
     if (branchName) profileUpdates.branch_name = branchName;
-    if (role)       profileUpdates.role        = role;
+    if (role)       profileUpdates.role        = String(role).toUpperCase();
+
+    const targetRole = profileUpdates.role;
+    const targetBranch = profileUpdates.branch_id;
+    if (targetRole === 'TELLER' && (targetBranch === 'HQ' || targetBranch === 'HEAD OFFICE')) {
+      return NextResponse.json({ error: `TELLER accounts must be assigned to an operating branch, not Head Office.` }, { status: 400 });
+    }
 
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await adminSupabase.from('profiles').update(profileUpdates).eq('id', id);

@@ -1705,7 +1705,11 @@ export default function PawnesPage() {
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <Badge className={`font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 border ${
-                      pawn.status === 'PENDING_APPROVAL' 
+                      pawn.status === 'REQUIRES_RECHECK'
+                        ? "bg-rose-100 text-rose-800 border-rose-300 animate-pulse"
+                        : pawn.status === 'AUDITED_PENDING_APPROVAL'
+                        ? "bg-blue-50 text-blue-800 border-blue-200"
+                        : pawn.status === 'PENDING_APPROVAL' 
                         ? "bg-amber-50 text-amber-800 border-amber-200"
                         : pawn.status === 'ACTIVE'
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -1713,7 +1717,11 @@ export default function PawnesPage() {
                             ? "bg-purple-50 text-purple-700 border-purple-200"
                             : "bg-slate-50 text-slate-700 border-slate-200"
                     }`}>
-                      {pawn.status || 'ACTIVE'}
+                      {pawn.status === 'REQUIRES_RECHECK' 
+                        ? '⚠ REQUIRES RECHECK' 
+                        : pawn.status === 'AUDITED_PENDING_APPROVAL'
+                        ? '✓ AUDITED (PENDING MGR)'
+                        : (pawn.status || 'ACTIVE')}
                     </Badge>
                   </TableCell>
                   <TableCell className="px-4 py-3 text-slate-400 font-bold text-xs uppercase tracking-widest whitespace-nowrap">

@@ -141,14 +141,10 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    // Branch is required — block login if not selected
-    if (!branch) {
-      setBranchError(true);
-      return;
-    }
     setBranchError(false);
     setLoading(true);
+
+    const effectiveBranchInput = branch || 'HQ';
 
     try {
       let loginEmail = email.trim();
@@ -169,7 +165,7 @@ export default function LoginPage() {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: loginEmail, password, branch })
+          body: JSON.stringify({ email: loginEmail, password, branch: effectiveBranchInput })
         });
         const resData = await res.json();
         if (res.ok && resData.success) {
@@ -181,7 +177,6 @@ export default function LoginPage() {
         }
       } catch (srvErr: any) {
         // Only re-throw if it's a real auth error from the server (not a fetch/network failure)
-        // "fetch failed", "Failed to fetch", etc. = API route missing or network issue → use fallback
         const msg = srvErr?.message || '';
         const isNetworkError = msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('econnrefused');
         if (!isNetworkError && msg) {
@@ -202,15 +197,15 @@ export default function LoginPage() {
         userRole = profile?.role || data.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER');
       }
 
-      const effectiveBranch = normalizeBranchId(branch);
+      const effectiveBranch = normalizeBranchId(effectiveBranchInput);
 
-      // Tellers are strictly forbidden from logging into Head Office (HQ)
+      // Only Tellers are strictly forbidden from logging into Head Office (HQ)
       if (userRole === 'TELLER' && (effectiveBranch === 'HQ' || effectiveBranch === 'HEAD OFFICE')) {
         await supabase.auth.signOut();
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
         document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        throw new Error('Tellers are not authorized to log into Head Office. Please select your assigned operating branch.');
+        throw new Error(`Tellers are not authorized to log into Head Office. Please select your assigned operating branch.`);
       }
 
       if (tok) {
@@ -229,7 +224,15 @@ export default function LoginPage() {
         branchName: branchList.find(b => b.id === effectiveBranch || b.id === branch)?.name || effectiveBranch,
       }));
 
-      window.location.href = (userRole === 'TELLER') ? '/loans' : '/';
+      if (userRole === 'TELLER') {
+        window.location.href = '/loans';
+      } else if (userRole === 'AUDITOR') {
+        window.location.href = '/dashboard/auditor';
+      } else if (userRole === 'MANAGER') {
+        window.location.href = '/operations/approvals';
+      } else {
+        window.location.href = '/';
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -662,17 +665,18 @@ export default function LoginPage() {
 
                     {/* Branch */}
                     <div className="field">
-                      <label className="field-label" htmlFor="l-branch">
-                        Branch <span style={{ color: '#ef4444' }}>*</span>
+                      <label className="field-label" htmlFor="l-branch" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Branch</span>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>Defaults to Head Office (HQ)</span>
                       </label>
                       <div className="br-wrap">
                         <div className="inp-icon" style={{ zIndex: 1, color: branchError ? '#f87171' : undefined }}><Building2 size={15} /></div>
                         <button id="l-branch" type="button"
-                          className={`br-btn${branchOpen ? ' open' : ''}${branchError && !branch ? ' error' : ''}`}
-                          onClick={() => { setBranchOpen(v => !v); if (branchError) setBranchError(false); }}
+                          className={`br-btn${branchOpen ? ' open' : ''}`}
+                          onClick={() => { setBranchOpen(v => !v); }}
                           aria-haspopup="listbox" aria-expanded={branchOpen}>
                           <span className={`br-txt ${selectedBranch ? 'br-txt--val' : 'br-txt--ph'}`}>
-                            {selectedBranch ? selectedBranch.name : 'Select your branch'}
+                            {selectedBranch ? selectedBranch.name : 'Head Office (All Branches)'}
                           </span>
                           <ChevronDown size={15} className="br-chev" />
                         </button>
@@ -682,19 +686,14 @@ export default function LoginPage() {
                               <button key={b.id} type="button" role="option"
                                 aria-selected={branch === b.id}
                                 className={`br-item${branch === b.id ? ' sel' : ''}`}
-                                onClick={() => { setBranch(b.id); setBranchOpen(false); setBranchError(false); }}>
+                                onClick={() => { setBranch(b.id); setBranchOpen(false); }}>
                                 <span>{b.name}</span>
-                                {b.id === 'HQ' && <span style={{ fontSize: '10px', color: '#ffd100', marginLeft: '6px', fontWeight: 700 }}>(Admin Only)</span>}
+                                {b.id === 'HQ' && <span style={{ fontSize: '10px', color: '#ffd100', marginLeft: '6px', fontWeight: 600 }}>(All Branches)</span>}
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
-                      {branchError && !branch && (
-                        <p className="br-err-msg" role="alert">
-                          <span>⚠</span> Please select a branch to continue.
-                        </p>
-                      )}
                     </div>
 
                     {error && <div className="alert-err" role="alert"><span>⚠</span>{error}</div>}
