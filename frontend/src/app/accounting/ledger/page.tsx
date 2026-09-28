@@ -1112,14 +1112,70 @@ function MainLedgerContent() {
                     {/* 1B. Opening Cash */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 gap-2">
                       <span className="font-extrabold text-xs text-emerald-950">1B. Opening Cash</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={openingBalance}
-                        onChange={(e) => setOpeningBalance(e.target.value)}
-                        className="w-full sm:w-36 bg-white border border-emerald-300 rounded-lg px-3 py-1.5 text-right font-mono text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const str = String(openingBalance ?? '').trim();
+                              if (str.startsWith('-')) {
+                                setOpeningBalance(str.substring(1));
+                              } else {
+                                const num = Number(str);
+                                if (!isNaN(num) && num < 0) {
+                                  setOpeningBalance(String(Math.abs(num)));
+                                }
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded text-xs font-black transition-all border ${
+                              !String(openingBalance ?? '').trim().startsWith('-') && (Number(openingBalance) || 0) >= 0
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                : 'bg-white text-slate-500 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700'
+                            }`}
+                            title="Positive (+)"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const str = String(openingBalance ?? '').trim();
+                              if (!str.startsWith('-')) {
+                                if (str === '' || str === '0' || str === '0.00') {
+                                  setOpeningBalance('-');
+                                } else {
+                                  setOpeningBalance(`-${str}`);
+                                }
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded text-xs font-black transition-all border ${
+                              String(openingBalance ?? '').trim().startsWith('-') || (Number(openingBalance) || 0) < 0
+                                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                : 'bg-white text-slate-500 border-slate-300 hover:bg-rose-50 hover:text-rose-700'
+                            }`}
+                            title="Negative (-)"
+                          >
+                            -
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={openingBalance}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                              setOpeningBalance(val);
+                            }
+                          }}
+                          className={`w-full sm:w-36 bg-white border rounded-lg px-3 py-1.5 text-right font-mono text-xs font-bold focus:ring-2 focus:outline-none ${
+                            String(openingBalance ?? '').trim().startsWith('-') || (Number(openingBalance) || 0) < 0
+                              ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                              : 'text-slate-900 border-emerald-300 focus:ring-emerald-500'
+                          }`}
+                        />
+                      </div>
                     </div>
 
                     {/* Cash Received */}

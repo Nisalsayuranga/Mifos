@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { 
   Plus, Search, UserPlus, Sparkles, Filter, MoreVertical, RefreshCcw, 
   Pencil, Trash2, ShieldCheck, UserCog, Camera, CameraOff, MapPin, Image,
-  Users, Edit, FileText
+  Users, Edit, FileText, Check, AlertTriangle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
@@ -434,6 +434,24 @@ export default function ClientsPage() {
       return;
     }
 
+    const phoneDigits = (phone || '').replace(/\D/g, '');
+    if (!phoneDigits || phoneDigits.length < 10) {
+      toast.error("invalid mobile number", {
+        description: "Mobile number must be at least 10 digits."
+      });
+      return;
+    }
+
+    if (!nicFrontImage || !nicBackImage || !signatureImage) {
+      toast.error("capture the pictures", {
+        description: "Please capture NIC Front, NIC Back, and Signature pictures before proceeding."
+      });
+      if (!nicFrontImage) setActiveKycTab('nic_front');
+      else if (!nicBackImage) setActiveKycTab('nic_back');
+      else if (!signatureImage) setActiveKycTab('signature');
+      return;
+    }
+
     setIsSaving(true);
     const toastId = toast.loading(editingClient ? "Updating customer profile..." : "Saving customer profile...");
 
@@ -732,8 +750,25 @@ export default function ClientsPage() {
                 </div>
 
                 <div className="grid gap-1.5">
-                  <Label htmlFor="phone" className="font-black text-[10px] uppercase tracking-widest text-slate-400">TP (Phone Number)</Label>
-                  <Input value={phone} onChange={e=>setPhone(e.target.value)} id="phone" placeholder="e.g. 077 123 4567" className="h-11 bg-white/50 rounded-xl font-mono font-bold text-slate-800 text-xs sm:text-sm" />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="phone" className="font-black text-[10px] uppercase tracking-widest text-slate-400">TP (Phone Number)</Label>
+                    <span className={`text-[10px] font-bold ${(phone || '').replace(/\D/g, '').length === 10 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      {(phone || '').replace(/\D/g, '').length}/10 digits
+                    </span>
+                  </div>
+                  <Input 
+                    value={phone} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      const digits = val.replace(/\D/g, '');
+                      if (digits.length <= 10) {
+                        setPhone(val);
+                      }
+                    }} 
+                    id="phone" 
+                    placeholder="e.g. 077 123 4567" 
+                    className="h-11 bg-white/50 rounded-xl font-mono font-bold text-slate-800 text-xs sm:text-sm" 
+                  />
                 </div>
 
                 <div className="grid gap-1.5">
@@ -761,7 +796,15 @@ export default function ClientsPage() {
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                     }`}
                   >
-                    <span className="whitespace-nowrap flex items-center gap-1"><span>🪪</span> <span className="truncate">NIC Front</span></span>
+                    <span className="whitespace-nowrap flex items-center gap-1">
+                      <span>🪪</span> 
+                      <span className="truncate">NIC Front</span>
+                      {nicFrontImage ? (
+                        <Check className="w-3 h-3 text-emerald-400 inline-block stroke-[3]" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                      )}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -772,7 +815,15 @@ export default function ClientsPage() {
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                     }`}
                   >
-                    <span className="whitespace-nowrap flex items-center gap-1"><span>🪪</span> <span className="truncate">NIC Back</span></span>
+                    <span className="whitespace-nowrap flex items-center gap-1">
+                      <span>🪪</span> 
+                      <span className="truncate">NIC Back</span>
+                      {nicBackImage ? (
+                        <Check className="w-3 h-3 text-emerald-400 inline-block stroke-[3]" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                      )}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -783,7 +834,15 @@ export default function ClientsPage() {
                         : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                     }`}
                   >
-                    <span className="whitespace-nowrap flex items-center gap-1"><span>✍️</span> <span className="truncate">Signature</span></span>
+                    <span className="whitespace-nowrap flex items-center gap-1">
+                      <span>✍️</span> 
+                      <span className="truncate">Signature</span>
+                      {signatureImage ? (
+                        <Check className="w-3 h-3 text-emerald-400 inline-block stroke-[3]" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                      )}
+                    </span>
                   </button>
                 </div>
 
@@ -824,16 +883,32 @@ export default function ClientsPage() {
           </div>
 
           {/* Fixed Footer */}
-          <div className="p-4 sm:p-6 pt-3 border-t border-slate-100/80 bg-slate-50/80 shrink-0 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
-            <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => { setIsOpen(false); setEditingClient(null); }}>Cancel</Button>
-            <Button 
-              disabled={isSaving}
-              onClick={handleSave} 
-              className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer w-full sm:w-auto"
-            >
-              {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
-              {isSaving ? "Saving Record..." : "Register Customer"}
-            </Button>
+          <div className="p-4 sm:p-6 pt-3 border-t border-slate-100/80 bg-slate-50/80 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 w-full sm:w-auto">
+              {(!nicFrontImage || !nicBackImage || !signatureImage) ? (
+                <span className="flex items-center gap-1.5 text-amber-700 bg-amber-50 border border-amber-200/80 px-3 py-1.5 rounded-xl text-[11px] font-bold">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Pictures required: {!nicFrontImage ? 'NIC Front' : ''} {!nicBackImage ? (!nicFrontImage ? '• NIC Back' : 'NIC Back') : ''} {!signatureImage ? (!nicFrontImage || !nicBackImage ? '• Signature' : 'Signature') : ''}</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-xl text-[11px] font-bold">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 stroke-[3]" />
+                  <span>All 3 KYC pictures captured</span>
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button variant="ghost" className="font-bold text-slate-500 h-11 sm:h-12 rounded-xl w-full sm:w-auto" onClick={() => { setIsOpen(false); setEditingClient(null); }}>Cancel</Button>
+              <Button 
+                disabled={isSaving}
+                onClick={handleSave} 
+                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer w-full sm:w-auto"
+              >
+                {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
+                {isSaving ? "Saving Record..." : (editingClient ? "Update Customer" : "Register Customer")}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

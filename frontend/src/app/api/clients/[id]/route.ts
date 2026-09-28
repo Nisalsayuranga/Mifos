@@ -13,6 +13,13 @@ export async function PATCH(request: Request, context: any) {
     const { id } = await context.params;
     const body = await request.json();
 
+    if (body.phone) {
+      const phoneDigits = String(body.phone).replace(/\D/g, '');
+      if (phoneDigits.length < 10) {
+        return NextResponse.json({ error: "invalid mobile number" }, { status: 400 });
+      }
+    }
+
     const { data, error } = await adminSupabase
       .from('clients')
       .update({

@@ -358,6 +358,23 @@ export default function AuditorVerificationPage() {
   const { pawn, client, items, evaluationEvidence, stockItems, transactions, dailyLedger, auditHistory } = data;
   const grossWeightGrams = (parseFloat(pawn.weight_mg) / 1000) || parseFloat(pawn.weight_grams) || parseFloat(pawn.weight) || 0;
 
+  // Safely parse KYC customer pictures
+  let customerNicFront: string | null = null;
+  let customerNicBack: string | null = null;
+  if (client?.nic_image) {
+    try {
+      const parsed = JSON.parse(client.nic_image);
+      customerNicFront = parsed.front || null;
+      customerNicBack = parsed.back || null;
+    } catch {
+      if (typeof client.nic_image === 'string' && (client.nic_image.startsWith('data:') || client.nic_image.startsWith('http'))) {
+        customerNicFront = client.nic_image;
+      }
+    }
+  }
+  const customerSignature: string | null = client?.signature_image || null;
+  const customerAvatar: string | null = client?.photo_url || customerNicFront || null;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-[1500px] mx-auto pb-16">
       {/* Top Header & Breadcrumb */}
@@ -543,12 +560,12 @@ export default function AuditorVerificationPage() {
 
               {/* Customer Photo / ID photo if available */}
               <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                {client?.photo_url || client?.nic_image ? (
-                  <div className="relative group cursor-zoom-in" onClick={() => setPreviewImage(client.photo_url || client.nic_image)}>
+                {customerAvatar ? (
+                  <div className="relative group cursor-zoom-in" onClick={() => setPreviewImage(customerAvatar)}>
                     <img 
-                      src={client.photo_url || client.nic_image} 
+                      src={customerAvatar} 
                       alt="Customer KYC Proof" 
-                      className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border border-slate-300 shadow-sm"
+                      className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border border-slate-300 shadow-sm group-hover:scale-105 transition-all"
                     />
                     <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
                       Zoom
@@ -561,6 +578,105 @@ export default function AuditorVerificationPage() {
                   </div>
                 )}
                 <span className="text-[10px] font-black uppercase text-slate-400 mt-2">Customer Profile Photo</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── CUSTOMER KYC IDENTITY PHOTOS & EVIDENCE ── */}
+          <div className="glass rounded-3xl border border-slate-200 p-6 shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" /> Customer KYC Photos & Signature Verification
+              </h2>
+              <span className="text-xs font-bold text-slate-400">Captured Identity Evidence</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* NIC Front */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>NIC Front Side</span>
+                  {customerNicFront ? (
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Captured
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                  )}
+                </div>
+                <div 
+                  className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs"
+                  onClick={() => customerNicFront && setPreviewImage(customerNicFront)}
+                >
+                  {customerNicFront ? (
+                    <>
+                      <img src={customerNicFront} alt="NIC Front" className="w-full h-full object-contain group-hover:scale-105 transition-all" />
+                      <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                        <Eye className="w-3 h-3" /> Zoom
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-400 font-bold">No NIC front photo</span>
+                  )}
+                </div>
+              </div>
+
+              {/* NIC Back */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>NIC Back Side</span>
+                  {customerNicBack ? (
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Captured
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                  )}
+                </div>
+                <div 
+                  className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs"
+                  onClick={() => customerNicBack && setPreviewImage(customerNicBack)}
+                >
+                  {customerNicBack ? (
+                    <>
+                      <img src={customerNicBack} alt="NIC Back" className="w-full h-full object-contain group-hover:scale-105 transition-all" />
+                      <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                        <Eye className="w-3 h-3" /> Zoom
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-400 font-bold">No NIC back photo</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Customer Signature */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>Customer Signature</span>
+                  {customerSignature ? (
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Verified
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                  )}
+                </div>
+                <div 
+                  className="w-full aspect-[4/3] bg-white rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs p-2"
+                  onClick={() => customerSignature && setPreviewImage(customerSignature)}
+                >
+                  {customerSignature ? (
+                    <>
+                      <img src={customerSignature} alt="Customer Signature" className="w-full h-full object-contain group-hover:scale-105 transition-all" />
+                      <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                        <Eye className="w-3 h-3" /> Zoom
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-400 font-bold">No signature photo</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

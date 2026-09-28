@@ -351,6 +351,23 @@ export default function ApprovalsPage() {
   const auditorApprovedLog = auditLogs.find((l: any) => l.action === 'AUDITOR_APPROVED');
   const auditorChecklist = auditorApprovedLog?.details?.checklist || null;
 
+  // Safely parse KYC customer pictures
+  let customerNicFront: string | null = null;
+  let customerNicBack: string | null = null;
+  if (cData?.nic_image) {
+    try {
+      const parsed = JSON.parse(cData.nic_image);
+      customerNicFront = parsed.front || null;
+      customerNicBack = parsed.back || null;
+    } catch {
+      if (typeof cData.nic_image === 'string' && (cData.nic_image.startsWith('data:') || cData.nic_image.startsWith('http'))) {
+        customerNicFront = cData.nic_image;
+      }
+    }
+  }
+  const customerSignature: string | null = cData?.signature_image || null;
+  const customerAvatar: string | null = cData?.photo_url || customerNicFront || null;
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-24 animate-in slide-in-from-bottom-4 duration-500">
       
@@ -839,12 +856,12 @@ export default function ApprovalsPage() {
 
                     <div className="flex gap-4 items-start">
                       <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center shrink-0">
-                        {cData?.photo_url || cData?.nic_image ? (
+                        {customerAvatar ? (
                           <img 
-                            src={cData.photo_url || cData.nic_image} 
+                            src={customerAvatar} 
                             alt="Customer" 
-                            className="w-full h-full object-cover cursor-zoom-in"
-                            onClick={() => setPreviewImage(cData.photo_url || cData.nic_image)}
+                            className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-all"
+                            onClick={() => setPreviewImage(customerAvatar)}
                           />
                         ) : (
                           <User className="w-8 h-8 text-slate-400" />
@@ -912,6 +929,117 @@ export default function ApprovalsPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+
+                {/* ── CUSTOMER KYC IDENTITY PHOTOS & EVIDENCE ── */}
+                <div className="glass p-5 rounded-3xl border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" /> Customer KYC Photos & Signature Verification
+                    </h4>
+                    <span className="text-[11px] font-bold text-slate-400">Captured Identity Evidence</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* NIC Front */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span>NIC Front Side</span>
+                        {customerNicFront ? (
+                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Captured
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                        )}
+                      </div>
+                      <div 
+                        className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs"
+                        onClick={() => customerNicFront && setPreviewImage(customerNicFront)}
+                      >
+                        {customerNicFront ? (
+                          <>
+                            <img 
+                              src={customerNicFront} 
+                              alt="NIC Front" 
+                              className="w-full h-full object-contain group-hover:scale-105 transition-all"
+                            />
+                            <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                              <Eye className="w-3 h-3" /> Zoom
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-bold">No NIC front photo</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* NIC Back */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span>NIC Back Side</span>
+                        {customerNicBack ? (
+                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Captured
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                        )}
+                      </div>
+                      <div 
+                        className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs"
+                        onClick={() => customerNicBack && setPreviewImage(customerNicBack)}
+                      >
+                        {customerNicBack ? (
+                          <>
+                            <img 
+                              src={customerNicBack} 
+                              alt="NIC Back" 
+                              className="w-full h-full object-contain group-hover:scale-105 transition-all"
+                            />
+                            <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                              <Eye className="w-3 h-3" /> Zoom
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-bold">No NIC back photo</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Customer Signature */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span>Customer Signature</span>
+                        {customerSignature ? (
+                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Verified
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                        )}
+                      </div>
+                      <div 
+                        className="w-full aspect-[4/3] bg-white rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs p-2"
+                        onClick={() => customerSignature && setPreviewImage(customerSignature)}
+                      >
+                        {customerSignature ? (
+                          <>
+                            <img 
+                              src={customerSignature} 
+                              alt="Customer Signature" 
+                              className="w-full h-full object-contain group-hover:scale-105 transition-all"
+                            />
+                            <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                              <Eye className="w-3 h-3" /> Zoom
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-bold">No signature photo</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

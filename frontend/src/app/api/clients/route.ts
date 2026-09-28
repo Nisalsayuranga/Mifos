@@ -54,6 +54,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields (nic, firstName)" }, { status: 400 });
     }
 
+    const phoneDigits = String(phone || '').replace(/\D/g, '');
+    if (!phoneDigits || phoneDigits.length < 10) {
+      return NextResponse.json({ error: "invalid mobile number" }, { status: 400 });
+    }
+
+    let hasNicFront = false;
+    let hasNicBack = false;
+    if (nicImage) {
+      try {
+        const parsed = JSON.parse(nicImage);
+        if (parsed.front) hasNicFront = true;
+        if (parsed.back) hasNicBack = true;
+      } catch {
+        if (nicImage) hasNicFront = true;
+      }
+    }
+
+    if (!hasNicFront || !hasNicBack || !signatureImage) {
+      return NextResponse.json({ error: "capture the pictures" }, { status: 400 });
+    }
+
     const trimmedNic = String(nic).trim();
     let effectiveBranchId = normalizeBranchId(branchId || session?.branchId || 'HQ');
     let effectiveUserId = session?.user?.id || (isUUID(createdByUserId) ? createdByUserId : null);
