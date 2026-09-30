@@ -64,29 +64,26 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
 
     const role = (profile?.role || 'TELLER').toUpperCase() as UserRole;
     let branchId = normalizeBranchId(profile?.branch_id || 'HQ');
-    let branchName = profile?.branch_name || '';
+    const branchName = profile?.branch_name || '';
 
-    // Only TELLER is restricted to a single operating branch.
-    // ADMIN, AUDITOR, and MANAGER roles have cross-branch and Head Office access.
-    if (role === 'TELLER') {
-      const selectedBranch =
-        request.headers.get('x-branch-id') ||
-        request.headers.get('X-Branch-Id') ||
-        request.headers.get('X-BRANCH-ID');
-      
-      if (selectedBranch && selectedBranch.trim() !== '') {
-        const normSelected = normalizeBranchId(selectedBranch.trim());
-        if (profile?.branch_id && normalizeBranchId(profile.branch_id) !== 'HQ') {
-          branchId = normalizeBranchId(profile.branch_id);
-        } else {
-          branchId = normSelected;
-        }
+    // Branch identification: check selected branch header x-branch-id
+    const selectedBranch =
+      request.headers.get('x-branch-id') ||
+      request.headers.get('X-Branch-Id') ||
+      request.headers.get('X-BRANCH-ID');
+    
+    if (selectedBranch && selectedBranch.trim() !== '') {
+      const normSelected = normalizeBranchId(selectedBranch.trim());
+      if (role === 'TELLER' && profile?.branch_id && normalizeBranchId(profile.branch_id) !== 'HQ') {
+        branchId = normalizeBranchId(profile.branch_id);
+      } else {
+        branchId = normSelected;
       }
+    }
 
-      // Tellers are strictly prohibited from operating as Head Office (HQ)
-      if (branchId === 'HQ' || branchId === 'HEAD OFFICE') {
-        branchId = '';
-      }
+    // Tellers are strictly prohibited from operating as Head Office (HQ)
+    if (role === 'TELLER' && (branchId === 'HQ' || branchId === 'HEAD OFFICE')) {
+      branchId = '';
     }
 
     return {
@@ -109,10 +106,14 @@ export async function getAuthenticatedUser(request: Request): Promise<AuthSessio
  */
 export function validateBranchAccess(session: AuthSession | null, targetBranchId?: string | null): boolean {
   if (!session) return false;
-  // ADMIN, AUDITOR, and MANAGER have global access across all branches including Head Office
-  if (session.role === 'ADMIN' || session.role === 'AUDITOR' || session.role === 'MANAGER') return true;
+  // ADMIN has full system access
+  if (session.role === 'ADMIN') return true;
 
-  // TELLER role is strictly bound to their assigned branch
+  const isHead = !session.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId === 'HEAD OFFICE';
+  // Users operating from Head Office (except TELLER) have cross-branch visibility
+  if (isHead && session.role !== 'TELLER') return true;
+
+  // Branch user is strictly bound to their assigned / selected branch
   if (!targetBranchId || targetBranchId === 'ALL' || targetBranchId === 'HQ') {
     return false;
   }

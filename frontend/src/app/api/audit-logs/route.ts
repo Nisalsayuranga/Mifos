@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
+import { normalizeBranchId } from '@/lib/branch-mapping';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,11 +20,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized. Valid session token required to view audit logs.' }, { status: 401 });
     }
 
-    if (session.role === 'TELLER') {
-      // Tellers can only access audit logs for their assigned operating branch
+    const isHead = !session.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
+
+    if (!isHead && session.role !== 'ADMIN') {
+      // Branch user can only access audit logs for their assigned operating branch
       query = query.ilike('branch_id', `%${session.branchId}%`);
-    } else if (session.role === 'ADMIN' || session.role === 'MANAGER' || session.role === 'AUDITOR') {
-      // Admins, Managers, and Auditors can access audit logs across all branches including Head Office
+    } else {
+      // Head Office / Admins can access across branches or filter by requestedBranch
       if (requestedBranch && requestedBranch !== 'ALL') {
         query = query.ilike('branch_id', `%${requestedBranch}%`);
       }

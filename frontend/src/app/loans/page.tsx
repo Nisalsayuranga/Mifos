@@ -388,32 +388,44 @@ export default function PawnesPage() {
     if (userRole === 'ADMIN') loadPawns();
   }, [filterBranch]);
 
-  // Resolve customer name when NIC/ID is typed
+  // Resolve customer name, phone, and address when NIC/ID is typed
   const handleClientIdChange = (val: string) => {
     setClientId(val);
     const cleanVal = val.toLowerCase().trim();
     let matchedName = clientsMap[cleanVal] || '';
+    let matchedClient: any = null;
 
-    if (!matchedName && clientsList.length > 0) {
-      const matchedClient = clientsList.find(c => {
-        const nic = String(c.nationalId || c.national_id || c.nic || c.id || '').toLowerCase().trim();
-        return nic === cleanVal;
+    if (cleanVal && clientsList.length > 0) {
+      matchedClient = clientsList.find(c => {
+        const nic = String(c.nationalId || c.national_id || c.nic || '').toLowerCase().trim();
+        const cid = String(c.id != null ? c.id : '').toLowerCase().trim();
+        return (nic && nic === cleanVal) || (cid && cid === cleanVal);
       });
-      if (matchedClient) {
-        matchedName = `${matchedClient.firstName || matchedClient.first_name || ''} ${matchedClient.lastName || matchedClient.last_name || ''}`.trim();
+      if (matchedClient && !matchedName) {
+        matchedName = `${matchedClient.firstName || matchedClient.first_name || ''} ${matchedClient.lastName || matchedClient.last_name || ''}`.trim() || matchedClient.name || '';
       }
     }
 
     setResolvedName(matchedName || '');
+    if (matchedClient) {
+      const phone = matchedClient.phone || matchedClient.mobile || matchedClient.contact || matchedClient.phoneNumber || matchedClient.phone_number || '';
+      const address = matchedClient.address || matchedClient.addressLine1 || matchedClient.address_line1 || '';
+      if (phone) setClientPhone(phone);
+      if (address) setClientAddress(address);
+    }
     setShowSuggestions(true);
     setActiveSuggestion(0);
   };
 
   const selectClient = (c: any) => {
-    const nic = c.nationalId || c.national_id || c.id || '';
+    const nic = c.nationalId || c.national_id || c.nic || c.id || '';
     setClientId(nic);
-    const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
+    const name = `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim() || c.name || c.full_name || '';
     setResolvedName(name);
+    const phone = c.phone || c.mobile || c.contact || c.phoneNumber || c.phone_number || '';
+    const address = c.address || c.addressLine1 || c.address_line1 || '';
+    setClientPhone(phone);
+    setClientAddress(address);
     setShowSuggestions(false);
   };
 

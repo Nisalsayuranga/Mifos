@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
-import { getBranchSearchTerms } from '@/lib/branch-mapping';
+import { getBranchSearchTerms, normalizeBranchId } from '@/lib/branch-mapping';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +12,9 @@ export async function GET(request: Request) {
     const date = searchParams.get('date');
     const month = searchParams.get('month'); // YYYY-MM
 
+    const isHead = !session?.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
     let effectiveBranchId = requestedBranch;
-    if (session && session.role === 'TELLER') {
+    if (session && !isHead && session.role !== 'ADMIN') {
       effectiveBranchId = session.branchId;
     }
 
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
     // Otherwise fetch list for branch / month
     let query = adminSupabase.from('daily_ledgers').select('*').order('ledger_date', { ascending: false });
 
-    if (session && session.role === 'TELLER') {
+    if (session && !isHead && session.role !== 'ADMIN') {
       query = query.in('branch_id', getBranchSearchTerms(session.branchId));
     } else if (effectiveBranchId && effectiveBranchId !== 'HQ' && effectiveBranchId !== 'ALL') {
       query = query.in('branch_id', getBranchSearchTerms(effectiveBranchId));
@@ -119,7 +120,8 @@ export async function POST(request: Request) {
     } = body;
 
     if (session) {
-      if (session.role === 'TELLER') {
+      const isPostHead = !session.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
+      if (!isPostHead && session.role !== 'ADMIN') {
         branch_id = session.branchId;
       }
       if (session.user?.email) {

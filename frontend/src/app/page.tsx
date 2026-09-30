@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { normalizeBranchId, getBranchSearchTerms } from "@/lib/branch-mapping";
 
 const statsTemplate = [
   { label: "Total Disbursed Portfolio", value: "Rs. 0", change: "+0.0%", trend: "up", icon: DollarSign, color: "emerald" },
@@ -124,17 +125,20 @@ export default function Home() {
   const loadDashboardData = async (userBranchId?: string, userRole?: string) => {
     setLoadingTransactions(true);
     try {
+      const isHeadBranch = !userBranchId || normalizeBranchId(userBranchId) === 'HQ' || userBranchId.toUpperCase() === 'HEAD OFFICE';
+      const branchTerms = userBranchId ? getBranchSearchTerms(userBranchId) : [];
+
       // 1. Get Customers Count
       let clientQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
-      if (userRole === 'TELLER' && userBranchId) {
-        clientQuery = clientQuery.eq('branch_id', userBranchId);
+      if (!isHeadBranch && userBranchId) {
+        clientQuery = clientQuery.in('branch_id', branchTerms);
       }
       const { count: clientCount } = await clientQuery;
       
       // 2. Get Pawns Data (Sum and Count)
       let pawnsQuery = supabase.from('pawns').select('disbursed_amount');
-      if (userRole === 'TELLER' && userBranchId) {
-        pawnsQuery = pawnsQuery.eq('branch_id', userBranchId);
+      if (!isHeadBranch && userBranchId) {
+        pawnsQuery = pawnsQuery.in('branch_id', branchTerms);
       }
       const { data: pawnsData } = await pawnsQuery;
       const totalPawnSum = (pawnsData || []).reduce((acc, p) => acc + (p.disbursed_amount || 0), 0);
@@ -142,15 +146,15 @@ export default function Home() {
 
       // 3. Get Recent Pawns / Transactions
       let recentPawnsQuery = supabase.from('pawns').select('*').order('created_at', { ascending: false }).limit(6);
-      if (userRole === 'TELLER' && userBranchId) {
-        recentPawnsQuery = recentPawnsQuery.eq('branch_id', userBranchId);
+      if (!isHeadBranch && userBranchId) {
+        recentPawnsQuery = recentPawnsQuery.in('branch_id', branchTerms);
       }
       const { data: txs } = await recentPawnsQuery;
 
       // 4. Get Client Names mapping to resolve client_id to actual names
       let clientsMapQuery = supabase.from('clients').select('id, first_name, last_name');
-      if (userRole === 'TELLER' && userBranchId) {
-        clientsMapQuery = clientsMapQuery.eq('branch_id', userBranchId);
+      if (!isHeadBranch && userBranchId) {
+        clientsMapQuery = clientsMapQuery.in('branch_id', branchTerms);
       }
       const { data: clientsList } = await clientsMapQuery;
       const cmap: {[key: string]: string} = {};

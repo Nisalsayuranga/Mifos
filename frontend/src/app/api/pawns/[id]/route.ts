@@ -24,12 +24,15 @@ export async function GET(request: Request, context: any) {
       return NextResponse.json({ error: 'Pawn ticket not found' }, { status: 404 });
     }
 
-    // 2. Branch authorization check: Only TELLER is locked to their operating branch; Managers and Auditors can access all branches including Head Office
-    if (session && session.role === 'TELLER') {
-      const sessBranch = normalizeBranchId(session.branchId);
-      const pawnBranch = normalizeBranchId(pawn.branch_id);
-      if (sessBranch !== pawnBranch) {
-        return NextResponse.json({ error: 'Forbidden. You are not authorized to view transactions from another branch.' }, { status: 403 });
+    // 2. Branch authorization check: non-head branch users are restricted to their operating branch
+    if (session) {
+      const isHead = !session.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
+      if (!isHead && session.role !== 'ADMIN') {
+        const sessBranch = normalizeBranchId(session.branchId);
+        const pawnBranch = normalizeBranchId(pawn.branch_id);
+        if (sessBranch !== pawnBranch) {
+          return NextResponse.json({ error: 'Forbidden. You are not authorized to view transactions from another branch.' }, { status: 403 });
+        }
       }
     }
 

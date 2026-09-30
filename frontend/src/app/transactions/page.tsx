@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Send, FileText, ArrowRightLeft, Building2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
+import { normalizeBranchId, getBranchSearchTerms } from "@/lib/branch-mapping"
 
 // Branches are fetched dynamically from /api/branches
 
@@ -36,18 +37,23 @@ export default function TransactionsPage() {
       const branchId = user?.branchId;
       const role = user?.role;
 
-      // Force LOCAL mode for non-admins
-      const effectiveViewMode = role === 'ADMIN' ? viewMode : 'LOCAL';
+      // Force LOCAL mode for non-admins / non-HQ users
+      const isHead = !branchId || normalizeBranchId(branchId) === 'HQ' || branchId.toUpperCase() === 'HEAD OFFICE';
+      const effectiveViewMode = (role === 'ADMIN' || isHead) ? viewMode : 'LOCAL';
 
       let query = supabase.from('transaction').select('*').order('timestamp', { ascending: false });
       
       // Multi-tenant isolation logic
       if (effectiveViewMode === 'LOCAL' && branchId) {
         // Show transactions where this branch is either the source or destination
-        query = query.or(`branch_id.eq.${branchId},target_branch_id.eq.${branchId}`);
+        const terms = getBranchSearchTerms(branchId);
+        const orClause = terms.map(t => `branch_id.eq.${t},target_branch_id.eq.${t}`).join(',');
+        query = query.or(orClause);
       } else if (effectiveViewMode === 'GLOBAL' && filterBranchId !== 'ALL') {
         // Admin branch filter in global view
-        query = query.or(`branch_id.eq.${filterBranchId},target_branch_id.eq.${filterBranchId}`);
+        const terms = getBranchSearchTerms(filterBranchId);
+        const orClause = terms.map(t => `branch_id.eq.${t},target_branch_id.eq.${t}`).join(',');
+        query = query.or(orClause);
       }
 
       const { data, error } = await query;

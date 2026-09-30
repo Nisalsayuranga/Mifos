@@ -15,18 +15,13 @@ export async function GET(request: Request) {
 
     let query = adminSupabase.from('clients').select('*');
 
-    if (session) {
-      if (session.role === 'TELLER') {
-        const terms = getBranchSearchTerms(session.branchId);
-        const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
-        query = query.or(orClause);
-      } else if (session.role === 'ADMIN') {
-        if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-          const terms = getBranchSearchTerms(requestedBranch);
-          const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
-          query = query.or(orClause);
-        }
-      }
+    const isHead = !session?.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
+
+    if (session && !isHead && session.role !== 'ADMIN') {
+      // Non-head branch user: MUST only query clients belonging to their selected branch
+      const terms = getBranchSearchTerms(session.branchId);
+      const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
+      query = query.or(orClause);
     } else {
       if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
         const terms = getBranchSearchTerms(requestedBranch);
@@ -85,7 +80,8 @@ export async function POST(request: Request) {
       effectiveUserId = profileRow?.id || HARDCODED_FALLBACK_USER_ID;
     }
 
-    if (session && session.role === 'TELLER') {
+    const isHeadSession = !session?.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
+    if (session && !isHeadSession && session.role !== 'ADMIN') {
       effectiveBranchId = normalizeBranchId(session.branchId);
     }
 

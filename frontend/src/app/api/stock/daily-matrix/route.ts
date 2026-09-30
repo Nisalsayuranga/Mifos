@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedUser } from '@/lib/auth-server';
+import { normalizeBranchId } from '@/lib/branch-mapping';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -13,9 +15,16 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    const session = await getAuthenticatedUser(req);
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const branchParam = searchParams.get('branch') || '';
+
+    const isHead = !session?.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
+    let effectiveBranch = branchParam;
+    if (session && !isHead && session.role !== 'ADMIN') {
+      effectiveBranch = session.branchId;
+    }
 
     if (!adminSupabase) {
       return NextResponse.json({ error: 'Supabase client not initialized' }, { status: 500 });
@@ -23,8 +32,8 @@ export async function GET(req: Request) {
 
     // 1. Fetch Interest Entries from stock_interests
     let interestQuery = adminSupabase.from('stock_interests').select('*').eq('date', dateParam);
-    if (branchParam && branchParam.toUpperCase() !== 'ALL') {
-      interestQuery = interestQuery.ilike('branch', branchParam);
+    if (effectiveBranch && effectiveBranch.toUpperCase() !== 'ALL') {
+      interestQuery = interestQuery.ilike('branch', effectiveBranch);
     }
     const { data: interestItems, error: interestErr } = await interestQuery;
 

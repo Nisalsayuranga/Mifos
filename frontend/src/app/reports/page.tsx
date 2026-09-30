@@ -9,6 +9,7 @@ import {
   ChevronRight, Calendar
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"
+import { normalizeBranchId, getBranchSearchTerms } from "@/lib/branch-mapping"
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -23,10 +24,24 @@ export default function ReportsPage() {
   const loadReports = async () => {
     setLoading(true);
     try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const user = stored ? JSON.parse(stored) : null;
+      const userBranch = user?.branchId || user?.branch_id;
+      const isHead = !userBranch || normalizeBranchId(userBranch) === 'HQ' || userBranch.toUpperCase() === 'HEAD OFFICE';
+
+      let txQuery = supabase.from('transaction').select('*');
+      let pawnQuery = supabase.from('pawns').select('*');
+
+      if (!isHead && userBranch && user?.role !== 'ADMIN') {
+        const terms = getBranchSearchTerms(userBranch);
+        txQuery = txQuery.or(terms.map((t: string) => `branch_id.eq.${t},target_branch_id.eq.${t}`).join(','));
+        pawnQuery = pawnQuery.in('branch_id', terms);
+      }
+
       // 1. Fetch transactions and pawns in parallel
       const [txsRes, pawnsRes] = await Promise.all([
-        supabase.from('transaction').select('*'),
-        supabase.from('pawns').select('*')
+        txQuery,
+        pawnQuery
       ]);
 
       if (txsRes.error) throw txsRes.error;
