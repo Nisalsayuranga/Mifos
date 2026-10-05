@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { invalidateBranchInventoryCache } from '@/lib/redis';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -84,6 +85,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Invalidate Redis inventory cache
+    try {
+      await invalidateBranchInventoryCache(branch, date);
+    } catch (cErr) {
+      console.warn('[Cache Invalidation Warning]:', cErr);
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
@@ -111,6 +119,13 @@ export async function DELETE(req: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Invalidate Redis inventory cache
+    try {
+      await invalidateBranchInventoryCache('ALL');
+    } catch (cErr) {
+      console.warn('[Cache Invalidation Warning]:', cErr);
     }
 
     return NextResponse.json({ success: true, message: 'Interest record deleted' });

@@ -3,6 +3,7 @@ import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { sendFreeSms, buildPawnReceiptSms } from '@/lib/sms';
 import { normalizeBranchId, getBranchSearchTerms } from '@/lib/branch-mapping';
+import { invalidateBranchInventoryCache } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -350,6 +351,13 @@ export async function POST(request: Request) {
       } catch (stockErr) {
         console.warn("Could not insert matching vault stock item, proceeding:", stockErr);
       }
+    }
+
+    // Invalidate affected branch inventory Redis cache
+    try {
+      await invalidateBranchInventoryCache(targetBranchId);
+    } catch (cacheErr) {
+      console.warn('[Cache Invalidation Warning]:', cacheErr);
     }
 
     await recordAuditLog(session, {

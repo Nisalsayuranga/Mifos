@@ -13,12 +13,14 @@ import {
 } from '@/components/ui/dialog';
 import { 
   ShieldCheck, Search, Filter, RefreshCcw, Camera, Eye, 
-  CheckCircle2, AlertTriangle, Clock, Building2, User, 
+  CheckCircle2, AlertTriangle, Clock, Building2, User, UserCheck,
   Calendar, DollarSign, Scale, FileText, Check, AlertCircle,
-  HelpCircle, Sparkles, ChevronRight, X
+  HelpCircle, Sparkles, ChevronRight, X,
+  RotateCcw, Zap, Database, Package, Loader2, ExternalLink, Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '@/lib/getAuthHeaders';
+import { cn } from '@/lib/utils';
 
 interface PawnItem {
   id: string;
@@ -42,6 +44,8 @@ interface PawnTransaction {
     national_id?: string;
     phone?: string;
     address?: string;
+    nic_image?: string;
+    signature_image?: string;
   };
   disbursed_amount: number;
   appraised_value: number;
@@ -88,6 +92,16 @@ export default function AuditorDashboard() {
   const [auditDecision, setAuditDecision] = useState<'PASSED' | 'FLAGGED' | 'IN_REVIEW'>('PASSED');
   const [auditNotes, setAuditNotes] = useState('');
   const [isSavingAudit, setIsSavingAudit] = useState(false);
+
+  // View & Redis Inventory Cache State
+  const [activeTab, setActiveTab] = useState<'pawns' | 'inventory'>('pawns');
+  const [forceExpireCache, setForceExpireCache] = useState<boolean>(false);
+  const [isInvalidatingCache, setIsInvalidatingCache] = useState<boolean>(false);
+  const [inventoryData, setInventoryData] = useState<any>(null);
+  const [loadingInventory, setLoadingInventory] = useState<boolean>(false);
+  const [inventoryCacheStatus, setInventoryCacheStatus] = useState<'HIT' | 'MISS' | null>(null);
+  const [inventoryDate, setInventoryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [inventorySearch, setInventorySearch] = useState<string>('');
 
   // Load User & Pawn Data
   const loadDashboardData = async () => {
@@ -153,9 +167,107 @@ export default function AuditorDashboard() {
     }
   };
 
+  // Fetch Inventory Matrix with Redis Caching and Auditor Force-Expiry
+  const fetchInventoryData = async (forceInvalidate = false) => {
+    setLoadingInventory(true);
+    let toastId: any = null;
+    if (forceInvalidate) {
+      setIsInvalidatingCache(true);
+      toastId = toast.loading(`Invalidating Redis cache for branch "${selectedBranch}"...`);
+    }
+    try {
+      if (forceInvalidate) {
+        const token = localStorage.getItem('auth_token') || '';
+        const invRes = await fetch('/api/stock/cache/invalidate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            branch: selectedBranch || 'ALL',
+            date: inventoryDate
+          })
+        });
+
+        if (!invRes.ok) {
+          const errJson = await invRes.json();
+          throw new Error(errJson.error || 'Failed to invalidate Redis cache');
+        }
+      }
+
+      // Fetch from /api/stock/daily-matrix (uses cache by default unless just invalidated)
+      const token = localStorage.getItem('auth_token') || '';
+      const params = new URLSearchParams({
+        date: inventoryDate,
+        branch: selectedBranch || 'ALL'
+      });
+      const res = await fetch(`/api/stock/daily-matrix?${params}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+
+      if (res.ok) {
+        const cacheHeader = res.headers.get('X-Cache');
+        setInventoryCacheStatus(cacheHeader === 'HIT' ? 'HIT' : 'MISS');
+        const data = await res.json();
+        setInventoryData(data);
+
+        if (forceInvalidate && toastId) {
+          toast.success(`Redis cache force-expired for ${selectedBranch}. Fresh inventory reloaded from database.`, { id: toastId });
+        }
+      }
+    } catch (err: any) {
+      console.error('Inventory load error:', err);
+      if (forceInvalidate && toastId) {
+        toast.error(err.message || 'Failed to invalidate cache', { id: toastId });
+      }
+    } finally {
+      setLoadingInventory(false);
+      setIsInvalidatingCache(false);
+    }
+  };
+
+  // Reload handler: Uses cache by default, or force expires if Auditor checked the box
+  const handleReload = async () => {
+    if (forceExpireCache) {
+      await fetchInventoryData(true);
+      await loadDashboardData();
+    } else {
+      await Promise.all([
+        loadDashboardData(),
+        fetchInventoryData(false)
+      ]);
+      toast.success(`Auditor dashboard reloaded (${inventoryCacheStatus === 'HIT' ? 'using Redis cache' : 'fresh data fetched'})`);
+    }
+  };
+
   useEffect(() => {
     loadDashboardData();
-  }, [selectedBranch]);
+    fetchInventoryData(false);
+  }, [selectedBranch, inventoryDate]);
+
+  // Combined and filtered inventory items for the Inventory Section
+  const inventoryItems = useMemo(() => {
+    if (!inventoryData?.data) return [];
+    const { fs_items = [], interest_items = [], receipt_items = [], loan_items = [], redeem_items = [] } = inventoryData.data;
+    const combined = [
+      ...fs_items.map((i: any) => ({ ...i, type: 'Full Settlement (F/S)', badgeColor: 'bg-blue-100 text-blue-800 border-blue-300' })),
+      ...interest_items.map((i: any) => ({ ...i, type: 'Stock Interest', badgeColor: 'bg-amber-100 text-amber-800 border-amber-300' })),
+      ...receipt_items.map((i: any) => ({ ...i, type: 'Daily Receipt', badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300' })),
+      ...loan_items.map((i: any) => ({ ...i, type: 'Pawn Loan', badgeColor: 'bg-purple-100 text-purple-800 border-purple-300' })),
+      ...redeem_items.map((i: any) => ({ ...i, type: 'Redemption', badgeColor: 'bg-rose-100 text-rose-800 border-rose-300' })),
+    ];
+    if (!inventorySearch) return combined;
+    const q = inventorySearch.toLowerCase();
+    return combined.filter((i: any) => 
+      (i.bill_no && i.bill_no.toLowerCase().includes(q)) ||
+      (i.notes && i.notes.toLowerCase().includes(q)) ||
+      (i.branch && i.branch.toLowerCase().includes(q)) ||
+      (i.type && i.type.toLowerCase().includes(q))
+    );
+  }, [inventoryData, inventorySearch]);
 
   // Filtered Pawns
   const filteredPawns = useMemo(() => {
@@ -293,6 +405,154 @@ export default function AuditorDashboard() {
     }
   };
 
+  // Robust Cross-Browser CSV Downloader using Blob
+  const triggerCSVDownload = (filename: string, headers: string[], rows: (string | number)[][]) => {
+    const escapeCell = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/\r\n|\r|\n/g, ' '); // flatten newlines inside cell for clean row display
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const csvLines = [
+      headers.map(escapeCell).join(','),
+      ...rows.map(row => row.map(escapeCell).join(','))
+    ];
+
+    const csvString = csvLines.join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 500);
+  };
+
+  // Export Auditor Report (CSV) with Audit History & Verifier Info
+  const handleExportAuditReport = () => {
+    if (filteredPawns.length === 0) {
+      toast.error('No audit records available to export for current filter criteria.');
+      return;
+    }
+
+    const headers = [
+      'Bill Ticket No',
+      'Branch',
+      'Created Date',
+      'Customer Name',
+      'Customer NIC',
+      'Customer Phone',
+      'Disbursed Amount (LKR)',
+      'Appraised Value (LKR)',
+      'Interest Rate (%)',
+      'Period (Months)',
+      'Collateral Description',
+      'Weight (g)',
+      'Scale Air Proof',
+      'Scale Water Proof',
+      'NIC Front KYC',
+      'NIC Back KYC',
+      'Signature KYC',
+      'Loan Status',
+      'Audit Status',
+      'Audited By (Who Did Audit)',
+      'Audited Date & Time',
+      'Auditor Observation Notes'
+    ];
+
+    const rows = filteredPawns.map((pawn) => {
+      const rec = auditMap[pawn.bill_no];
+      
+      let nicFrontStatus = 'Missing';
+      let nicBackStatus = 'Missing';
+      if (pawn.clients?.nic_image) {
+        try {
+          const parsed = JSON.parse(pawn.clients.nic_image);
+          if (parsed.front) nicFrontStatus = 'Captured';
+          if (parsed.back) nicBackStatus = 'Captured';
+        } catch {
+          if (pawn.clients.nic_image) nicFrontStatus = 'Captured';
+        }
+      }
+      const sigStatus = pawn.clients?.signature_image ? 'Captured' : 'Missing';
+      const weightGrams = ((pawn.weight_mg || 0) / 1000 || pawn.weight_grams || pawn.weight || 0).toFixed(2);
+
+      return [
+        pawn.bill_no || pawn.id,
+        pawn.branch_id || 'HQ',
+        pawn.created_at ? new Date(pawn.created_at).toLocaleString('en-GB') : '',
+        pawn.clients?.first_name || pawn.customer_name || 'Customer',
+        pawn.clients?.national_id || 'N/A',
+        pawn.clients?.phone || pawn.phone || 'N/A',
+        pawn.disbursed_amount || 0,
+        pawn.appraised_value || 0,
+        pawn.interest_rate || 0,
+        pawn.period_months || 0,
+        pawn.description || '',
+        weightGrams,
+        pawn.air_weight_photo_url ? 'Attached' : 'None',
+        pawn.water_weight_photo_url ? 'Attached' : 'None',
+        nicFrontStatus,
+        nicBackStatus,
+        sigStatus,
+        pawn.status,
+        rec ? (rec.status === 'PASSED' ? 'VERIFIED' : rec.status) : 'PENDING_AUDIT',
+        rec?.auditor_email || 'Not Audited',
+        rec?.audited_at ? new Date(rec.audited_at).toLocaleString('en-GB') : 'N/A',
+        rec?.notes || ''
+      ];
+    });
+
+    const branchName = selectedBranch === 'ALL' ? 'All_Branches' : selectedBranch.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Auditor_Report_${branchName}_${new Date().toISOString().split('T')[0]}.csv`;
+    triggerCSVDownload(filename, headers, rows);
+    toast.success(`Auditor Report exported successfully as CSV (${filteredPawns.length} records)`);
+  };
+
+  // Export Vault Inventory Report (CSV)
+  const handleExportInventoryReport = () => {
+    if (!inventoryItems || inventoryItems.length === 0) {
+      toast.error('No inventory items to export.');
+      return;
+    }
+
+    const headers = [
+      'Ticket / Bill No',
+      'Branch',
+      'Inventory Category',
+      'Item Description',
+      'Purity / Karat',
+      'Weight (g)',
+      'Weight (mg)',
+      'Valuation (LKR)',
+      'Status',
+      'Record Date'
+    ];
+
+    const rows = inventoryItems.map((item: any) => [
+      item.bill_no || item.ticket_no || 'N/A',
+      item.branch_id || selectedBranch || 'HQ',
+      item.source_type || 'Collateral Vault',
+      item.description || item.item_type || '',
+      item.purity || '22K',
+      ((item.weight_mg || 0) / 1000 || item.weight_grams || 0).toFixed(2),
+      item.weight_mg || 0,
+      item.appraised_value || 0,
+      item.status || 'IN_VAULT',
+      inventoryDate
+    ]);
+
+    const branchName = (selectedBranch || 'ALL').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Inventory_Report_${branchName}_${inventoryDate}.csv`;
+    triggerCSVDownload(filename, headers, rows);
+    toast.success(`Inventory Report exported successfully as CSV (${inventoryItems.length} items)`);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto pb-12">
       {/* Top Banner */}
@@ -315,16 +575,87 @@ export default function AuditorDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {/* Redis Cache Status Pill */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white/90 shadow-xs text-[11px] font-bold">
+            <Database className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="text-slate-500">Cache:</span>
+            {inventoryCacheStatus === 'HIT' ? (
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md font-black flex items-center gap-1 text-[10px]">
+                <Zap className="w-3 h-3 text-emerald-600" /> HIT (Redis L1)
+              </span>
+            ) : inventoryCacheStatus === 'MISS' ? (
+              <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-md font-black text-[10px]">
+                MISS (PostgreSQL)
+              </span>
+            ) : (
+              <span className="text-slate-600 font-mono text-[10px]">READY</span>
+            )}
+          </div>
+
+          {/* Auditor Check Button to reset/force expire Redis cache */}
+          <label 
+            className={cn(
+              "flex items-center gap-2 cursor-pointer border px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all select-none shadow-xs h-11",
+              forceExpireCache 
+                ? "bg-amber-500 border-amber-600 text-slate-950 shadow-amber-500/20 ring-2 ring-amber-500/30" 
+                : "bg-amber-50/90 hover:bg-amber-100 border-amber-200/90 text-amber-900"
+            )}
+            title="Check button to reset/force expire the Redis cache of the inventory on reload"
+          >
+            <input
+              type="checkbox"
+              checked={forceExpireCache}
+              onChange={(e) => setForceExpireCache(e.target.checked)}
+              className="w-4 h-4 accent-amber-600 rounded cursor-pointer"
+            />
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" />
+              Force Expire Cache
+            </span>
+          </label>
+
+          {/* Reload Button (Uses Cache by Default) */}
           <Button
             variant="outline"
-            onClick={loadDashboardData}
-            disabled={loading}
-            className="h-11 px-5 border-slate-200 bg-white/90 hover:bg-slate-100 text-slate-800 font-black text-xs uppercase tracking-wider rounded-xl gap-2 shadow-xs cursor-pointer"
+            onClick={handleReload}
+            disabled={loading || loadingInventory || isInvalidatingCache}
+            className={cn(
+              "h-11 px-5 border-slate-200 bg-white/90 hover:bg-slate-100 text-slate-800 font-black text-xs uppercase tracking-wider rounded-xl gap-2 shadow-xs cursor-pointer transition-all",
+              forceExpireCache && "border-amber-500 bg-amber-500/10 hover:bg-amber-500/20 text-amber-950 font-black"
+            )}
+            title={forceExpireCache ? "Reload and force-expire Redis inventory cache" : "Reload using Redis cache by default"}
           >
-            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin text-amber-600' : ''}`} />
-            Refresh
+            {(loading || loadingInventory || isInvalidatingCache) ? (
+              <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+            ) : (
+              <RotateCcw className="w-4 h-4 text-slate-700" />
+            )}
+            {forceExpireCache ? 'Force Reload' : 'Reload'}
           </Button>
+
+          {/* Export Report (CSV) Button */}
+          <Button
+            variant="outline"
+            onClick={activeTab === 'inventory' ? handleExportInventoryReport : handleExportAuditReport}
+            className="h-11 px-4 border-slate-200 bg-white/90 hover:bg-slate-100 text-slate-800 font-black text-xs uppercase tracking-wider rounded-xl gap-2 shadow-xs cursor-pointer transition-all"
+            title="Export filtered records as CSV audit report"
+          >
+            <Download className="w-4 h-4 text-amber-600" />
+            <span>Export Report (CSV)</span>
+          </Button>
+
+          {/* Link to Full Activity Audit Trail */}
+          <Link href="/operations/audit-logs">
+            <Button
+              variant="outline"
+              className="h-11 px-4 border-slate-200 bg-white/90 hover:bg-slate-100 text-slate-800 font-black text-xs uppercase tracking-wider rounded-xl gap-1.5 shadow-xs cursor-pointer transition-all"
+              title="Open system-wide activity audit logs trail"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+              <span>Audit Trail</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -388,305 +719,593 @@ export default function AuditorDashboard() {
         </div>
       </div>
 
-      {/* Search & Filters Card */}
-      <div className="glass p-5 rounded-2xl border-slate-200 shadow-lg space-y-4">
-        <div className="flex flex-col md:flex-row items-center gap-3">
-          {/* Branch Selector Dropdown */}
-          <div className="flex items-center gap-2 bg-white/80 border border-slate-200 rounded-xl px-3 py-2 w-full md:w-auto shrink-0 shadow-xs">
-            <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">All Branches (incl. Head Office)</option>
-              <option value="HQ">HQ - Head Office</option>
-              <option value="KHT">KHT - Kahathuduwa</option>
-              <option value="W4">W4 - Wattala 4</option>
-              <option value="BRL">BRL - Borella</option>
-              <option value="DHW">DHW - Dehiwala</option>
-              <option value="DMT">DMT - Dematagoda</option>
-              <option value="HMG">HMG - Homagama</option>
-              <option value="KDW">KDW - Kadawatha</option>
-              <option value="KIR">KIR - Kiribathgoda</option>
-              <option value="KOT">KOT - Kotikawatta</option>
-              <option value="KTW">KTW - Kottawa</option>
-              <option value="PND">PND - Panadura</option>
-              <option value="W2">W2 - Wattala 2</option>
-              <option value="W3">W3 - Wattala 3</option>
-            </select>
-          </div>
-
-          <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Bill No, Customer Name, NIC, or Phone..."
-              className="pl-10 h-11 bg-white/70 border-slate-200 rounded-xl font-semibold text-sm w-full focus:ring-amber-500 focus:border-amber-500"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* View Switcher: Pawn Loans Audit vs Vault Inventory & Redis Cache */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-3">
+        <div className="flex items-center gap-2 bg-slate-100/90 p-1.5 rounded-2xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('pawns')}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+              activeTab === 'pawns'
+                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900"
             )}
-          </div>
+          >
+            <Scale className="w-4 h-4 text-amber-600" />
+            Pawn Transactions Audit
+            <Badge variant="outline" className="ml-1 text-[10px] font-mono font-bold">
+              {filteredPawns.length}
+            </Badge>
+          </button>
 
-          {/* Audit Status Filter Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl shrink-0 w-full md:w-auto overflow-x-auto">
-            {(['ALL', 'PENDING', 'PASSED', 'FLAGGED'] as const).map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setAuditStatusFilter(filter)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  auditStatusFilter === filter
-                    ? 'bg-amber-500 text-slate-950 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {filter === 'ALL' ? 'All Audits' : filter === 'PENDING' ? 'Pending' : filter === 'PASSED' ? 'Passed' : 'Flagged'}
-              </button>
-            ))}
-          </div>
-
-          {/* Pawn Status Filter Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl shrink-0 w-full md:w-auto overflow-x-auto">
-            {(['ALL', 'ACTIVE', 'AUDITED_PENDING_APPROVAL', 'PENDING_APPROVAL', 'REQUIRES_RECHECK', 'REDEEMED'] as const).map((pst) => (
-              <button
-                key={pst}
-                type="button"
-                onClick={() => setPawnStatusFilter(pst)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-                  pawnStatusFilter === pst
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {pst === 'ALL' ? 'All Loans' : pst === 'ACTIVE' ? 'Active' : pst === 'AUDITED_PENDING_APPROVAL' ? '✓ Audited (Pending Mgr)' : pst === 'PENDING_APPROVAL' ? 'Pending Appr' : pst === 'REQUIRES_RECHECK' ? '⚠ Recheck Needed' : 'Redeemed'}
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('inventory')}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+              activeTab === 'inventory'
+                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <Package className="w-4 h-4 text-amber-600" />
+            Inventory List &amp; Redis Cache
+            <Badge variant="outline" className="ml-1 text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border-amber-300">
+              {inventoryData?.summary?.item_count ?? 0}
+            </Badge>
+          </button>
         </div>
+
+        {activeTab === 'inventory' && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-amber-600" /> Inventory Date:
+            </span>
+            <Input
+              type="date"
+              value={inventoryDate}
+              onChange={(e) => setInventoryDate(e.target.value)}
+              className="h-9 w-40 bg-white border-slate-200 rounded-xl font-mono text-xs font-bold"
+            />
+          </div>
+        )}
       </div>
 
-      {/* Transactions Audit Table */}
-      <div className="glass rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Scale className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-black text-slate-900">Branch Pawn Transactions</h2>
-            <Badge variant="outline" className="font-mono text-xs font-bold ml-2">
-              {filteredPawns.length} tickets
-            </Badge>
+      {/* TAB 1: PAWN TRANSACTIONS AUDIT */}
+      {activeTab === 'pawns' && (
+        <div className="space-y-6">
+          {/* Search & Filters Card */}
+          <div className="glass p-5 rounded-2xl border-slate-200 shadow-lg space-y-4">
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              {/* Branch Selector Dropdown */}
+              <div className="flex items-center gap-2 bg-white/80 border border-slate-200 rounded-xl px-3 py-2 w-full md:w-auto shrink-0 shadow-xs">
+                <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Branches (incl. Head Office)</option>
+                  <option value="HQ">HQ - Head Office</option>
+                  <option value="KHT">KHT - Kahathuduwa</option>
+                  <option value="W4">W4 - Wattala 4</option>
+                  <option value="BRL">BRL - Borella</option>
+                  <option value="DHW">DHW - Dehiwala</option>
+                  <option value="DMT">DMT - Dematagoda</option>
+                  <option value="HMG">HMG - Homagama</option>
+                  <option value="KDW">KDW - Kadawatha</option>
+                  <option value="KIR">KIR - Kiribathgoda</option>
+                  <option value="KOT">KOT - Kotikawatta</option>
+                  <option value="KTW">KTW - Kottawa</option>
+                  <option value="PND">PND - Panadura</option>
+                  <option value="W2">W2 - Wattala 2</option>
+                  <option value="W3">W3 - Wattala 3</option>
+                </select>
+              </div>
+
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by Bill No, Customer Name, NIC, or Phone..."
+                  className="pl-10 h-11 bg-white/70 border-slate-200 rounded-xl font-semibold text-sm w-full focus:ring-amber-500 focus:border-amber-500"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Audit Status Filter Tabs */}
+              <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl shrink-0 w-full md:w-auto overflow-x-auto">
+                {(['ALL', 'PENDING', 'PASSED', 'FLAGGED'] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setAuditStatusFilter(filter)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                      auditStatusFilter === filter
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {filter === 'ALL' ? 'All Audits' : filter === 'PENDING' ? 'Pending' : filter === 'PASSED' ? 'Passed' : 'Flagged'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Pawn Status Filter Tabs */}
+              <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl shrink-0 w-full md:w-auto overflow-x-auto">
+                {(['ALL', 'ACTIVE', 'AUDITED_PENDING_APPROVAL', 'PENDING_APPROVAL', 'REQUIRES_RECHECK', 'REDEEMED'] as const).map((pst) => (
+                  <button
+                    key={pst}
+                    type="button"
+                    onClick={() => setPawnStatusFilter(pst)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                      pawnStatusFilter === pst
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {pst === 'ALL' ? 'All Loans' : pst === 'ACTIVE' ? 'Active' : pst === 'AUDITED_PENDING_APPROVAL' ? '✓ Audited (Pending Mgr)' : pst === 'PENDING_APPROVAL' ? 'Pending Appr' : pst === 'REQUIRES_RECHECK' ? '⚠ Recheck Needed' : 'Redeemed'}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <span className="text-xs font-bold text-slate-400">
-            Scope: <strong className="text-slate-800">{selectedBranch === 'ALL' ? 'All Branches (incl. Head Office)' : selectedBranch}</strong>
-          </span>
-        </div>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-slate-50/80">
-              <TableRow className="border-b border-slate-200/80">
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Bill No</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Customer</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Pawn Date & Time</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-right">Pawn Amount</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Item / Gold Details</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-center">Proofs</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-center">Loan Status</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-center">Audit Status</TableHead>
-                <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-slate-500 font-semibold">
-                    <RefreshCcw className="w-6 h-6 animate-spin mx-auto text-amber-600 mb-2" />
-                    Loading transactions for audit...
-                  </TableCell>
-                </TableRow>
-              ) : filteredPawns.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-slate-500 font-semibold">
-                    <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    No transactions match your search or filter criteria.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredPawns.map((pawn) => {
-                  const auditRec = auditMap[pawn.bill_no];
-                  const hasPhotos = Boolean(pawn.air_weight_photo_url || pawn.water_weight_photo_url);
+          {/* Transactions Audit Table */}
+          <div className="glass rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-amber-600" />
+                <h2 className="text-lg font-black text-slate-900">Branch Pawn Transactions</h2>
+                <Badge variant="outline" className="font-mono text-xs font-bold ml-2">
+                  {filteredPawns.length} tickets
+                </Badge>
+              </div>
+              <span className="text-xs font-bold text-slate-400">
+                Scope: <strong className="text-slate-800">{selectedBranch === 'ALL' ? 'All Branches (incl. Head Office)' : selectedBranch}</strong>
+              </span>
+            </div>
 
-                  return (
-                    <TableRow key={pawn.id} className="hover:bg-amber-50/40 transition-colors border-b border-slate-100">
-                      {/* Bill No */}
-                      <TableCell className="px-6 py-4 font-mono font-black text-sm text-slate-900">
-                        <div className="flex flex-col">
-                          <Link 
-                            href={`/dashboard/auditor/verify/${pawn.id || pawn.bill_no}`}
-                            className="text-amber-700 hover:text-amber-800 hover:underline flex items-center gap-1.5 group font-mono font-black text-sm"
-                            title="Open Full Verification Page"
-                          >
-                            <span>{pawn.bill_no || pawn.id.substring(0, 8).toUpperCase()}</span>
-                            <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-0.5 transition-transform" />
-                          </Link>
-                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[9px] font-black text-slate-600 w-fit">
-                            {pawn.branch_id || 'HQ'}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Customer */}
-                      <TableCell className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-black text-slate-900 text-sm">
-                            {pawn.clients?.first_name || pawn.customer_name || 'Valued Customer'}
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-500">
-                            NIC: {pawn.clients?.national_id || '—'} {pawn.clients?.phone ? `• ${pawn.clients.phone}` : ''}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Created / Pawn Date */}
-                      <TableCell className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-black text-slate-800">
-                            {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB') : '—'}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {pawn.created_at ? new Date(pawn.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Amount */}
-                      <TableCell className="px-6 py-4 text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="font-mono font-black text-sm text-slate-900">
-                            Rs. {Number(pawn.disbursed_amount || 0).toLocaleString()}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            Appraised: Rs. {Number(pawn.appraised_value || 0).toLocaleString()}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Item Details */}
-                      <TableCell className="px-6 py-4">
-                        <div className="flex flex-col max-w-[200px]">
-                          <span className="font-bold text-xs text-slate-800 truncate" title={pawn.description}>
-                            {pawn.description || 'Pawn Collateral'}
-                          </span>
-                          <span className="text-[10px] text-amber-700 font-bold">
-                            Weight: {((pawn.weight_mg || 0) / 1000 || pawn.weight_grams || pawn.weight || 0).toFixed(2)}g ({pawn.weight_mg || 0} mg)
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Proofs */}
-                      <TableCell className="px-6 py-4 text-center">
-                        {hasPhotos ? (
-                          <div className="flex items-center justify-center gap-1">
-                            {pawn.air_weight_photo_url && (
-                              <img 
-                                src={pawn.air_weight_photo_url} 
-                                alt="Air" 
-                                className="w-6 h-6 object-cover rounded border border-amber-400"
-                                title="Air weight photo proof" 
-                              />
-                            )}
-                            {pawn.water_weight_photo_url && (
-                              <img 
-                                src={pawn.water_weight_photo_url} 
-                                alt="Water" 
-                                className="w-6 h-6 object-cover rounded border border-blue-400"
-                                title="Water weight photo proof" 
-                              />
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-bold">None</span>
-                        )}
-                      </TableCell>
-
-                      {/* Loan Status */}
-                      <TableCell className="px-6 py-4 text-center">
-                        <Badge
-                          variant="outline"
-                          className={`font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 ${
-                            pawn.status === 'REQUIRES_RECHECK'
-                              ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse font-black'
-                              : pawn.status === 'AUDITED_PENDING_APPROVAL'
-                              ? 'bg-blue-50 text-blue-800 border-blue-300 font-black'
-                              : pawn.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                              : pawn.status === 'PENDING_APPROVAL'
-                              ? 'bg-amber-50 text-amber-700 border-amber-300'
-                              : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
-                        >
-                          {pawn.status === 'REQUIRES_RECHECK' 
-                            ? '⚠ REQUIRES RECHECK' 
-                            : pawn.status === 'AUDITED_PENDING_APPROVAL'
-                            ? '✓ AUDITED • PENDING MGR'
-                            : pawn.status}
-                        </Badge>
-                      </TableCell>
-
-                      {/* Audit Status */}
-                      <TableCell className="px-6 py-4 text-center">
-                        {!auditRec ? (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-black text-[9px] uppercase tracking-widest gap-1">
-                            <Clock className="w-3 h-3 text-amber-600" /> Pending Audit
-                          </Badge>
-                        ) : auditRec.status === 'PASSED' ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-black text-[9px] uppercase tracking-widest gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-black text-[9px] uppercase tracking-widest gap-1">
-                            <AlertTriangle className="w-3 h-3 text-rose-600" /> Flagged
-                          </Badge>
-                        )}
-                      </TableCell>
-
-                      {/* Action */}
-                      <TableCell className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link href={`/dashboard/auditor/verify/${pawn.id || pawn.bill_no}`}>
-                            <Button
-                              size="sm"
-                              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl gap-1.5 cursor-pointer shadow-xs"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5 text-slate-950" /> Verify Pawn
-                            </Button>
-                          </Link>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleOpenAuditModal(pawn)}
-                            className="text-slate-600 hover:text-slate-900 font-bold text-xs p-1.5 h-8 w-8 rounded-lg cursor-pointer"
-                            title="Quick Audit Modal"
-                          >
-                            <Eye className="w-4 h-4 text-slate-500" />
-                          </Button>
-                        </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50/80">
+                  <TableRow className="border-b border-slate-200/80">
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Bill No</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Customer</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Pawn Date &amp; Time</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-right">Pawn Amount</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6">Item / Gold Details</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-center">Proofs</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-center">Loan Status</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-center">Audit Status</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-4 px-6 text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-12 text-slate-500 font-semibold">
+                        <RefreshCcw className="w-6 h-6 animate-spin mx-auto text-amber-600 mb-2" />
+                        Loading transactions for audit...
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  ) : filteredPawns.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-12 text-slate-500 font-semibold">
+                        <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        No transactions match your search or filter criteria.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPawns.map((pawn) => {
+                      const auditRec = auditMap[pawn.bill_no];
+                      const hasPhotos = Boolean(pawn.air_weight_photo_url || pawn.water_weight_photo_url);
+
+                      return (
+                        <TableRow key={pawn.id} className="hover:bg-amber-50/40 transition-colors border-b border-slate-100">
+                          {/* Bill No */}
+                          <TableCell className="px-6 py-4 font-mono font-black text-sm text-slate-900">
+                            <div className="flex flex-col">
+                              <Link 
+                                href={`/dashboard/auditor/verify/${pawn.id || pawn.bill_no}`}
+                                className="text-amber-700 hover:text-amber-800 hover:underline flex items-center gap-1.5 group font-mono font-black text-sm"
+                                title="Open Full Verification Page"
+                              >
+                                <span>{pawn.bill_no || pawn.id.substring(0, 8).toUpperCase()}</span>
+                                <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-0.5 transition-transform" />
+                              </Link>
+                              <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[9px] font-black text-slate-600 w-fit">
+                                {pawn.branch_id || 'HQ'}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Customer */}
+                          <TableCell className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="font-black text-slate-900 text-sm">
+                                {pawn.clients?.first_name || pawn.customer_name || 'Valued Customer'}
+                              </span>
+                              <span className="text-[11px] font-mono text-slate-500">
+                                NIC: {pawn.clients?.national_id || '—'} {pawn.clients?.phone ? `• ${pawn.clients.phone}` : ''}
+                              </span>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
+                                  pawn.clients?.nic_image ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}>
+                                  NIC {pawn.clients?.nic_image ? '✓' : '✗'}
+                                </span>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
+                                  pawn.clients?.signature_image ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}>
+                                  Sig {pawn.clients?.signature_image ? '✓' : '✗'}
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Created / Pawn Date */}
+                          <TableCell className="px-6 py-4 text-xs font-semibold text-slate-600 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="font-black text-slate-800">
+                                {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB') : '—'}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {pawn.created_at ? new Date(pawn.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Amount */}
+                          <TableCell className="px-6 py-4 text-right">
+                            <div className="flex flex-col items-end">
+                              <span className="font-mono font-black text-sm text-slate-900">
+                                Rs. {Number(pawn.disbursed_amount || 0).toLocaleString()}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400">
+                                Appraised: Rs. {Number(pawn.appraised_value || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Item Details */}
+                          <TableCell className="px-6 py-4">
+                            <div className="flex flex-col max-w-[200px]">
+                              <span className="font-bold text-xs text-slate-800 truncate" title={pawn.description}>
+                                {pawn.description || 'Pawn Collateral'}
+                              </span>
+                              <span className="text-[10px] text-amber-700 font-bold">
+                                Weight: {((pawn.weight_mg || 0) / 1000 || pawn.weight_grams || pawn.weight || 0).toFixed(2)}g ({pawn.weight_mg || 0} mg)
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Proofs */}
+                          <TableCell className="px-6 py-4 text-center">
+                            {hasPhotos ? (
+                              <div className="flex items-center justify-center gap-1">
+                                {pawn.air_weight_photo_url && (
+                                  <img 
+                                    src={pawn.air_weight_photo_url} 
+                                    alt="Air" 
+                                    className="w-6 h-6 object-cover rounded border border-amber-400"
+                                    title="Air weight photo proof" 
+                                  />
+                                )}
+                                {pawn.water_weight_photo_url && (
+                                  <img 
+                                    src={pawn.water_weight_photo_url} 
+                                    alt="Water" 
+                                    className="w-6 h-6 object-cover rounded border border-blue-400"
+                                    title="Water weight photo proof" 
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-bold">None</span>
+                            )}
+                          </TableCell>
+
+                          {/* Loan Status */}
+                          <TableCell className="px-6 py-4 text-center">
+                            <Badge
+                              variant="outline"
+                              className={`font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 ${
+                                pawn.status === 'REQUIRES_RECHECK'
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse font-black'
+                                  : pawn.status === 'AUDITED_PENDING_APPROVAL'
+                                  ? 'bg-blue-50 text-blue-800 border-blue-300 font-black'
+                                  : pawn.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : pawn.status === 'PENDING_APPROVAL'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                  : 'bg-slate-100 text-slate-700 border-slate-300'
+                              }`}
+                            >
+                              {pawn.status === 'REQUIRES_RECHECK' 
+                                ? '⚠ REQUIRES RECHECK' 
+                                : pawn.status === 'AUDITED_PENDING_APPROVAL'
+                                ? '✓ AUDITED • PENDING MGR'
+                                : pawn.status}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Audit Status */}
+                          <TableCell className="px-6 py-4 text-center">
+                            {!auditRec ? (
+                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-black text-[9px] uppercase tracking-widest gap-1">
+                                <Clock className="w-3 h-3 text-amber-600" /> Pending Audit
+                              </Badge>
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <Badge className={`font-black text-[9px] uppercase tracking-widest gap-1 ${
+                                  auditRec.status === 'PASSED'
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                    : 'bg-rose-100 text-rose-800 border-rose-300'
+                                }`}>
+                                  {auditRec.status === 'PASSED' ? (
+                                    <><CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified</>
+                                  ) : (
+                                    <><AlertTriangle className="w-3 h-3 text-rose-600" /> Flagged</>
+                                  )}
+                                </Badge>
+                                <span className="text-[10px] font-black text-slate-800 mt-1 truncate max-w-[130px]" title={`Audited by ${auditRec.auditor_email}${auditRec.notes ? `: ${auditRec.notes}` : ''}`}>
+                                  By: {auditRec.auditor_email.split('@')[0]}
+                                </span>
+                                <span className="text-[9px] font-mono text-slate-400">
+                                  {auditRec.audited_at ? new Date(auditRec.audited_at).toLocaleDateString('en-GB') : ''}
+                                </span>
+                              </div>
+                            )}
+                          </TableCell>
+
+                          {/* Action */}
+                          <TableCell className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Link href={`/dashboard/auditor/verify/${pawn.id || pawn.bill_no}`}>
+                                <Button
+                                  size="sm"
+                                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl gap-1.5 cursor-pointer shadow-xs"
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5 text-slate-950" /> Verify Pawn
+                                </Button>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleOpenAuditModal(pawn)}
+                                className="text-slate-600 hover:text-slate-900 font-bold text-xs p-1.5 h-8 w-8 rounded-lg cursor-pointer"
+                                title="Quick Audit Modal"
+                              >
+                                <Eye className="w-4 h-4 text-slate-500" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* TAB 2: VAULT INVENTORY & REDIS CACHE AUDIT */}
+      {activeTab === 'inventory' && (
+        <div className="space-y-6">
+          {/* Redis Cache Status & Audit Controls Banner */}
+          <div className="glass p-5 rounded-3xl border border-amber-500/20 shadow-lg bg-gradient-to-r from-amber-500/5 via-slate-50/50 to-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-amber-600" />
+                <h3 className="text-base font-black text-slate-900">Vault Inventory Redis L1 Cache Layer</h3>
+                {inventoryCacheStatus === 'HIT' ? (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-black text-[10px] uppercase tracking-wider flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-emerald-600" /> Cache Hit (Redis In-Memory)
+                  </Badge>
+                ) : inventoryCacheStatus === 'MISS' ? (
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-300 font-black text-[10px] uppercase tracking-wider">
+                    Cache Miss (Fetched DB &amp; Cached)
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="font-mono text-[10px]">Ready</Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 font-semibold font-mono">
+                Key: <span className="text-slate-800 font-bold">inventory:branch:{selectedBranch}:date:{inventoryDate}</span> • TTL: <span className="text-amber-700 font-bold">300s (5m)</span>
+              </p>
+            </div>
+
+            {/* Inventory List Section Dedicated Reload & Force Expire Controls */}
+            <div className="flex items-center gap-2">
+              <label 
+                className={cn(
+                  "flex items-center gap-1.5 cursor-pointer border px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all select-none shadow-xs h-10",
+                  forceExpireCache 
+                    ? "bg-amber-500 border-amber-600 text-slate-950 shadow-amber-500/20 ring-2 ring-amber-500/30" 
+                    : "bg-amber-50/80 hover:bg-amber-100 border-amber-200/80 text-amber-800"
+                )}
+                title="Auditor check button to force-expire Redis cache on reload"
+              >
+                <input
+                  type="checkbox"
+                  checked={forceExpireCache}
+                  onChange={(e) => setForceExpireCache(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-amber-600 rounded cursor-pointer"
+                />
+                <span className="flex items-center gap-1">
+                  <Zap className="w-3 h-3" />
+                  Force Expire Cache
+                </span>
+              </label>
+
+              <Button
+                variant="outline"
+                onClick={handleReload}
+                disabled={loadingInventory || isInvalidatingCache}
+                className={cn(
+                  "h-10 px-4 border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-black text-xs uppercase tracking-wider rounded-xl gap-1.5 shadow-xs cursor-pointer transition-all",
+                  forceExpireCache && "border-amber-500 bg-amber-50 text-amber-950 font-black"
+                )}
+                title={forceExpireCache ? "Reload and force-expire Redis cache" : "Reload inventory using cache by default"}
+              >
+                {loadingInventory || isInvalidatingCache ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                ) : (
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-700" />
+                )}
+                Reload
+              </Button>
+
+              <Link href="/operations/eod?tab=stock">
+                <Button
+                  variant="ghost"
+                  className="h-10 px-3 text-slate-600 hover:text-slate-900 font-bold text-xs rounded-xl gap-1 cursor-pointer"
+                  title="Open full EOD & Stock Management module"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Full Stock Portal
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Inventory Breakdown KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="glass border-blue-500/20 rounded-2xl p-4 shadow-sm bg-blue-500/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Full Settlements (F/S)</span>
+              <p className="text-xl font-black text-blue-900 mt-2 font-mono">
+                Rs. {Number(inventoryData?.summary?.total_fs || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-blue-600 font-semibold">{inventoryData?.data?.fs_items?.length || 0} settlements</p>
+            </div>
+
+            <div className="glass border-amber-500/20 rounded-2xl p-4 shadow-sm bg-amber-500/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">Stock Interest</span>
+              <p className="text-xl font-black text-amber-900 mt-2 font-mono">
+                Rs. {Number(inventoryData?.summary?.total_interest || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-amber-600 font-semibold">{inventoryData?.data?.interest_items?.length || 0} entries</p>
+            </div>
+
+            <div className="glass border-emerald-500/20 rounded-2xl p-4 shadow-sm bg-emerald-500/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Daily Receipts</span>
+              <p className="text-xl font-black text-emerald-900 mt-2 font-mono">
+                Rs. {Number(inventoryData?.summary?.total_receipts || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-emerald-600 font-semibold">{inventoryData?.data?.receipt_items?.length || 0} receipts</p>
+            </div>
+
+            <div className="glass border-purple-500/20 rounded-2xl p-4 shadow-sm bg-purple-500/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-purple-700">Loans Disbursed</span>
+              <p className="text-xl font-black text-purple-900 mt-2 font-mono">
+                Rs. {Number(inventoryData?.summary?.total_loans || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-purple-600 font-semibold">{inventoryData?.data?.loan_items?.length || 0} loans</p>
+            </div>
+
+            <div className="glass border-rose-500/20 rounded-2xl p-4 shadow-sm bg-rose-500/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">Redemptions</span>
+              <p className="text-xl font-black text-rose-900 mt-2 font-mono">
+                Rs. {Number(inventoryData?.summary?.total_redeems || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-rose-600 font-semibold">{inventoryData?.data?.redeem_items?.length || 0} redeemed</p>
+            </div>
+          </div>
+
+          {/* Inventory Items Table */}
+          <div className="glass rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-amber-600" />
+                <h3 className="text-base font-black text-slate-900">Vault Inventory &amp; Daily Matrix Records</h3>
+                <Badge variant="outline" className="font-mono text-xs font-bold ml-2">
+                  {inventoryItems.length} records
+                </Badge>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  placeholder="Filter by bill, notes, branch..."
+                  className="pl-9 h-9 bg-white border-slate-200 rounded-xl font-semibold text-xs w-full"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50/80">
+                  <TableRow className="border-b border-slate-200/80">
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-3.5 px-6">Category</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-3.5 px-6">Bill / Ref</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-3.5 px-6">Date</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-3.5 px-6">Branch</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-3.5 px-6 text-right">Amount (Rs.)</TableHead>
+                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-700 py-3.5 px-6">Notes / Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingInventory ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-slate-500 font-semibold">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-600 mb-2" />
+                        Loading inventory records...
+                      </TableCell>
+                    </TableRow>
+                  ) : inventoryItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-slate-500 font-semibold">
+                        <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        No inventory records found for branch &quot;{selectedBranch}&quot; on {inventoryDate}.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    inventoryItems.map((item: any, idx: number) => (
+                      <TableRow key={item.id || idx} className="hover:bg-amber-50/30 transition-colors border-b border-slate-100">
+                        <TableCell className="px-6 py-3.5">
+                          <Badge variant="outline" className={cn("font-black text-[9px] uppercase tracking-wider px-2 py-0.5", item.badgeColor)}>
+                            {item.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 font-mono font-black text-xs text-slate-900">
+                          {item.bill_no || '—'}
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 text-xs text-slate-600 font-medium">
+                          {item.date || inventoryDate}
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] font-black text-slate-700">
+                            {item.branch || selectedBranch}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 text-right font-mono font-black text-xs text-slate-900">
+                          Rs. {Number(item.amount || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 text-xs text-slate-600 max-w-[280px] truncate" title={item.notes}>
+                          {item.notes || '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comprehensive Audit Inspection Modal */}
       <Dialog open={isAuditModalOpen} onOpenChange={setIsAuditModalOpen}>
@@ -717,6 +1336,45 @@ export default function AuditorDashboard() {
           <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
             {selectedPawn && (
               <>
+                {/* Audit History Banner if ticket was previously audited */}
+                {auditMap[selectedPawn.bill_no] && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-amber-500 text-slate-950 rounded-xl shrink-0 mt-0.5">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-900">
+                            Audit History:
+                          </span>
+                          <Badge className={`text-[9px] font-black uppercase ${
+                            auditMap[selectedPawn.bill_no].status === 'PASSED'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-rose-600 text-white'
+                          }`}>
+                            {auditMap[selectedPawn.bill_no].status === 'PASSED' ? '✓ Verified Passed' : '⚠ Flagged with Discrepancy'}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-semibold">
+                          Audited by <strong className="text-slate-900">{auditMap[selectedPawn.bill_no].auditor_email}</strong> on{' '}
+                          <strong className="text-slate-900">{new Date(auditMap[selectedPawn.bill_no].audited_at).toLocaleString('en-GB')}</strong>
+                        </p>
+                        {auditMap[selectedPawn.bill_no].notes && (
+                          <p className="text-xs text-slate-700 italic bg-white/70 p-2 rounded-lg border border-amber-200">
+                            "{auditMap[selectedPawn.bill_no].notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Link href={`/dashboard/auditor/verify/${selectedPawn.id || selectedPawn.bill_no}`}>
+                      <Button size="sm" variant="outline" className="text-xs font-black rounded-xl border-amber-300 bg-white hover:bg-amber-50 text-amber-900 shrink-0 cursor-pointer">
+                        Full Audit Trail & Dossier →
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+
                 {/* Section 1: Customer & Loan Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Customer Card */}
@@ -880,6 +1538,121 @@ export default function AuditorDashboard() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Section 3.5: Customer Identity & Signature Evidence */}
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <UserCheck className="w-3.5 h-3.5 text-amber-600" /> Customer Identity & Signature Evidence
+                    </span>
+                    <Link href={`/dashboard/auditor/verify/${selectedPawn.id || selectedPawn.bill_no}`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] font-black text-amber-800 bg-amber-100/80 border-amber-300 hover:bg-amber-200 rounded-lg gap-1 cursor-pointer"
+                      >
+                        <Camera className="w-3 h-3" /> Capture / Verify in Dossier →
+                      </Button>
+                    </Link>
+                  </div>
+
+                  {(() => {
+                    let quickNicFront: string | null = null;
+                    let quickNicBack: string | null = null;
+                    const cImg = selectedPawn.clients?.nic_image;
+                    if (cImg) {
+                      try {
+                        const parsed = JSON.parse(cImg);
+                        quickNicFront = parsed.front || null;
+                        quickNicBack = parsed.back || null;
+                      } catch {
+                        if (typeof cImg === 'string' && (cImg.startsWith('data:') || cImg.startsWith('http'))) {
+                          quickNicFront = cImg;
+                        }
+                      }
+                    }
+                    const quickSig = selectedPawn.clients?.signature_image || null;
+
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Front NIC */}
+                        <div className="bg-white rounded-xl p-3 border border-slate-200 flex flex-col items-center">
+                          <div className="w-full flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-slate-700">NIC (Front)</span>
+                            <Badge variant="outline" className={`text-[9px] font-black ${quickNicFront ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}`}>
+                              {quickNicFront ? 'Captured ✓' : 'Missing ✗'}
+                            </Badge>
+                          </div>
+                          <div className="w-full h-24 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                            {quickNicFront ? (
+                              <img
+                                src={quickNicFront}
+                                alt="NIC Front"
+                                className="w-full h-full object-contain cursor-pointer hover:opacity-90"
+                                onClick={() => {
+                                  const w = window.open('');
+                                  w?.document.write(`<img src="${quickNicFront}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                                }}
+                              />
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-semibold">No Front Photo</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Back NIC */}
+                        <div className="bg-white rounded-xl p-3 border border-slate-200 flex flex-col items-center">
+                          <div className="w-full flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-slate-700">NIC (Back)</span>
+                            <Badge variant="outline" className={`text-[9px] font-black ${quickNicBack ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}`}>
+                              {quickNicBack ? 'Captured ✓' : 'Missing ✗'}
+                            </Badge>
+                          </div>
+                          <div className="w-full h-24 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                            {quickNicBack ? (
+                              <img
+                                src={quickNicBack}
+                                alt="NIC Back"
+                                className="w-full h-full object-contain cursor-pointer hover:opacity-90"
+                                onClick={() => {
+                                  const w = window.open('');
+                                  w?.document.write(`<img src="${quickNicBack}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                                }}
+                              />
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-semibold">No Back Photo</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Signature */}
+                        <div className="bg-white rounded-xl p-3 border border-slate-200 flex flex-col items-center">
+                          <div className="w-full flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-slate-700">Customer Signature</span>
+                            <Badge variant="outline" className={`text-[9px] font-black ${quickSig ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}`}>
+                              {quickSig ? 'Captured ✓' : 'Missing ✗'}
+                            </Badge>
+                          </div>
+                          <div className="w-full h-24 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                            {quickSig ? (
+                              <img
+                                src={quickSig}
+                                alt="Customer Signature"
+                                className="w-full h-full object-contain cursor-pointer hover:opacity-90 bg-white"
+                                onClick={() => {
+                                  const w = window.open('');
+                                  w?.document.write(`<img src="${quickSig}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                                }}
+                              />
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-semibold">No Signature Recorded</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Section 4: Auditor Decision & Observation Notes */}

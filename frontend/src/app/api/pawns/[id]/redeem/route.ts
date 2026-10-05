@@ -3,6 +3,7 @@ import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { sendFreeSms, buildPawnRedeemSms } from '@/lib/sms';
 import { normalizeBranchId } from '@/lib/branch-mapping';
+import { invalidateBranchInventoryCache } from '@/lib/redis';
 
 export async function POST(
   request: Request,
@@ -95,6 +96,9 @@ export async function POST(
         withdrawal_date: new Date().toISOString().split('T')[0],
         withdrawal_reason: 'Pawn Redeemed (Closed)'
       }).eq('bill_no', pawn.bill_no || id.substring(0, 8));
+
+      // Invalidate branch inventory cache
+      await invalidateBranchInventoryCache(pawn.branch_id);
     } catch (stockErr) {
       console.warn("Could not mark matching vault stock item as Withdrawn:", stockErr);
     }

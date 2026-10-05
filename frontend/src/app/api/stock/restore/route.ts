@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { recordAuditLog } from '@/lib/audit-logger';
+import { invalidateBranchInventoryCache } from '@/lib/redis';
 
 export async function POST(req: Request) {
   try {
@@ -84,6 +85,13 @@ export async function POST(req: Request) {
           notes: cleanNotes
         }
       });
+    }
+
+    // Invalidate Redis inventory cache
+    try {
+      await invalidateBranchInventoryCache(item.branch_id || 'ALL');
+    } catch (cErr) {
+      console.warn('[Cache Invalidation Warning]:', cErr);
     }
 
     return NextResponse.json({

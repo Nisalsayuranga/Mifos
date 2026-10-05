@@ -20,18 +20,35 @@ export async function PATCH(request: Request, context: any) {
       }
     }
 
+    const updatePayload: Record<string, any> = {};
+    if (body.nic !== undefined || body.national_id !== undefined || body.nationalId !== undefined) {
+      updatePayload.national_id = body.nic || body.national_id || body.nationalId;
+    }
+    if (body.firstName !== undefined || body.first_name !== undefined) {
+      updatePayload.first_name = body.firstName || body.first_name;
+    }
+    if (body.lastName !== undefined || body.last_name !== undefined) {
+      updatePayload.last_name = body.lastName || body.last_name;
+    }
+    if (body.phone !== undefined) {
+      updatePayload.phone = body.phone;
+    }
+    if (body.address !== undefined) {
+      updatePayload.address = body.address;
+    }
+    if (body.nicImage !== undefined || body.nic_image !== undefined) {
+      updatePayload.nic_image = body.nicImage || body.nic_image;
+    }
+    if (body.signatureImage !== undefined || body.signature_image !== undefined) {
+      updatePayload.signature_image = body.signatureImage || body.signature_image;
+    }
+    if (body.status !== undefined) {
+      updatePayload.status = body.status;
+    }
+
     const { data, error } = await adminSupabase
       .from('clients')
-      .update({
-        national_id: body.nic || body.national_id || body.nationalId,
-        first_name: body.firstName || body.first_name,
-        last_name: body.lastName || body.last_name || '.',
-        phone: body.phone,
-        address: body.address,
-        nic_image: body.nicImage || body.nic_image,
-        signature_image: body.signatureImage || body.signature_image,
-        status: body.status || 'ACTIVE'
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();

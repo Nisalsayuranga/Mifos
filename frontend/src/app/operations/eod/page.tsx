@@ -587,6 +587,46 @@ function EndOfDayContent() {
   const [showDeleteMatrixModal, setShowDeleteMatrixModal] = useState<boolean>(false);
   const [isDeletingMatrixItem, setIsDeletingMatrixItem] = useState<boolean>(false);
 
+  // Redis Cache Invalidation / Force Refresh state & handler
+  const [isForceRefreshing, setIsForceRefreshing] = useState<boolean>(false);
+  const [forceExpireChecked, setForceExpireChecked] = useState<boolean>(false);
+
+  const handleForceRefreshInventory = async (targetBranch = matrixBranch, targetDate = matrixDate) => {
+    setIsForceRefreshing(true);
+    const toastId = toast.loading("Invalidating inventory cache...");
+    try {
+      const token = localStorage.getItem('auth_token') || '';
+      const res = await fetch('/api/stock/cache/invalidate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          branch: targetBranch || selectedBranch || 'ALL',
+          date: targetDate || matrixDate
+        })
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to invalidate inventory cache');
+      }
+
+      toast.success("Inventory refreshed successfully.", { id: toastId });
+      // Fresh reload from PostgreSQL
+      await fetchDailyMatrix(matrixDate, matrixBranch);
+      if (activeTab === 'stock') {
+        await loadStockData();
+      }
+    } catch (err: any) {
+      console.error("Force refresh error:", err);
+      toast.error(err.message || "Failed to refresh inventory cache.", { id: toastId });
+    } finally {
+      setIsForceRefreshing(false);
+    }
+  };
+
   const fetchDailyMatrix = async (dDate = matrixDate, dBranch = matrixBranch) => {
     setLoadingMatrix(true);
     try {
@@ -2406,6 +2446,54 @@ function EndOfDayContent() {
                   <Printer className="w-3.5 h-3.5 text-blue-600" /> Print
                 </Button>
 
+                {/* Normal Cache-First Reload with Auditor Force Expire check button */}
+                <div className="flex items-center gap-1.5">
+                  <Button 
+                    onClick={async () => {
+                      if (forceExpireChecked && (currentUser?.role === 'AUDITOR' || currentUser?.role === 'ADMIN')) {
+                        await handleForceRefreshInventory(selectedBranch || 'ALL');
+                      } else {
+                        loadStockData();
+                        fetchDailyMatrix();
+                      }
+                    }}
+                    variant="outline"
+                    className={cn(
+                      "border-slate-200 hover:bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-[9px] h-9 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all",
+                      forceExpireChecked && "border-amber-400 bg-amber-50 text-amber-900"
+                    )}
+                    title={forceExpireChecked ? "Reload and force-expire Redis cache" : "Reload inventory using cache by default"}
+                  >
+                    {loadingStock || isForceRefreshing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                    ) : (
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+                    )}
+                    Reload
+                  </Button>
+
+                  {/* Auditor / Admin Check Button to reset/force expire Redis cache */}
+                  {(currentUser?.role === 'AUDITOR' || currentUser?.role === 'ADMIN') && (
+                    <label 
+                      className={cn(
+                        "flex items-center gap-1.5 cursor-pointer border px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all select-none h-9 shadow-xs",
+                        forceExpireChecked 
+                          ? "bg-amber-500 border-amber-600 text-white shadow-amber-500/20" 
+                          : "bg-amber-50/80 hover:bg-amber-100 border-amber-200/80 text-amber-800"
+                      )}
+                      title="Auditor check button to force-expire Redis cache on reload"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={forceExpireChecked}
+                        onChange={(e) => setForceExpireChecked(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-amber-600 rounded cursor-pointer"
+                      />
+                      <span>Force Expire Cache</span>
+                    </label>
+                  )}
+                </div>
+
                 <Button 
                   onClick={() => setShowAddModal(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[10px] h-9 px-6 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-blue-500/10 shrink-0"
@@ -2788,14 +2876,52 @@ function EndOfDayContent() {
               </div>
             </div>
 
-            <Button
-              onClick={() => fetchDailyMatrix(matrixDate, matrixBranch)}
-              variant="outline"
-              className="h-10 rounded-xl font-bold border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 cursor-pointer"
-            >
-              {loadingMatrix ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-              Refresh Matrix
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Normal Cache-First Reload with Auditor Force Expire check button */}
+              <Button
+                onClick={async () => {
+                  if (forceExpireChecked && (currentUser?.role === 'AUDITOR' || currentUser?.role === 'ADMIN')) {
+                    await handleForceRefreshInventory(matrixBranch, matrixDate);
+                  } else {
+                    fetchDailyMatrix(matrixDate, matrixBranch);
+                  }
+                }}
+                variant="outline"
+                className={cn(
+                  "h-10 rounded-xl font-bold border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 cursor-pointer shadow-sm transition-all",
+                  forceExpireChecked && "border-amber-400 bg-amber-50 text-amber-900"
+                )}
+                title={forceExpireChecked ? "Reload and force-expire Redis cache" : "Reload inventory using cache by default"}
+              >
+                {loadingMatrix || isForceRefreshing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                ) : (
+                  <RotateCcw className="w-4 h-4 text-slate-600" />
+                )}
+                Reload
+              </Button>
+
+              {/* Auditor / Admin Check Button to reset/force expire Redis cache */}
+              {(currentUser?.role === 'AUDITOR' || currentUser?.role === 'ADMIN') && (
+                <label 
+                  className={cn(
+                    "flex items-center gap-1.5 cursor-pointer border px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all select-none h-10 shadow-xs",
+                    forceExpireChecked 
+                      ? "bg-amber-500 border-amber-600 text-white shadow-amber-500/20" 
+                      : "bg-amber-50/80 hover:bg-amber-100 border-amber-200/80 text-amber-800"
+                  )}
+                  title="Auditor check button to force-expire Redis cache on reload"
+                >
+                  <input
+                    type="checkbox"
+                    checked={forceExpireChecked}
+                    onChange={(e) => setForceExpireChecked(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-amber-600 rounded cursor-pointer"
+                  />
+                  <span>Force Expire Cache</span>
+                </label>
+              )}
+            </div>
           </div>
 
           {/* Daily KPI Summary Cards */}

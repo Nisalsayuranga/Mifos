@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthenticatedUser } from '@/lib/auth-server';
 import { normalizeBranchId } from '@/lib/branch-mapping';
+import { buildInventoryCacheKey, getInventoryCache, setInventoryCache } from '@/lib/redis';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -24,6 +25,20 @@ export async function GET(req: Request) {
     let effectiveBranch = branchParam;
     if (session && !isHead && session.role !== 'ADMIN') {
       effectiveBranch = session.branchId;
+    }
+
+    const canonicalBranch = (effectiveBranch || 'ALL').trim().toUpperCase();
+    const cacheKey = buildInventoryCacheKey(canonicalBranch, dateParam);
+
+    // 0. Check Redis Cache First
+    const cachedData = await getInventoryCache(cacheKey);
+    if (cachedData) {
+      return NextResponse.json(cachedData, {
+        headers: {
+          'X-Cache': 'HIT',
+          'X-Cache-Key': cacheKey,
+        },
+      });
     }
 
     if (!adminSupabase) {
@@ -171,7 +186,7 @@ export async function GET(req: Request) {
     const totalLoans = loanItems.reduce((acc: number, x: any) => acc + x.amount, 0);
     const totalRedeems = redeemItems.reduce((acc: number, x: any) => acc + x.amount, 0);
 
-    return NextResponse.json({
+    const responsePayload = {
       date: dateParam,
       branch: branchParam || 'ALL',
       summary: {
@@ -189,6 +204,16 @@ export async function GET(req: Request) {
         loan_items: loanItems,
         redeem_items: redeemItems
       }
+    };
+
+    // Store in Redis with TTL (non-blocking, failure resilient)
+    await setInventoryCache(cacheKey, responsePayload);
+
+    return NextResponse.json(responsePayload, {
+      headers: {
+        'X-Cache': 'MISS',
+        'X-Cache-Key': cacheKey,
+      },
     });
 
   } catch (err: any) {

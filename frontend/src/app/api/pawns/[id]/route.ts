@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { normalizeBranchId } from '@/lib/branch-mapping';
+import { invalidateBranchInventoryCache } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -252,6 +253,11 @@ export async function PATCH(request: Request, context: any) {
       
       if (Object.keys(stockUpdate).length > 0) {
         await adminSupabase.from('stock_items').update(stockUpdate).eq('bill_no', oldBillNo);
+        try {
+          await invalidateBranchInventoryCache(existingPawn.branch_id);
+        } catch (cErr) {
+          console.warn('[Cache Invalidation Warning]:', cErr);
+        }
       }
     }
 
@@ -306,6 +312,11 @@ export async function DELETE(request: Request, context: any) {
     const targetBillNo = pawn.bill_no || (pawn.description ? pawn.description.match(/^([A-Za-z0-9]+\s+\d+)/)?.[1]?.trim() : null);
     if (targetBillNo) {
       await adminSupabase.from('stock_items').delete().eq('bill_no', targetBillNo);
+      try {
+        await invalidateBranchInventoryCache(pawn.branch_id);
+      } catch (cErr) {
+        console.warn('[Cache Invalidation Warning]:', cErr);
+      }
     }
 
     return NextResponse.json({ success: true });

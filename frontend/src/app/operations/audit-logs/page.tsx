@@ -150,24 +150,40 @@ export default function AuditLogsPage() {
     const headers = ['Timestamp', 'User Email', 'Role', 'Branch', 'Action', 'Resource', 'Status', 'IP Address', 'Details'];
     const rows = filteredLogs.map(l => [
       l.created_at ? new Date(l.created_at).toLocaleString('en-GB') : '',
-      `"${l.user_email || 'System'}"`,
-      `"${l.role || ''}"`,
-      `"${l.branch_id || ''}"`,
-      `"${l.action || ''}"`,
-      `"${l.resource || ''}"`,
-      `"${l.details?.status || 'SUCCESS'}"`,
-      `"${l.details?.ip_address || '127.0.0.1'}"`,
-      `"${JSON.stringify(l.details || {}).replace(/"/g, '""')}"`
+      l.user_email || 'System',
+      l.role || '',
+      l.branch_id || '',
+      l.action || '',
+      l.resource || '',
+      l.details?.status || 'SUCCESS',
+      l.details?.ip_address || '127.0.0.1',
+      JSON.stringify(l.details || {})
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const escapeCell = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/\r\n|\r|\n/g, ' ');
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const csvLines = [
+      headers.map(escapeCell).join(','),
+      ...rows.map(row => row.map(escapeCell).join(','))
+    ];
+
+    const csvString = csvLines.join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `MIFOS_Audit_Logs_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 500);
     toast.success('Audit Log Trail exported successfully as CSV!');
   };
 

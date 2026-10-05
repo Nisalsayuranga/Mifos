@@ -11,10 +11,12 @@ import {
   ShieldCheck, ArrowLeft, User, Phone, MapPin, CreditCard,
   Scale, FileText, Camera, DollarSign, Package, AlertTriangle,
   CheckCircle2, Clock, Building2, Eye, ExternalLink, RefreshCcw,
-  Check, X, AlertCircle, Sparkles, Layers, Image as ImageIcon
+  Check, X, AlertCircle, Sparkles, Layers, Image as ImageIcon,
+  Upload, PenTool, RotateCcw, Loader2, CameraOff, Video
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '@/lib/getAuthHeaders';
+import { cn } from '@/lib/utils';
 
 const ISSUE_AREAS = [
   'Customer details',
@@ -74,6 +76,228 @@ export default function AuditorVerificationPage() {
   // Image Modal Preview
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Capture Customer KYC & Signature Modal State
+  const [captureTarget, setCaptureTarget] = useState<'nic_front' | 'nic_back' | 'signature' | null>(null);
+  const [captureMode, setCaptureMode] = useState<'camera' | 'upload' | 'draw'>('camera');
+  const [snappedImage, setSnappedImage] = useState<string | null>(null);
+  const [isSavingKyc, setIsSavingKyc] = useState(false);
+  const [overrideNicFront, setOverrideNicFront] = useState<string | null>(null);
+  const [overrideNicBack, setOverrideNicBack] = useState<string | null>(null);
+  const [overrideSignature, setOverrideSignature] = useState<string | null>(null);
+
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const signatureCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const startCamera = async () => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+      } catch {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      streamRef.current = mediaStream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(() => {});
+      }
+    } catch (err: any) {
+      console.error('Camera access error:', err);
+      toast.error('Unable to access camera. Please check browser permissions or use file upload.');
+      setCaptureMode('upload');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const snapPhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      setSnappedImage(dataUrl);
+      stopCamera();
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (evt.target?.result) {
+          setSnappedImage(evt.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const openCaptureModal = (target: 'nic_front' | 'nic_back' | 'signature') => {
+    setCaptureTarget(target);
+    setSnappedImage(null);
+    if (target === 'signature') {
+      setCaptureMode('draw');
+    } else {
+      setCaptureMode('camera');
+      setTimeout(() => {
+        startCamera();
+      }, 150);
+    }
+  };
+
+  const closeCaptureModal = () => {
+    stopCamera();
+    setCaptureTarget(null);
+    setSnappedImage(null);
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    setIsDrawing(true);
+    const rect = canvas.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearSignatureCanvas = () => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const handleSaveKycImage = async () => {
+    let finalBase64 = snappedImage;
+
+    if (captureTarget === 'signature' && captureMode === 'draw') {
+      const canvas = signatureCanvasRef.current;
+      if (!canvas) return;
+      finalBase64 = canvas.toDataURL('image/png');
+    }
+
+    if (!finalBase64) {
+      toast.error('Please snap a photo, upload an image, or draw signature first');
+      return;
+    }
+
+    const clientId = data?.client?.id || data?.pawn?.client_id;
+    if (!clientId) {
+      toast.error('Client ID is missing for this transaction');
+      return;
+    }
+
+    setIsSavingKyc(true);
+    const toastId = toast.loading('Saving customer identity verification evidence...');
+    try {
+      let patchBody: any = {};
+      if (captureTarget === 'nic_front') {
+        let existingBack: string | null = null;
+        if (data?.client?.nic_image) {
+          try {
+            existingBack = JSON.parse(data.client.nic_image).back || null;
+          } catch {}
+        }
+        const currentBack = overrideNicBack || existingBack;
+        patchBody = {
+          nic_image: JSON.stringify({ front: finalBase64, back: currentBack })
+        };
+        setOverrideNicFront(finalBase64);
+      } else if (captureTarget === 'nic_back') {
+        let existingFront: string | null = null;
+        if (data?.client?.nic_image) {
+          try {
+            existingFront = JSON.parse(data.client.nic_image).front || null;
+          } catch {}
+        }
+        const currentFront = overrideNicFront || existingFront;
+        patchBody = {
+          nic_image: JSON.stringify({ front: currentFront, back: finalBase64 })
+        };
+        setOverrideNicBack(finalBase64);
+      } else if (captureTarget === 'signature') {
+        patchBody = {
+          signature_image: finalBase64
+        };
+        setOverrideSignature(finalBase64);
+      }
+
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: 'PATCH',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(patchBody)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Failed to update customer image');
+      }
+
+      toast.success(
+        captureTarget === 'nic_front'
+          ? 'Customer NIC Front photo captured & updated successfully!'
+          : captureTarget === 'nic_back'
+          ? 'Customer NIC Back photo captured & updated successfully!'
+          : 'Customer Signature captured & updated successfully!',
+        { id: toastId }
+      );
+
+      closeCaptureModal();
+    } catch (err: any) {
+      console.error('Save KYC Error:', err);
+      toast.error(err.message || 'Failed to update KYC photo', { id: toastId });
+    } finally {
+      setIsSavingKyc(false);
+    }
+  };
+
   const loadVerificationData = async () => {
     if (!id) return;
     setLoading(true);
@@ -109,8 +333,15 @@ export default function AuditorVerificationPage() {
         if (det.quantityMatches !== undefined) setQuantityMatches(det.quantityMatches);
         if (det.observedWeight) setObservedWeight(String(det.observedWeight));
         if (det.observedKarat) setObservedKarat(String(det.observedKarat));
+        else {
+          const defaultKarat = resJson.items?.[0]?.purity || resJson.pawn?.purity || '22K';
+          setObservedKarat(defaultKarat);
+        }
         if (det.stockVerified !== undefined) setStockVerified(det.stockVerified);
         if (det.cashVerified !== undefined) setCashVerified(det.cashVerified);
+      } else {
+        const defaultKarat = resJson.items?.[0]?.purity || resJson.pawn?.purity || '22K';
+        setObservedKarat(defaultKarat);
       }
     } catch (err: any) {
       console.error(err);
@@ -358,21 +589,23 @@ export default function AuditorVerificationPage() {
   const { pawn, client, items, evaluationEvidence, stockItems, transactions, dailyLedger, auditHistory } = data;
   const grossWeightGrams = (parseFloat(pawn.weight_mg) / 1000) || parseFloat(pawn.weight_grams) || parseFloat(pawn.weight) || 0;
 
-  // Safely parse KYC customer pictures
-  let customerNicFront: string | null = null;
-  let customerNicBack: string | null = null;
+  // Safely parse KYC customer pictures with real-time capture overrides
+  let rawNicFront: string | null = null;
+  let rawNicBack: string | null = null;
   if (client?.nic_image) {
     try {
       const parsed = JSON.parse(client.nic_image);
-      customerNicFront = parsed.front || null;
-      customerNicBack = parsed.back || null;
+      rawNicFront = parsed.front || null;
+      rawNicBack = parsed.back || null;
     } catch {
       if (typeof client.nic_image === 'string' && (client.nic_image.startsWith('data:') || client.nic_image.startsWith('http'))) {
-        customerNicFront = client.nic_image;
+        rawNicFront = client.nic_image;
       }
     }
   }
-  const customerSignature: string | null = client?.signature_image || null;
+  const customerNicFront: string | null = overrideNicFront || rawNicFront;
+  const customerNicBack: string | null = overrideNicBack || rawNicBack;
+  const customerSignature: string | null = overrideSignature || client?.signature_image || null;
   const customerAvatar: string | null = client?.photo_url || customerNicFront || null;
 
   return (
@@ -593,88 +826,211 @@ export default function AuditorVerificationPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* NIC Front */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span>NIC Front Side</span>
+                  <span className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-slate-500" /> NIC Front Side
+                  </span>
                   {customerNicFront ? (
                     <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
                       <Check className="w-2.5 h-2.5" /> Captured
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                    <span className="text-[10px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                      Missing
+                    </span>
                   )}
                 </div>
+
                 <div 
-                  className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs"
-                  onClick={() => customerNicFront && setPreviewImage(customerNicFront)}
+                  className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex flex-col items-center justify-center relative border border-slate-200 shadow-xs group"
                 >
                   {customerNicFront ? (
                     <>
-                      <img src={customerNicFront} alt="NIC Front" className="w-full h-full object-contain group-hover:scale-105 transition-all" />
-                      <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
-                        <Eye className="w-3 h-3" /> Zoom
-                      </span>
+                      <img 
+                        src={customerNicFront} 
+                        alt="NIC Front" 
+                        className="w-full h-full object-contain cursor-zoom-in group-hover:scale-105 transition-all" 
+                        onClick={() => setPreviewImage(customerNicFront)}
+                      />
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(customerNicFront);
+                          }}
+                          className="h-7 px-2 bg-black/75 hover:bg-black/90 text-white text-[10px] font-bold rounded-lg gap-1 border-0 cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3" /> Zoom
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCaptureModal('nic_front');
+                          }}
+                          className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] rounded-lg gap-1 shadow-sm cursor-pointer"
+                        >
+                          <Camera className="w-3 h-3" /> Recapture
+                        </Button>
+                      </div>
                     </>
                   ) : (
-                    <span className="text-xs text-slate-400 font-bold">No NIC front photo</span>
+                    <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+                        <Camera className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-xs text-slate-400 font-bold">No NIC front photo</p>
+                      <Button
+                        size="sm"
+                        onClick={() => openCaptureModal('nic_front')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] h-8 px-3.5 rounded-xl gap-1.5 shadow-md cursor-pointer mt-1"
+                      >
+                        <Camera className="w-3.5 h-3.5" /> Capture / Upload
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* NIC Back */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span>NIC Back Side</span>
+                  <span className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-slate-500" /> NIC Back Side
+                  </span>
                   {customerNicBack ? (
                     <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
                       <Check className="w-2.5 h-2.5" /> Captured
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                    <span className="text-[10px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                      Missing
+                    </span>
                   )}
                 </div>
+
                 <div 
-                  className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs"
-                  onClick={() => customerNicBack && setPreviewImage(customerNicBack)}
+                  className="w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden flex flex-col items-center justify-center relative border border-slate-200 shadow-xs group"
                 >
                   {customerNicBack ? (
                     <>
-                      <img src={customerNicBack} alt="NIC Back" className="w-full h-full object-contain group-hover:scale-105 transition-all" />
-                      <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
-                        <Eye className="w-3 h-3" /> Zoom
-                      </span>
+                      <img 
+                        src={customerNicBack} 
+                        alt="NIC Back" 
+                        className="w-full h-full object-contain cursor-zoom-in group-hover:scale-105 transition-all" 
+                        onClick={() => setPreviewImage(customerNicBack)}
+                      />
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(customerNicBack);
+                          }}
+                          className="h-7 px-2 bg-black/75 hover:bg-black/90 text-white text-[10px] font-bold rounded-lg gap-1 border-0 cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3" /> Zoom
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCaptureModal('nic_back');
+                          }}
+                          className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] rounded-lg gap-1 shadow-sm cursor-pointer"
+                        >
+                          <Camera className="w-3 h-3" /> Recapture
+                        </Button>
+                      </div>
                     </>
                   ) : (
-                    <span className="text-xs text-slate-400 font-bold">No NIC back photo</span>
+                    <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+                        <Camera className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-xs text-slate-400 font-bold">No NIC back photo</p>
+                      <Button
+                        size="sm"
+                        onClick={() => openCaptureModal('nic_back')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] h-8 px-3.5 rounded-xl gap-1.5 shadow-md cursor-pointer mt-1"
+                      >
+                        <Camera className="w-3.5 h-3.5" /> Capture / Upload
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Customer Signature */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span>Customer Signature</span>
+                  <span className="flex items-center gap-1.5">
+                    <PenTool className="w-3.5 h-3.5 text-slate-500" /> Customer Signature
+                  </span>
                   {customerSignature ? (
                     <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
                       <Check className="w-2.5 h-2.5" /> Verified
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">Missing</span>
+                    <span className="text-[10px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                      Missing
+                    </span>
                   )}
                 </div>
+
                 <div 
-                  className="w-full aspect-[4/3] bg-white rounded-2xl overflow-hidden flex items-center justify-center cursor-zoom-in group relative border border-slate-200 shadow-xs p-2"
-                  onClick={() => customerSignature && setPreviewImage(customerSignature)}
+                  className="w-full aspect-[4/3] bg-white rounded-2xl overflow-hidden flex flex-col items-center justify-center relative border border-slate-200 shadow-xs p-2 group"
                 >
                   {customerSignature ? (
                     <>
-                      <img src={customerSignature} alt="Customer Signature" className="w-full h-full object-contain group-hover:scale-105 transition-all" />
-                      <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100">
-                        <Eye className="w-3 h-3" /> Zoom
-                      </span>
+                      <img 
+                        src={customerSignature} 
+                        alt="Customer Signature" 
+                        className="w-full h-full object-contain cursor-zoom-in group-hover:scale-105 transition-all" 
+                        onClick={() => setPreviewImage(customerSignature)}
+                      />
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(customerSignature);
+                          }}
+                          className="h-7 px-2 bg-black/75 hover:bg-black/90 text-white text-[10px] font-bold rounded-lg gap-1 border-0 cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3" /> Zoom
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCaptureModal('signature');
+                          }}
+                          className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] rounded-lg gap-1 shadow-sm cursor-pointer"
+                        >
+                          <PenTool className="w-3 h-3" /> Redraw / Capture
+                        </Button>
+                      </div>
                     </>
                   ) : (
-                    <span className="text-xs text-slate-400 font-bold">No signature photo</span>
+                    <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <PenTool className="w-5 h-5 text-slate-500" />
+                      </div>
+                      <p className="text-xs text-slate-500 font-bold">No signature recorded</p>
+                      <Button
+                        size="sm"
+                        onClick={() => openCaptureModal('signature')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] h-8 px-3.5 rounded-xl gap-1.5 shadow-md cursor-pointer mt-1"
+                      >
+                        <PenTool className="w-3.5 h-3.5" /> Draw / Capture
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1137,14 +1493,44 @@ export default function AuditorVerificationPage() {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
                   <span className="text-[10px] text-slate-400 font-bold shrink-0">Observed Karat:</span>
-                  <Input 
-                    value={observedKarat}
-                    onChange={(e) => setObservedKarat(e.target.value)}
-                    placeholder="22K"
-                    className="h-8 text-xs font-bold bg-slate-50"
-                  />
+                  <div className="flex items-center gap-2 flex-1">
+                    <select
+                      value={['24K', '22K', '21K', '20K', '18K', '14K', '9K'].includes(observedKarat) ? observedKarat : (observedKarat ? 'OTHER' : '')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'OTHER') {
+                          if (['24K', '22K', '21K', '20K', '18K', '14K', '9K'].includes(observedKarat)) {
+                            setObservedKarat('');
+                          }
+                        } else {
+                          setObservedKarat(val);
+                        }
+                      }}
+                      className="h-8 px-3 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer flex-1"
+                    >
+                      <option value="">Select Karat...</option>
+                      <option value="24K">24K (99.9% Pure Gold)</option>
+                      <option value="22K">22K (91.6% Sovereign Gold)</option>
+                      <option value="21K">21K (87.5%)</option>
+                      <option value="20K">20K (83.3%)</option>
+                      <option value="18K">18K (75.0% Commercial Gold)</option>
+                      <option value="14K">14K (58.5%)</option>
+                      <option value="9K">9K (37.5%)</option>
+                      <option value="OTHER">Other / Custom Karat</option>
+                    </select>
+
+                    {(!['24K', '22K', '21K', '20K', '18K', '14K', '9K'].includes(observedKarat) && observedKarat !== '') && (
+                      <Input 
+                        value={observedKarat}
+                        onChange={(e) => setObservedKarat(e.target.value)}
+                        placeholder="e.g. 19.5K"
+                        className="h-8 w-24 text-xs font-bold bg-white border-amber-300 focus:ring-amber-500"
+                        autoFocus
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1495,6 +1881,264 @@ export default function AuditorVerificationPage() {
                 Confirm Approval & Forward to Manager
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── LIVE CAMERA / DRAW / UPLOAD KYC CAPTURE MODAL ── */}
+      <Dialog open={!!captureTarget} onOpenChange={(open) => !open && closeCaptureModal()}>
+        <DialogContent className="w-[95vw] sm:w-[90vw] md:max-w-2xl bg-white border border-slate-200 shadow-2xl p-0 rounded-3xl overflow-hidden">
+          <div className="h-2.5 bg-gradient-to-r from-amber-500 via-emerald-500 to-blue-500" />
+          <div className="p-6 border-b border-slate-100">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600">
+                    {captureTarget === 'signature' ? <PenTool className="w-6 h-6" /> : <Camera className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-black text-slate-900">
+                      {captureTarget === 'nic_front' 
+                        ? 'Capture Customer NIC - Front Side'
+                        : captureTarget === 'nic_back'
+                        ? 'Capture Customer NIC - Back Side'
+                        : 'Capture Customer Signature'}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs font-bold text-slate-500 mt-0.5">
+                      Customer: <strong className="text-slate-900">{client?.first_name ? `${client.first_name} ${client.last_name || ''}` : pawn?.customer_name || 'Valued Customer'}</strong> • NIC: <span className="font-mono text-slate-800">{client?.national_id || pawn?.nic || '—'}</span>
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Mode Selector Tabs */}
+            <div className="flex items-center gap-2 mt-4 bg-slate-100 p-1 rounded-xl w-fit">
+              {captureTarget === 'signature' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    setCaptureMode('draw');
+                    setSnappedImage(null);
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
+                    captureMode === 'draw' ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  <PenTool className="w-3.5 h-3.5 text-blue-600" /> Draw Signature
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptureMode('camera');
+                  setSnappedImage(null);
+                  startCamera();
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
+                  captureMode === 'camera' ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <Camera className="w-3.5 h-3.5 text-amber-600" /> Live Camera
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  stopCamera();
+                  setCaptureMode('upload');
+                  setSnappedImage(null);
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
+                  captureMode === 'upload' ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <Upload className="w-3.5 h-3.5 text-emerald-600" /> Upload File
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 space-y-4">
+            {/* 1. CAMERA MODE */}
+            {captureMode === 'camera' && (
+              <div className="space-y-3">
+                <div className="w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden relative border border-slate-300 flex items-center justify-center">
+                  {!snappedImage ? (
+                    <>
+                      <video 
+                        ref={videoRef} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="w-full h-full object-cover" 
+                      />
+                      <div className="absolute inset-0 border-2 border-dashed border-white/30 m-4 rounded-xl pointer-events-none flex items-center justify-center">
+                        <span className="text-white/60 text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">
+                          Position {captureTarget === 'signature' ? 'signed document' : 'NIC card'} inside frame
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <img 
+                      src={snappedImage} 
+                      alt="Captured Preview" 
+                      className="w-full h-full object-contain" 
+                    />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  {!snappedImage ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={startCamera}
+                        className="text-xs font-bold gap-1 rounded-xl cursor-pointer"
+                      >
+                        <RefreshCcw className="w-3.5 h-3.5" /> Restart Cam
+                      </Button>
+                      <Button
+                        onClick={snapPhoto}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-6 py-2 rounded-xl gap-2 shadow-md cursor-pointer"
+                      >
+                        <Camera className="w-4 h-4" /> Snap Photo
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSnappedImage(null);
+                          startCamera();
+                        }}
+                        className="text-xs font-bold gap-1.5 rounded-xl cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Retake Photo
+                      </Button>
+                      <Button
+                        onClick={handleSaveKycImage}
+                        disabled={isSavingKyc}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2 rounded-xl gap-2 shadow-md cursor-pointer"
+                      >
+                        {isSavingKyc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        Confirm & Save
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 2. DRAW SIGNATURE MODE */}
+            {captureMode === 'draw' && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">Draw customer signature below using mouse or touchscreen:</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSignatureCanvas}
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold h-7 px-2 cursor-pointer"
+                    >
+                      Clear Pad
+                    </Button>
+                  </div>
+                  <div className="w-full bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl overflow-hidden p-1 touch-none">
+                    <canvas
+                      ref={signatureCanvasRef}
+                      width={560}
+                      height={220}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={stopDrawing}
+                      onMouseLeave={stopDrawing}
+                      onTouchStart={startDrawing}
+                      onTouchMove={draw}
+                      onTouchEnd={stopDrawing}
+                      className="w-full h-[220px] bg-white rounded-xl cursor-crosshair shadow-inner"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={closeCaptureModal}
+                    className="text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveKycImage}
+                    disabled={isSavingKyc}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-6 py-2 rounded-xl gap-2 shadow-md cursor-pointer"
+                  >
+                    {isSavingKyc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Save Signature
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* 3. UPLOAD FILE MODE */}
+            {captureMode === 'upload' && (
+              <div className="space-y-4">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full aspect-[4/3] bg-slate-50 border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-2xl flex flex-col items-center justify-center p-6 cursor-pointer transition-colors"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  {!snappedImage ? (
+                    <div className="flex flex-col items-center space-y-2 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-black text-slate-800">Click to select photo from device</p>
+                      <p className="text-[11px] text-slate-400 font-semibold">PNG, JPG, JPEG or WEBP (Max 10MB)</p>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                      <img 
+                        src={snappedImage} 
+                        alt="Uploaded preview" 
+                        className="max-h-[220px] object-contain rounded-xl shadow-xs" 
+                      />
+                      <span className="mt-2 text-xs font-bold text-amber-600 underline">Click to choose different image</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={closeCaptureModal}
+                    className="text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveKycImage}
+                    disabled={isSavingKyc || !snappedImage}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-6 py-2 rounded-xl gap-2 shadow-md cursor-pointer"
+                  >
+                    {isSavingKyc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Confirm & Save
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

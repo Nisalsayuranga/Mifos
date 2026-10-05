@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedUser, adminSupabase } from '@/lib/auth-server';
 import { oldSupabase } from '@/lib/supabase';
 import { recordAuditLog } from '@/lib/audit-logger';
+import { invalidateBranchInventoryCache } from '@/lib/redis';
 
 export async function POST(req: Request) {
   try {
@@ -69,6 +70,13 @@ export async function POST(req: Request) {
           is_old_data: !!isOld
         }
       });
+    }
+
+    // Invalidate Redis inventory cache
+    try {
+      await invalidateBranchInventoryCache(existingItem?.branch_id || 'ALL');
+    } catch (cErr) {
+      console.warn('[Cache Invalidation Warning]:', cErr);
     }
 
     return NextResponse.json({ 
