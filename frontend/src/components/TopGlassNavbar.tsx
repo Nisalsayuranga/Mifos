@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -117,19 +118,80 @@ export default function TopGlassNavbar() {
   const [openMobileGroup, setOpenMobileGroup] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const getCleanDisplayName = (u: any) => {
+    if (!u) return 'User';
+    const emailMap: Record<string, string> = {
+      'madushaniperera9617@gmail.com': 'Madushani',
+      'erandiperera25@gmail.com': 'Erandi',
+      'manishadias@gmail.com': 'Manisha',
+      'kavika2030@gmail.com': 'Imashi',
+      'a.v.chamika.sonali@hrpulse.com': 'Chamika',
+      'chathudissanayake63@gmail.com': 'Chathurika',
+      'dahami.divyanjali@hrpulse.com': 'Dahami',
+      'sachininirasha462@gmail.com': 'Sachini',
+      'dilinisamudra8210@gmail.com': 'Dilini',
+      'tharushisandumini1111@gmail.com': 'Tharushi',
+      'kdrasikapriyangani80@gmail.com': 'Rasika',
+      'chamilka.botheju@hrpulse.com': 'Chamilka',
+      'chandimaperera501@gmail.com': 'Chandima',
+      'chasirasulani@gmail.com': 'Chaseera',
+      'tharushiaps99@icloud.com': 'Tharushi',
+      'harshaha825@gmail.com': 'Harsha',
+      'pereralakshi90@gmail.com': 'Lakshika',
+      'geethanganipeiri2912@gmail.com': 'Geethangani',
+      'dilupathamari9@gmail.com': 'Dilupa',
+      'admin@rupasinghe.com': 'Admin'
+    };
+
+    const email = (u.email || '').toLowerCase().trim();
+    if (email && emailMap[email]) return emailMap[email];
+
+    if (u.first_name && typeof u.first_name === 'string') {
+      const cleanFirst = u.first_name.replace(/[0-9]+/g, '').trim();
+      if (cleanFirst) return cleanFirst.charAt(0).toUpperCase() + cleanFirst.slice(1).toLowerCase();
+    }
+
+    const raw = u.name || u.fullName || u.user_metadata?.full_name || u.user_metadata?.first_name || '';
+    if (raw && typeof raw === 'string' && raw.trim()) {
+      const cleaned = raw.replace(/[0-9]+/g, '').trim();
+      if (cleaned.toLowerCase().includes('madushani')) return 'Madushani';
+      const first = cleaned.split(/\s+/)[0];
+      if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+    }
+
+    const emailPrefix = (u.email || u.username || '').split('@')[0] || '';
+    const cleaned = emailPrefix.replace(/[0-9]+/g, '').replace(/[._]/g, ' ').trim();
+    if (cleaned.toLowerCase().includes('madushani')) return 'Madushani';
+    if (cleaned) {
+      const first = cleaned.split(/\s+/)[0];
+      if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+    }
+
+    const storedName = typeof window !== 'undefined' ? localStorage.getItem('user_name') : null;
+    if (storedName) {
+      const cleanedStored = storedName.replace(/[0-9]+/g, '').replace(/[._]/g, ' ').trim();
+      if (cleanedStored.toLowerCase().includes('madushani')) return 'Madushani';
+      const first = cleanedStored.split(/\s+/)[0];
+      if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+    }
+
+    return 'User';
+  };
+
   useEffect(() => {
     const syncUser = () => {
       const stored = localStorage.getItem('user');
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          if (parsed.role === 'TELLER' && (parsed.branchId === 'HQ' || parsed.branchId === 'HEAD OFFICE')) {
-            handleLogout();
-            return;
-          }
           setUser(parsed);
         } catch { /* ignore */ }
       }
+      supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+        if (authUser) {
+          setUser(prev => ({ ...(prev || {}), ...authUser, email: authUser.email }));
+        }
+      }).catch(() => {});
     };
     syncUser();
     window.addEventListener('storage', syncUser);
@@ -185,19 +247,16 @@ export default function TopGlassNavbar() {
         <div className="mx-2 mt-2 sm:mx-4 sm:mt-3">
           <nav className="bg-slate-950/95 backdrop-blur-2xl border border-amber-500/20 shadow-2xl shadow-black/40 rounded-2xl px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
 
-            {/* Brand */}
-            <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-              <div className="h-9 w-9 bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-500/20 group-hover:scale-105 transition-transform duration-300 relative overflow-hidden">
-                <div className="absolute inset-0 bg-white/20 blur-xs" />
-                <span className="text-slate-950 font-black text-sm tracking-tighter relative z-10">RP</span>
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="text-white font-black tracking-tighter text-base group-hover:text-amber-400 transition-colors">
-                  RUPASINGHE
-                </span>
-                <span className="text-amber-400 text-[8px] font-black uppercase tracking-[0.18em] mt-0.5">
-                  Management Hub
-                </span>
+            {/* Brand - Unique rounded logo with company color code */}
+            <Link href="/" className="flex items-center group shrink-0" aria-label="Home">
+              <div className="relative flex items-center justify-center w-11 h-11 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 shadow-md shadow-amber-500/25 group-hover:shadow-amber-500/40 group-hover:scale-105 transition-all duration-300">
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                  <img
+                    src="/rupasinghe_logo.png"
+                    alt="Rupasinghe Pawning"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               </div>
             </Link>
 
@@ -311,8 +370,8 @@ export default function TopGlassNavbar() {
               <Link href="/profile"
                 className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all">
                 <User className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-[11px] font-bold text-slate-200 max-w-24 truncate">
-                  {user?.email ? user.email.split('@')[0] : 'User'}
+                <span className="text-[11px] font-bold text-slate-200 max-w-32 truncate">
+                  {getCleanDisplayName(user)}
                 </span>
                 <span className="text-[9px] font-black bg-slate-800 text-amber-400 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                   {user?.role || 'TELLER'}
@@ -355,15 +414,13 @@ export default function TopGlassNavbar() {
         mobileMenuOpen ? "translate-x-0" : "translate-x-full"
       )}>
 
-        {/* Drawer Header */}
+        {/* Drawer Header - Unique rounded logo with company color code */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 bg-black/30 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-slate-950 font-black text-xs tracking-tighter">RP</span>
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-white font-black tracking-tighter text-sm">RUPASINGHE</span>
-              <span className="text-amber-400 text-[8px] font-black uppercase tracking-[0.15em] mt-0.5">Management Hub</span>
+          <div className="flex items-center">
+            <div className="relative flex items-center justify-center w-10 h-10 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 shadow-md shadow-amber-500/25">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                <img src="/rupasinghe_logo.png" alt="Rupasinghe Pawning" className="w-full h-full object-contain" />
+              </div>
             </div>
           </div>
           <button
@@ -381,7 +438,7 @@ export default function TopGlassNavbar() {
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-white text-xs font-bold truncate">
-                {user?.email ? user.email.split('@')[0] : 'User'}
+                {getCleanDisplayName(user)}
               </span>
               <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider">
                 {user?.role || 'TELLER'} · {user?.branchId || user?.branch_id || 'HQ'}

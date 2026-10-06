@@ -15,19 +15,12 @@ export async function GET(request: Request) {
 
     let query = adminSupabase.from('clients').select('*');
 
-    const isHead = !session?.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
-
-    if (session && !isHead && session.role !== 'ADMIN') {
-      // Non-head branch user: MUST only query clients belonging to their selected branch
-      const terms = getBranchSearchTerms(session.branchId);
+    // All users across all branches can see all customer details.
+    // If an optional branch filter is specifically selected (not 'ALL', not 'HQ', not empty), filter by it.
+    if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ' && requestedBranch.trim() !== '') {
+      const terms = getBranchSearchTerms(requestedBranch);
       const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
       query = query.or(orClause);
-    } else {
-      if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ') {
-        const terms = getBranchSearchTerms(requestedBranch);
-        const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
-        query = query.or(orClause);
-      }
     }
 
     const { data, error } = await query;

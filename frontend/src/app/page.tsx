@@ -17,7 +17,8 @@ import {
   Building2,
   Lock,
   Unlock,
-  Power
+  Power,
+  MapPin
 } from "lucide-react";
 import {
   AreaChart,
@@ -37,7 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { normalizeBranchId, getBranchSearchTerms } from "@/lib/branch-mapping";
+import { normalizeBranchId, getBranchSearchTerms, CANONICAL_BRANCHES } from "@/lib/branch-mapping";
 
 const statsTemplate = [
   { label: "Total Disbursed Portfolio", value: "Rs. 0", change: "+0.0%", trend: "up", icon: DollarSign, color: "emerald" },
@@ -73,19 +74,103 @@ export default function Home() {
   const [status, setStatus] = useState('CLOSED');
   const [isStatusLoading, setIsStatusLoading] = useState(false);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    let uBranchId = '';
-    let uRole = 'TELLER';
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      uBranchId = user.branchId || '';
-      uRole = user.role || 'TELLER';
-      setBranchId(uBranchId);
-      setBranchName(user.branchName || '');
-      setUserName(user.username || user.email?.split('@')[0] || '');
-      fetchStatus(uBranchId);
+  const getFirstName = (u: any): string => {
+    if (!u) return 'User';
+    const emailMap: Record<string, string> = {
+      'madushaniperera9617@gmail.com': 'Madushani',
+      'erandiperera25@gmail.com': 'Erandi',
+      'manishadias@gmail.com': 'Manisha',
+      'kavika2030@gmail.com': 'Imashi',
+      'a.v.chamika.sonali@hrpulse.com': 'Chamika',
+      'chathudissanayake63@gmail.com': 'Chathurika',
+      'dahami.divyanjali@hrpulse.com': 'Dahami',
+      'sachininirasha462@gmail.com': 'Sachini',
+      'dilinisamudra8210@gmail.com': 'Dilini',
+      'tharushisandumini1111@gmail.com': 'Tharushi',
+      'kdrasikapriyangani80@gmail.com': 'Rasika',
+      'chamilka.botheju@hrpulse.com': 'Chamilka',
+      'chandimaperera501@gmail.com': 'Chandima',
+      'chasirasulani@gmail.com': 'Chaseera',
+      'tharushiaps99@icloud.com': 'Tharushi',
+      'harshaha825@gmail.com': 'Harsha',
+      'pereralakshi90@gmail.com': 'Lakshika',
+      'geethanganipeiri2912@gmail.com': 'Geethangani',
+      'dilupathamari9@gmail.com': 'Dilupa',
+      'admin@rupasinghe.com': 'Admin'
+    };
+
+    const email = (u.email || '').toLowerCase().trim();
+    if (email && emailMap[email]) return emailMap[email];
+
+    // Check first_name directly
+    if (u.first_name && typeof u.first_name === 'string') {
+      const cleanFirst = u.first_name.replace(/[0-9]+/g, '').trim();
+      if (cleanFirst) return cleanFirst.charAt(0).toUpperCase() + cleanFirst.slice(1).toLowerCase();
     }
+
+    // Check full name or user_metadata
+    const raw = u.name || u.fullName || u.user_metadata?.full_name || u.user_metadata?.first_name || '';
+    if (raw && typeof raw === 'string' && raw.trim()) {
+      const cleaned = raw.replace(/[0-9]+/g, '').trim();
+      if (cleaned.toLowerCase().includes('madushani')) return 'Madushani';
+      const first = cleaned.split(/\s+/)[0];
+      if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+    }
+
+    // Check email prefix
+    const emailPrefix = (u.email || u.username || '').split('@')[0] || '';
+    const cleanedPrefix = emailPrefix.replace(/[0-9]+/g, '').replace(/[._]/g, ' ').trim();
+    if (cleanedPrefix.toLowerCase().includes('madushani')) return 'Madushani';
+    if (cleanedPrefix) {
+      const first = cleanedPrefix.split(/\s+/)[0];
+      if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+    }
+
+    // Fallback: stored user_name in localStorage
+    const storedName = typeof window !== 'undefined' ? localStorage.getItem('user_name') : null;
+    if (storedName) {
+      const cleanedStored = storedName.replace(/[0-9]+/g, '').replace(/[._]/g, ' ').trim();
+      if (cleanedStored.toLowerCase().includes('madushani')) return 'Madushani';
+      const first = cleanedStored.split(/\s+/)[0];
+      if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+    }
+
+    return 'User';
+  };
+
+  useEffect(() => {
+    let uBranchId = localStorage.getItem('user_branch') || '';
+    let uRole = localStorage.getItem('user_role') || 'TELLER';
+    const storedUser = localStorage.getItem('user');
+
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        uBranchId = user.branchId || uBranchId;
+        uRole = user.role || uRole;
+        setBranchId(uBranchId);
+        const bObj = CANONICAL_BRANCHES.find(b => b.id === normalizeBranchId(uBranchId));
+        setBranchName(user.branchName || bObj?.name || 'Head Office');
+        setUserName(getFirstName(user));
+        fetchStatus(uBranchId);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      const fallbackName = getFirstName({ email: localStorage.getItem('user_name') });
+      setUserName(fallbackName);
+    }
+
+    // Also sync with Supabase session to guarantee first name is always populated
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const nameFromSession = getFirstName(user);
+        if (nameFromSession && nameFromSession !== 'User') {
+          setUserName(nameFromSession);
+        }
+      }
+    }).catch(() => {});
+
     loadDashboardData(uBranchId, uRole);
   }, []);
 
@@ -128,12 +213,8 @@ export default function Home() {
       const isHeadBranch = !userBranchId || normalizeBranchId(userBranchId) === 'HQ' || userBranchId.toUpperCase() === 'HEAD OFFICE';
       const branchTerms = userBranchId ? getBranchSearchTerms(userBranchId) : [];
 
-      // 1. Get Customers Count
-      let clientQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
-      if (!isHeadBranch && userBranchId) {
-        clientQuery = clientQuery.in('branch_id', branchTerms);
-      }
-      const { count: clientCount } = await clientQuery;
+      // 1. Get Customers Count (All branches accessible to all users)
+      const { count: clientCount } = await supabase.from('clients').select('*', { count: 'exact', head: true });
       
       // 2. Get Pawns Data (Sum and Count)
       let pawnsQuery = supabase.from('pawns').select('disbursed_amount');
@@ -151,12 +232,8 @@ export default function Home() {
       }
       const { data: txs } = await recentPawnsQuery;
 
-      // 4. Get Client Names mapping to resolve client_id to actual names
-      let clientsMapQuery = supabase.from('clients').select('id, first_name, last_name');
-      if (!isHeadBranch && userBranchId) {
-        clientsMapQuery = clientsMapQuery.in('branch_id', branchTerms);
-      }
-      const { data: clientsList } = await clientsMapQuery;
+      // 4. Get Client Names mapping to resolve client_id to actual names (All branches)
+      const { data: clientsList } = await supabase.from('clients').select('id, first_name, last_name');
       const cmap: {[key: string]: string} = {};
       if (clientsList) {
         clientsList.forEach((c: any) => {
@@ -194,11 +271,15 @@ export default function Home() {
       {/* Dynamic Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-4 border-b border-slate-100">
         <div className="space-y-2">
-          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tighter leading-none">
-            {branchName || 'Branch'} {userName && <span className="text-slate-500 font-bold ml-1">- {userName}</span>} <span className="text-linear-to-r from-primary to-indigo-400 bg-clip-text text-transparent italic ml-2">Overview</span>
+          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-none flex items-center gap-2.5">
+            Hi, <span className="text-amber-500 font-black">{userName || 'User'}</span>
           </h1>
-          <p className="text-slate-500 font-bold text-sm max-w-2xl">
-            Manage operations for {branchName || 'your branch'} in real-time.
+          <p className="text-slate-500 font-bold text-sm flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-900 border border-amber-500/20 text-xs font-black uppercase tracking-wider">
+              <MapPin className="w-3.5 h-3.5 text-amber-600 inline" />
+              {branchName ? (branchName.toLowerCase().includes('branch') ? branchName : `${branchName} Branch`) : 'Head Office Branch'}
+            </span>
+            <span className="text-slate-400 font-medium">Manage operations in real-time</span>
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 shrink-0">

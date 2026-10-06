@@ -199,15 +199,6 @@ export default function LoginPage() {
 
       const effectiveBranch = normalizeBranchId(effectiveBranchInput);
 
-      // Only Tellers are strictly forbidden from logging into Head Office (HQ)
-      if (userRole === 'TELLER' && (effectiveBranch === 'HQ' || effectiveBranch === 'HEAD OFFICE')) {
-        await supabase.auth.signOut();
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        throw new Error(`Tellers are not authorized to log into Head Office. Please select your assigned operating branch.`);
-      }
-
       if (tok) {
         localStorage.setItem('auth_token', tok);
         document.cookie = `sb-access-token=${tok}; path=/; max-age=28800; SameSite=Lax`;

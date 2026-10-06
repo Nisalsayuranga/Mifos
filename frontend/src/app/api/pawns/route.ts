@@ -21,21 +21,11 @@ export async function GET(request: Request) {
 
     let query = adminSupabase.from('pawns').select('*').order('created_at', { ascending: false });
 
-    const isHead = !session?.branchId || normalizeBranchId(session.branchId) === 'HQ' || session.branchId.toUpperCase() === 'HEAD OFFICE';
-
-    if (session && !isHead && session.role !== 'ADMIN') {
-      // Branch user (logged in with any branch except head branch):
-      // Must ONLY query pawns belonging to their specific selected branch!
-      const terms = getBranchSearchTerms(session.branchId);
+    // If a specific branch filter is requested (and not 'ALL'), filter by that branch; otherwise allow viewing all branches
+    if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch.trim() !== '') {
+      const terms = getBranchSearchTerms(requestedBranch);
       const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
       query = query.or(orClause);
-    } else {
-      // Head branch or Admin: can access all branches or filter by requested branch
-      if (requestedBranch && requestedBranch !== 'ALL') {
-        const terms = getBranchSearchTerms(requestedBranch);
-        const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
-        query = query.or(orClause);
-      }
     }
 
     const { data, error } = await query;

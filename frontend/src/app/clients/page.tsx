@@ -307,9 +307,24 @@ export default function ClientsPage() {
   const [userId, setUserId] = useState('');
   const [userRole, setUserRole] = useState('');
   const [editingClient, setEditingClient] = useState<any>(null);
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('ALL');
+  const [branches, setBranches] = useState<any[]>([]);
 
-  const loadClients = async () => {
+  const loadBranches = async () => {
     try {
+      const res = await fetch('/api/branches', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setBranches([{ id: 'ALL', name: 'All Branches' }, ...data]);
+      }
+    } catch (e) {
+      console.error('Failed to load branches', e);
+    }
+  };
+
+  const loadClients = async (overrideBranch?: string) => {
+    try {
+      setLoading(true);
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const user = JSON.parse(storedUser);
@@ -318,11 +333,12 @@ export default function ClientsPage() {
         setUserRole(user.role || 'TELLER');
       }
 
-      const storedUserParsed = storedUser ? JSON.parse(storedUser) : null;
       // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
       const headers = getAuthHeaders();
+      const targetBranch = overrideBranch !== undefined ? overrideBranch : selectedBranchFilter;
+      const queryParam = targetBranch && targetBranch !== 'ALL' ? `?branchId=${encodeURIComponent(targetBranch)}` : '';
 
-      const res = await fetch(`/api/clients?branchId=${storedUserParsed?.branchId || ''}`, { headers });
+      const res = await fetch(`/api/clients${queryParam}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setClients(data);
@@ -339,12 +355,7 @@ export default function ClientsPage() {
 
   const loadCustomerData = async () => {
     try {
-      const storedUser = localStorage.getItem('user');
-      const user = storedUser ? JSON.parse(storedUser) : null;
-      const activeBranch = user ? (user.role === 'ADMIN' ? 'ALL' : (user.branchId || 'HQ')) : 'HQ';
-
       let query = supabase.from('stock_customers').select('*');
-      // Removed branch_id filter because stock_customers table lacks this column
       const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
       setStockCustomers(data || []);
@@ -356,13 +367,7 @@ export default function ClientsPage() {
       if (local) {
         try {
           const allItems = JSON.parse(local);
-          const storedUser = localStorage.getItem('user');
-          const user = storedUser ? JSON.parse(storedUser) : null;
-          const activeBranch = user ? (user.role === 'ADMIN' ? 'ALL' : (user.branchId || 'HQ')) : 'HQ';
-          const filtered = activeBranch !== 'ALL'
-            ? allItems.filter((item: any) => item.branch_id === activeBranch)
-            : allItems;
-          setStockCustomers(filtered);
+          setStockCustomers(allItems);
         } catch (e) {
           setStockCustomers([]);
         }
@@ -373,8 +378,9 @@ export default function ClientsPage() {
   };
 
   useEffect(() => {
-    loadClients();
+    loadClients('ALL');
     loadCustomerData();
+    loadBranches();
   }, []);
 
   useEffect(() => {
@@ -692,6 +698,7 @@ export default function ClientsPage() {
     (client.first_name || client.firstName)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (client.national_id || client.nationalId)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (client.branch_id || client.branchId)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.phone?.includes(searchQuery)
   );
 
@@ -700,7 +707,7 @@ export default function ClientsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">Our <span className="text-gradient">Customers</span></h1>
-          <p className="text-slate-500 font-medium tracking-tight">Manage all customer information for this branch.</p>
+          <p className="text-slate-500 font-medium tracking-tight">View and manage all customer details across all branches.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center shrink-0">
           <Button 
@@ -920,13 +927,31 @@ export default function ClientsPage() {
           <Input 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search customers by Name or NIC..." 
-            className="pl-12 h-14 bg-white/50 border-white/40 glass focus:ring-primary shadow-lg shadow-slate-200/50 rounded-2xl" 
+            placeholder="Search all customers by Name, NIC, TP, Address, or Branch..." 
+            className="pl-12 h-14 bg-white/50 border-white/40 glass focus:ring-primary shadow-lg shadow-slate-200/50 rounded-2xl font-bold" 
           />
         </div>
-        <Button variant="outline" className="h-14 px-6 border-white/40 glass font-black text-[10px] uppercase tracking-widest text-slate-500 gap-2 rounded-2xl">
-           <Filter className="w-4 h-4" /> Filter
-        </Button>
+        <div className="relative w-full md:w-auto shrink-0 min-w-[220px]">
+          <select
+            value={selectedBranchFilter}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedBranchFilter(val);
+              loadClients(val);
+            }}
+            className="h-14 w-full px-5 pr-10 bg-white/80 border border-slate-200 glass font-black text-xs uppercase tracking-wider text-slate-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none"
+          >
+            <option value="ALL">All Branches ({clients.length})</option>
+            {branches.filter(b => b.id !== 'ALL').map((b: any) => (
+              <option key={b.id} value={b.id}>
+                {b.name || b.id} Branch
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <Filter className="w-4 h-4 text-primary" />
+          </div>
+        </div>
       </div>
 
       {/* Table Section */}
@@ -936,6 +961,7 @@ export default function ClientsPage() {
             <TableRow>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">NIC Number</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Name & TP</TableHead>
+              <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Address</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Webcam KYC Scans</TableHead>
               <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
@@ -945,10 +971,10 @@ export default function ClientsPage() {
           </TableHeader>
           <TableBody className="divide-y divide-slate-50">
             {loading ? (
-               <TableRow><TableCell colSpan={7} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Initializing directory metadata...</TableCell></TableRow>
+               <TableRow><TableCell colSpan={8} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Initializing directory metadata...</TableCell></TableRow>
             ) : filteredClients.length === 0 ? (
                <TableRow>
-                 <TableCell colSpan={7} className="h-64 text-center">
+                 <TableCell colSpan={8} className="h-64 text-center">
                     <p className="text-slate-400 font-bold mb-4">No customer fingerprints detected.</p>
                     <Button variant="outline" onClick={() => setIsOpen(true)} className="border-primary/20 text-primary font-black text-[10px] uppercase tracking-widest h-12 rounded-xl hover:bg-primary hover:text-white transition-all px-8">Generate First Entry</Button>
                  </TableCell>
@@ -961,6 +987,12 @@ export default function ClientsPage() {
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-800 leading-none mb-1">{client.first_name || client.firstName}</span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{client.phone || 'No Phone'}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-8 py-6">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/80 font-black text-[10px] uppercase tracking-wider text-slate-700 shadow-xs">
+                      <MapPin className="w-3 h-3 text-primary shrink-0" />
+                      <span>{client.branch_id || client.branchId || 'HQ'}</span>
                     </div>
                   </TableCell>
                   <TableCell className="px-8 py-6 max-w-[200px] truncate text-slate-500 font-bold text-xs">{client.address || 'No Address'}</TableCell>

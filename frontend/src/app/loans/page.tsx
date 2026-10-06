@@ -324,7 +324,7 @@ export default function PawnesPage() {
       // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
       const headers = getAuthHeaders();
 
-      const res = await fetch(`/api/clients?branchId=${user?.branchId || ''}`, { headers });
+      const res = await fetch('/api/clients', { headers });
       if (res.ok) {
         const data: any[] = await res.json();
         setClientsList(data);
@@ -357,9 +357,9 @@ export default function PawnesPage() {
       const headers = getAuthHeaders();
 
       const params = new URLSearchParams({
-        branchId: user?.branchId || branchId,
+        branchId: filterBranch || 'ALL',
         role: user?.role || userRole,
-        filterBranch,
+        filterBranch: filterBranch || 'ALL',
       });
       const res = await fetch(`/api/pawns?${params}`, { headers });
       if (res.ok) {
@@ -383,9 +383,9 @@ export default function PawnesPage() {
     loadBranches();
   }, []);
 
-  // Reload when admin changes branch filter
+  // Reload when branch filter changes
   useEffect(() => {
-    if (userRole === 'ADMIN') loadPawns();
+    loadPawns();
   }, [filterBranch]);
 
   // Resolve customer name, phone, and address when NIC/ID is typed
@@ -1640,15 +1640,34 @@ export default function PawnesPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search by Ticket ID, Client, or Description..."
-          className="pl-12 h-14 bg-white/50 border-white/40 glass focus:ring-primary shadow-lg rounded-2xl"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Search & Branch Filter */}
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        <div className="relative flex-1 w-full max-w-md">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Search by Ticket ID, Client, or Description..."
+            className="pl-12 h-14 bg-white/50 border-white/40 glass focus:ring-primary shadow-lg rounded-2xl font-bold"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="relative w-full md:w-auto shrink-0 min-w-[220px]">
+          <select
+            value={filterBranch}
+            onChange={e => setFilterBranch(e.target.value)}
+            className="h-14 w-full px-5 pr-10 bg-white/80 border border-slate-200 glass font-black text-xs uppercase tracking-wider text-slate-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none"
+          >
+            <option value="ALL">All Branches ({pawns.length})</option>
+            {branches.filter(b => b.id !== 'ALL').map((b: any) => (
+              <option key={b.id} value={b.id}>
+                {b.name || b.id} Branch
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <Filter className="w-4 h-4 text-primary" />
+          </div>
+        </div>
       </div>
 
       {/* Table */}
@@ -1657,6 +1676,7 @@ export default function PawnesPage() {
           <TableHeader className="bg-slate-50/50 border-b border-slate-100">
             <TableRow>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill #</TableHead>
+              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer NIC & Name</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
               <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised (LKR)</TableHead>
@@ -1669,10 +1689,10 @@ export default function PawnesPage() {
           </TableHeader>
           <TableBody className="divide-y divide-slate-50">
             {loading ? (
-              <TableRow><TableCell colSpan={9} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Loading pawn registry...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Loading pawn registry...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-64 text-center">
+                <TableCell colSpan={10} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <FileText className="h-12 w-12 text-slate-200" />
                     <p className="text-slate-400 font-bold">{search ? 'No matching pawn items found.' : "No active pawn items. Click 'Originate Pawn' to begin."}</p>
@@ -1689,6 +1709,12 @@ export default function PawnesPage() {
                 <TableRow key={pawn.id} className="group hover:bg-primary/5 transition-all duration-300">
                   <TableCell className="px-4 py-3 font-black text-primary text-xs tracking-widest whitespace-nowrap">
                     {getBillNo(pawn)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <Badge className="bg-slate-100 text-slate-800 border-slate-200 font-black text-[9px] uppercase tracking-wider px-2 py-0.5 whitespace-nowrap">
+                      <MapPin className="w-2.5 h-2.5 mr-1 inline text-primary" />
+                      {pawn.branch_id || 'HQ'}
+                    </Badge>
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <div className="flex flex-col">

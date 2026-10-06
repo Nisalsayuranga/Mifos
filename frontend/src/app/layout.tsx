@@ -9,6 +9,11 @@ const interFont = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 export const metadata: Metadata = {
   title: 'Rupasinghe Pawning | Branch Intelligence',
   description: 'Core pawning and branch transaction platform',
+  icons: {
+    icon: '/rupasinghe_logo.png',
+    shortcut: '/rupasinghe_logo.png',
+    apple: '/rupasinghe_logo.png',
+  },
 };
 
 export const viewport: Viewport = {
