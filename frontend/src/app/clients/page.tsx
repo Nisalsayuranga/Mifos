@@ -709,19 +709,9 @@ export default function ClientsPage() {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">Our <span className="text-gradient">Customers</span></h1>
           <p className="text-slate-500 font-medium tracking-tight">View and manage all customer details across all branches.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center shrink-0">
-          <Button 
-            onClick={() => setShowCustomerRegistryModal(true)} 
-            variant="outline"
-            className="gap-2 border-slate-200 hover:bg-slate-50 text-slate-700 h-14 px-6 font-black uppercase tracking-widest text-xs shadow-sm cursor-pointer card-hover w-full sm:w-auto shrink-0 transition-all"
-          >
-            <Users className="h-4 w-4 text-blue-600" /> Existing Customers
-          </Button>
-          <Button onClick={() => setIsOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full sm:w-auto shrink-0 transition-all">
-            <UserPlus className="h-4 w-4" /> Add New Customer
-          </Button>
-        </div>
       </div>
+
+
 
       {/* New Customer Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -952,6 +942,12 @@ export default function ClientsPage() {
             <Filter className="w-4 h-4 text-primary" />
           </div>
         </div>
+        <Button 
+          onClick={() => setIsOpen(true)} 
+          className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full md:w-auto shrink-0 transition-all rounded-2xl cursor-pointer"
+        >
+          <UserPlus className="h-4 w-4" /> Add New Customer
+        </Button>
       </div>
 
       {/* Table Section */}
