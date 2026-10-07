@@ -197,7 +197,7 @@ export default function LoginPage() {
         userRole = profile?.role || data.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER');
       }
 
-      const effectiveBranch = normalizeBranchId(effectiveBranchInput);
+      const effectiveBranch = normalizeBranchId(authUser?.branchId || effectiveBranchInput);
 
       if (tok) {
         localStorage.setItem('auth_token', tok);
@@ -212,7 +212,7 @@ export default function LoginPage() {
         id: authUser.id,
         role: userRole,
         branchId: effectiveBranch,
-        branchName: branchList.find(b => b.id === effectiveBranch || b.id === branch)?.name || effectiveBranch,
+        branchName: authUser?.branchName || branchList.find(b => b.id === effectiveBranch || normalizeBranchId(b.id) === effectiveBranch)?.name || (effectiveBranch === 'HQ' ? 'Head Office' : effectiveBranch),
       }));
 
       if (userRole === 'TELLER') {

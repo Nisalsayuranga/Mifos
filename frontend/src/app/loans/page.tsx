@@ -1044,9 +1044,15 @@ export default function PawnesPage() {
                   </div>
                   <span>{editingPawn ? 'Edit Pawn Ticket' : 'Originate New Pawn Ticket'}</span>
                 </DialogTitle>
-                <span className="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] sm:text-xs font-mono font-bold shrink-0">
-                  Weight Unit: Milligrams (mg)
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-[10px] sm:text-xs font-mono font-black shrink-0 flex items-center gap-1.5">
+                    <MapPin className="w-3 h-3 text-primary" />
+                    <span>Branch: {branches.find(b => b.id === branchId || b.id === (branchId ? branchId.toUpperCase() : ''))?.name || branchId || 'Active Branch'}</span>
+                  </span>
+                  <span className="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] sm:text-xs font-mono font-bold shrink-0">
+                    Weight Unit: Milligrams (mg)
+                  </span>
+                </div>
               </div>
               <DialogDescription className="font-semibold text-slate-500 text-xs mt-1">
                 {editingPawn ? 'Update pawn collateral details below.' : 'Record collateral item details, calculate valuation, and process principal disbursal.'}

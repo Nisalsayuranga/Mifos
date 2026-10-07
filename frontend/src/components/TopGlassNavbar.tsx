@@ -249,7 +249,7 @@ export default function TopGlassNavbar() {
 
             {/* Brand - Unique rounded logo with company color code */}
             <Link href="/" className="flex items-center group shrink-0" aria-label="Home">
-              <div className="relative flex items-center justify-center w-11 h-11 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 shadow-md shadow-amber-500/25 group-hover:shadow-amber-500/40 group-hover:scale-105 transition-all duration-300">
+              <div className="relative flex items-center justify-center w-[50px] h-[50px] sm:w-[52px] sm:h-[52px] rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 shadow-md shadow-amber-500/25 group-hover:shadow-amber-500/40 group-hover:scale-105 transition-all duration-300">
                 <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
                   <img
                     src="/rupasinghe_logo.png"
@@ -417,7 +417,7 @@ export default function TopGlassNavbar() {
         {/* Drawer Header - Unique rounded logo with company color code */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 bg-black/30 shrink-0">
           <div className="flex items-center">
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 shadow-md shadow-amber-500/25">
+            <div className="relative flex items-center justify-center w-11 h-11 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-600 shadow-md shadow-amber-500/25">
               <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
                 <img src="/rupasinghe_logo.png" alt="Rupasinghe Pawning" className="w-full h-full object-contain" />
               </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { normalizeBranchId } from '@/lib/branch-mapping';
+import { normalizeBranchId, CANONICAL_BRANCHES } from '@/lib/branch-mapping';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ielkaetihagxgnrrasch.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGthZXRpaGFneGducnJhc2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDE1NTksImV4cCI6MjA5OTY3NzU1OX0.YKLOHhXhUCgG1eMZiksR4H7UwySjhWzc0e_pomh_0oI';
@@ -57,8 +57,19 @@ export async function POST(request: Request) {
     const isAdminEmail = loginEmail.includes('admin') || loginEmail === 'erandiperera25@gmail.com' || loginEmail === 'madushaniperera9617@gmail.com';
     const role = (profile?.role || authData.user.user_metadata?.role || (isAdminEmail ? 'ADMIN' : 'TELLER')).toUpperCase();
     
-    // Determine effective operating branch
-    let effectiveBranch = normalizeBranchId(profile?.branch_id || branch || 'HQ');
+    // Determine effective operating branch:
+    // If user explicitly selected a branch at login, prioritize that branch;
+    // Otherwise fallback to profile.branch_id or HQ.
+    const selectedBranch = branch ? normalizeBranchId(branch) : null;
+    let effectiveBranch = 'HQ';
+    if (selectedBranch && selectedBranch !== 'HQ') {
+      effectiveBranch = selectedBranch;
+    } else if (profile?.branch_id) {
+      effectiveBranch = normalizeBranchId(profile.branch_id);
+    }
+
+    const branchObj = CANONICAL_BRANCHES.find(b => b.id === effectiveBranch);
+    const effectiveBranchName = branchObj ? branchObj.name : (effectiveBranch === 'HQ' ? 'Head Office' : (profile?.branch_name || effectiveBranch));
 
     const token = authData.session?.access_token || '';
 
@@ -69,9 +80,9 @@ export async function POST(request: Request) {
         email: authData.user.email,
         role: role,
         branchId: effectiveBranch,
-        branchName: profile?.branch_name || effectiveBranch
+        branchName: effectiveBranchName
       },
-      profile: profile || { role, branch_id: effectiveBranch },
+      profile: profile ? { ...profile, branch_id: effectiveBranch, branch_name: effectiveBranchName } : { role, branch_id: effectiveBranch, branch_name: effectiveBranchName },
       token: token
     });
 
