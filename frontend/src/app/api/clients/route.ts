@@ -15,9 +15,8 @@ export async function GET(request: Request) {
 
     let query = adminSupabase.from('clients').select('*');
 
-    // All users across all branches can see all customer details.
-    // If an optional branch filter is specifically selected (not 'ALL', not 'HQ', not empty), filter by it.
-    if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch !== 'HQ' && requestedBranch.trim() !== '') {
+    // If an optional branch filter is specifically selected (not 'ALL', not empty), filter by it.
+    if (requestedBranch && requestedBranch !== 'ALL' && requestedBranch.trim() !== '') {
       const terms = getBranchSearchTerms(requestedBranch);
       const orClause = terms.map(t => `branch_id.ilike.%${t}%`).join(',');
       query = query.or(orClause);
@@ -36,7 +35,15 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedUser(request);
     const body = await request.json();
-    const { nic, firstName, lastName, phone, branchId, createdByUserId, address, nicImage, signatureImage } = body;
+    const nic = body.nic || body.nationalId || body.national_id;
+    const firstName = body.firstName || body.first_name || (body.name ? body.name.split(' ')[0] : '');
+    const lastName = body.lastName || body.last_name || (body.name ? body.name.split(' ').slice(1).join(' ') : '');
+    const phone = body.phone || body.mobile || '';
+    const address = body.address || '';
+    const nicImage = body.nicImage || body.nic_image;
+    const signatureImage = body.signatureImage || body.signature_image;
+    const branchId = body.branchId || body.branch_id;
+    const createdByUserId = body.createdByUserId || body.created_by_user_id;
 
     if (!nic || !firstName) {
       return NextResponse.json({ error: "Missing required fields (nic, firstName)" }, { status: 400 });
@@ -102,10 +109,9 @@ export async function POST(request: Request) {
     }
 
     if (existingClient) {
-      const updateData: any = {
-        firstName: firstName,
+      // 1. Try snake_case update first (matching active database schema)
+      const snakeUpdateData: any = {
         first_name: firstName,
-        lastName: lastName || existingClient.lastName || existingClient.last_name || '.',
         last_name: lastName || existingClient.last_name || existingClient.lastName || '.',
         phone: phone || existingClient.phone,
         address: address || existingClient.address,
@@ -113,45 +119,40 @@ export async function POST(request: Request) {
         signature_image: signatureImage || existingClient.signature_image
       };
       
-      const { data: updatedClient } = await adminSupabase
+      const { data: updatedClient, error: updateErr } = await adminSupabase
         .from('clients')
-        .update(updateData)
+        .update(snakeUpdateData)
         .eq('id', existingClient.id)
         .select()
         .single();
 
-      return NextResponse.json(updatedClient || existingClient, { status: 200 });
+      if (!updateErr && updatedClient) {
+        return NextResponse.json(updatedClient, { status: 200 });
+      }
+
+      // 2. Fallback to camelCase update if needed
+      const camelUpdateData: any = {
+        firstName: firstName,
+        lastName: lastName || existingClient.lastName || existingClient.last_name || '.',
+        phone: phone || existingClient.phone,
+        address: address || existingClient.address,
+        nic_image: nicImage || existingClient.nic_image,
+        signature_image: signatureImage || existingClient.signature_image
+      };
+
+      const { data: camelUpdatedClient } = await adminSupabase
+        .from('clients')
+        .update(camelUpdateData)
+        .eq('id', existingClient.id)
+        .select()
+        .single();
+
+      return NextResponse.json(camelUpdatedClient || updatedClient || existingClient, { status: 200 });
     }
 
     const clientId = crypto.randomUUID();
 
-    // 1. Try camelCase insert (Active Database Schema standard)
-    const camelPayload: any = {
-      id: clientId,
-      nationalId: trimmedNic,
-      firstName: firstName,
-      lastName: lastName || '.',
-      phone: phone || null,
-      branchId: effectiveBranchId,
-      createdByUserId: effectiveUserId,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      address: address || null,
-      nic_image: nicImage || null,
-      signature_image: signatureImage || null
-    };
-
-    const { data: camelData, error: camelErr } = await adminSupabase
-      .from('clients')
-      .insert([camelPayload])
-      .select()
-      .single();
-
-    if (!camelErr && camelData) {
-      return NextResponse.json(camelData, { status: 201 });
-    }
-
-    // 2. Try snake_case insert (Migration 003 standard)
+    // 1. Try snake_case insert first (matching active database schema)
     const snakePayload: any = {
       id: clientId,
       national_id: trimmedNic,
@@ -177,8 +178,34 @@ export async function POST(request: Request) {
       return NextResponse.json(snakeData, { status: 201 });
     }
 
-    console.error("Clients POST Error (Both schemas failed):", camelErr, snakeErr);
-    return NextResponse.json({ error: camelErr?.message || snakeErr?.message || "Failed to save customer record to database." }, { status: 500 });
+    // 2. Fallback to camelCase insert if database uses camelCase schema
+    const camelPayload: any = {
+      id: clientId,
+      nationalId: trimmedNic,
+      firstName: firstName,
+      lastName: lastName || '.',
+      phone: phone || null,
+      branchId: effectiveBranchId,
+      createdByUserId: effectiveUserId,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      address: address || null,
+      nic_image: nicImage || null,
+      signature_image: signatureImage || null
+    };
+
+    const { data: camelData, error: camelErr } = await adminSupabase
+      .from('clients')
+      .insert([camelPayload])
+      .select()
+      .single();
+
+    if (!camelErr && camelData) {
+      return NextResponse.json(camelData, { status: 201 });
+    }
+
+    console.error("Clients POST Error (Both schemas failed):", snakeErr, camelErr);
+    return NextResponse.json({ error: snakeErr?.message || camelErr?.message || "Failed to save customer record to database." }, { status: 500 });
   } catch (error: any) {
     console.error("API POST Exception:", error);
     return NextResponse.json({ error: error.message || 'Failed to save customer' }, { status: 500 });

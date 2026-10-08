@@ -13,6 +13,24 @@ export interface EvaluationResult {
   trueValue: number;
   airWeightPhoto?: string | null;
   waterWeightPhoto?: string | null;
+  specificGravity?: number;
+  estimatedKarat?: string;
+}
+
+export function getEstimatedPurity(sg: number): string {
+  if (sg >= 19.1) return '24K (Pure Gold)';
+  if (sg >= 17.2) return '22K (91.6% Sovereign)';
+  if (sg >= 16.2) return '21K (87.5% Gold)';
+  if (sg >= 15.4) return '20K (83.3% Gold)';
+  if (sg >= 14.4) return '18K (75.0% Gold)';
+  if (sg >= 12.5) return '14K (58.5% Gold)';
+  if (sg >= 11.2) return '10K (41.7% Gold)';
+  if (sg >= 10.5) return '9K (37.5% Gold)';
+  if (sg >= 9.5)  return 'Silver / Low Karat';
+  if (sg >= 8.0)  return 'Brass / Copper Alloy';
+  if (sg >= 6.5)  return 'Iron / Steel Alloy';
+  if (sg > 0)     return 'Base Metal / Non-Gold';
+  return 'Unknown';
 }
 
 interface ItemEvaluationModalProps {
@@ -44,25 +62,37 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
 
   // Calculate SG when weights change
   useEffect(() => {
-    const aw = parseFloat(airWeight);
-    const ww = parseFloat(waterWeight);
+    const rawAw = parseFloat(airWeight);
+    const rawWw = parseFloat(waterWeight);
     
-    if (aw > 0 && ww > 0 && aw > ww) {
-      const sg = aw / (aw - ww);
-      setSpecificGravity(sg);
-      
-      // Determine Karat
-      if (sg >= 19.3) setEstimatedKarat('24K');
-      else if (sg >= 17.5) setEstimatedKarat('22K');
-      else if (sg >= 16.5) setEstimatedKarat('21K');
-      else if (sg >= 14.7) setEstimatedKarat('18K');
-      else if (sg >= 12.6) setEstimatedKarat('14K');
-      else if (sg >= 11.4) setEstimatedKarat('10K');
-      else if (sg >= 11.1) setEstimatedKarat('9K');
-      else setEstimatedKarat('Unknown / Base Metal');
-    } else {
+    if (isNaN(rawAw) || isNaN(rawWw) || rawAw <= 0 || rawWw <= 0) {
       setSpecificGravity(0);
       setEstimatedKarat('Unknown');
+      return;
+    }
+
+    let sg = 0;
+    // Check if water weight is direct displaced water weight (beaker on tared scale)
+    if (rawWw < rawAw * 0.45 && rawWw > 0) {
+      sg = rawAw / rawWw;
+    } else {
+      // Submerged apparent weight method
+      const maxW = Math.max(rawAw, rawWw);
+      const minW = Math.min(rawAw, rawWw);
+      const loss = maxW - minW;
+      if (loss > 0) {
+        sg = maxW / loss;
+      }
+    }
+
+    if (sg > 0 && isFinite(sg)) {
+      const roundedSg = parseFloat(sg.toFixed(2));
+      setSpecificGravity(roundedSg);
+      const purity = getEstimatedPurity(roundedSg);
+      setEstimatedKarat(purity);
+    } else {
+      setSpecificGravity(0);
+      setEstimatedKarat(Math.abs(rawAw - rawWw) < 0.0001 ? 'Equal weights (loss = 0)' : 'Unknown');
     }
   }, [airWeight, waterWeight]);
 
@@ -188,6 +218,8 @@ export function ItemEvaluationModal({ isOpen, onOpenChange, onAccept }: ItemEval
       trueValue: parseFloat(trueValue) || 0,
       airWeightPhoto,
       waterWeightPhoto,
+      specificGravity,
+      estimatedKarat,
     });
     resetForm();
     onOpenChange(false);

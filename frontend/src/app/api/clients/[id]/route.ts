@@ -53,8 +53,30 @@ export async function PATCH(request: Request, context: any) {
       .select()
       .single();
 
-    if (error) throw error;
-    return NextResponse.json(data);
+    if (!error && data) {
+      return NextResponse.json(data);
+    }
+
+    // Fallback: If column names differed, map to camelCase
+    const camelFallback: Record<string, any> = {};
+    if (updatePayload.national_id !== undefined) camelFallback.nationalId = updatePayload.national_id;
+    if (updatePayload.first_name !== undefined) camelFallback.firstName = updatePayload.first_name;
+    if (updatePayload.last_name !== undefined) camelFallback.lastName = updatePayload.last_name;
+    if (updatePayload.phone !== undefined) camelFallback.phone = updatePayload.phone;
+    if (updatePayload.address !== undefined) camelFallback.address = updatePayload.address;
+    if (updatePayload.nic_image !== undefined) camelFallback.nic_image = updatePayload.nic_image;
+    if (updatePayload.signature_image !== undefined) camelFallback.signature_image = updatePayload.signature_image;
+    if (updatePayload.status !== undefined) camelFallback.status = updatePayload.status;
+
+    const { data: camelData, error: camelErr } = await adminSupabase
+      .from('clients')
+      .update(camelFallback)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (camelErr) throw error || camelErr;
+    return NextResponse.json(camelData);
   } catch (error: any) {
     console.error("API PATCH Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

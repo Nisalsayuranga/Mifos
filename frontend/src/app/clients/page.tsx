@@ -1,5 +1,6 @@
 'use client';
 import { getAuthHeaders } from '@/lib/getAuthHeaders';
+import { getBranchSearchTerms } from '@/lib/branch-mapping';
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { 
   Plus, Search, UserPlus, Sparkles, Filter, MoreVertical, RefreshCcw, 
   Pencil, Trash2, ShieldCheck, UserCog, Camera, CameraOff, MapPin, Image,
-  Users, Edit, FileText, Check, AlertTriangle
+  Users, Edit, FileText, Check, AlertTriangle, CheckCircle2, Eye
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
@@ -310,6 +311,54 @@ export default function ClientsPage() {
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('ALL');
   const [branches, setBranches] = useState<any[]>([]);
 
+  // Customer KYC Photo Viewer Dialog State
+  const [photoViewerClient, setPhotoViewerClient] = useState<{
+    isOpen: boolean;
+    name: string;
+    nic: string;
+    front?: string | null;
+    back?: string | null;
+    signature?: string | null;
+  }>({
+    isOpen: false,
+    name: '',
+    nic: '',
+    front: null,
+    back: null,
+    signature: null,
+  });
+
+  // Real-time duplicate cross-check against database when registering customer
+  const normalizedInputNic = (nic || '').trim().toLowerCase();
+  const normalizedInputPhone = (phone || '').replace(/\D/g, '');
+
+  const duplicateClientMatch = (!editingClient && (normalizedInputNic.length >= 3 || normalizedInputPhone.length >= 9))
+    ? clients.find(c => {
+        const cNic = String(c.national_id || c.nationalId || c.nic || c.id || '').trim().toLowerCase();
+        const cPhone = String(c.phone || c.mobile || '').replace(/\D/g, '');
+
+        const nicMatches = normalizedInputNic.length >= 3 && (
+          cNic === normalizedInputNic || 
+          cNic.replace(/[^a-z0-9]/g, '') === normalizedInputNic.replace(/[^a-z0-9]/g, '')
+        );
+        const phoneMatches = normalizedInputPhone.length >= 9 && cPhone.length >= 9 && cPhone === normalizedInputPhone;
+
+        return nicMatches || phoneMatches;
+      })
+    : null;
+
+  const isDuplicateClientNic = Boolean(
+    duplicateClientMatch && 
+    normalizedInputNic.length >= 3 && 
+    String(duplicateClientMatch.national_id || duplicateClientMatch.nationalId || duplicateClientMatch.nic || duplicateClientMatch.id || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedInputNic.replace(/[^a-z0-9]/g, '')
+  );
+
+  const isDuplicateClientPhone = Boolean(
+    duplicateClientMatch && 
+    normalizedInputPhone.length >= 9 && 
+    String(duplicateClientMatch.phone || duplicateClientMatch.mobile || '').replace(/\D/g, '') === normalizedInputPhone
+  );
+
   const loadBranches = async () => {
     try {
       const res = await fetch('/api/branches', { headers: getAuthHeaders() });
@@ -433,6 +482,14 @@ export default function ClientsPage() {
 
   const handleSave = async () => {
     if (isSaving) return;
+
+    // If duplicate customer detected when registering new, switch to edit mode
+    if (duplicateClientMatch && !editingClient) {
+      toast.info(`Customer already exists in database. Switched to existing record for ${duplicateClientMatch.first_name || duplicateClientMatch.firstName || 'Customer'}`);
+      openEditDialog(duplicateClientMatch);
+      return;
+    }
+
     if (!nic || !firstName) {
       toast.error("Missing Information", {
         description: "NIC and Name with Initials are required."
@@ -694,13 +751,29 @@ export default function ClientsPage() {
     }
   };
 
-  const filteredClients = clients.filter(client => 
-    (client.first_name || client.firstName)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (client.national_id || client.nationalId)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (client.branch_id || client.branchId)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.phone?.includes(searchQuery)
-  );
+  const filteredClients = clients.filter(client => {
+    // 1. Branch filter
+    if (selectedBranchFilter && selectedBranchFilter !== 'ALL') {
+      const cBranch = String(client.branch_id || client.branchId || '').toUpperCase().trim();
+      const sBranch = selectedBranchFilter.toUpperCase().trim();
+      const terms = getBranchSearchTerms(sBranch);
+      const branchMatches = terms.some(t => cBranch === t.toUpperCase() || cBranch.includes(t.toUpperCase())) || cBranch === sBranch;
+      if (!branchMatches) return false;
+    }
+
+    // 2. Search query filter
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+
+    return (
+      (client.first_name || client.firstName)?.toLowerCase().includes(q) ||
+      (client.last_name || client.lastName)?.toLowerCase().includes(q) ||
+      (client.national_id || client.nationalId)?.toLowerCase().includes(q) ||
+      client.address?.toLowerCase().includes(q) ||
+      (client.branch_id || client.branchId)?.toLowerCase().includes(q) ||
+      client.phone?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
@@ -710,6 +783,137 @@ export default function ClientsPage() {
           <p className="text-slate-500 font-medium tracking-tight">View and manage all customer details across all branches.</p>
         </div>
       </div>
+
+      {/* Photo Capture & KYC Verification KPI & Coverage Chart */}
+      {(() => {
+        const total = clients.length;
+        const withAnyPhoto = clients.filter(c => {
+          if (c.signature_image || c.signatureImage) return true;
+          const raw = c.nic_image || c.nicImage;
+          if (!raw) return false;
+          try {
+            const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return !!(p.front || p.back);
+          } catch {
+            return typeof raw === 'string' && raw.length > 20;
+          }
+        }).length;
+
+        const withFront = clients.filter(c => {
+          const raw = c.nic_image || c.nicImage;
+          if (!raw) return false;
+          try {
+            const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return !!p.front;
+          } catch {
+            return typeof raw === 'string' && raw.length > 20;
+          }
+        }).length;
+
+        const withBack = clients.filter(c => {
+          const raw = c.nic_image || c.nicImage;
+          if (!raw) return false;
+          try {
+            const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return !!p.back;
+          } catch {
+            return false;
+          }
+        }).length;
+
+        const withSign = clients.filter(c => !!(c.signature_image || c.signatureImage)).length;
+
+        const withFullKyc = clients.filter(c => {
+          const hasSign = !!(c.signature_image || c.signatureImage);
+          const raw = c.nic_image || c.nicImage;
+          if (!hasSign || !raw) return false;
+          try {
+            const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return !!(p.front && p.back);
+          } catch {
+            return false;
+          }
+        }).length;
+
+        const coveragePct = total > 0 ? Math.round((withAnyPhoto / total) * 100) : 0;
+        const fullKycPct = total > 0 ? Math.round((withFullKyc / total) * 100) : 0;
+        const frontPct = total > 0 ? Math.round((withFront / total) * 100) : 0;
+        const backPct = total > 0 ? Math.round((withBack / total) * 100) : 0;
+        const signPct = total > 0 ? Math.round((withSign / total) * 100) : 0;
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Customers */}
+            <div className="glass p-5 rounded-2xl border border-white/60 shadow-lg bg-white/60 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Total Directory</span>
+                <div className="p-2 bg-slate-100 rounded-xl text-slate-700">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-3xl font-black text-slate-900 tracking-tight">{total}</div>
+                <div className="text-xs font-bold text-slate-400 mt-0.5">Registered Borrowers</div>
+              </div>
+            </div>
+
+            {/* Photos Captured */}
+            <div className="glass p-5 rounded-2xl border border-emerald-100 shadow-lg bg-emerald-50/40 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">Photos Captured</span>
+                <div className="p-2 bg-emerald-100 rounded-xl text-emerald-700">
+                  <Camera className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-3xl font-black text-emerald-950 tracking-tight">{withAnyPhoto}</div>
+                <div className="text-xs font-bold text-emerald-700 mt-0.5">{total - withAnyPhoto} Pending Capture</div>
+              </div>
+            </div>
+
+            {/* Complete 3-Point KYC */}
+            <div className="glass p-5 rounded-2xl border border-blue-100 shadow-lg bg-blue-50/40 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-blue-800">3-Point Verified KYC</span>
+                <div className="p-2 bg-blue-100 rounded-xl text-blue-700">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="text-3xl font-black text-blue-950 tracking-tight">{withFullKyc}</div>
+                <div className="text-xs font-bold text-blue-700 mt-0.5">{fullKycPct}% Complete (Front + Back + Sign)</div>
+              </div>
+            </div>
+
+            {/* Verification Coverage Chart */}
+            <div className="glass p-5 rounded-2xl border border-amber-100 shadow-lg bg-gradient-to-br from-white/90 to-amber-50/60 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-amber-900">Photo Coverage</span>
+                <span className="text-sm font-black text-amber-900 font-mono">{coveragePct}%</span>
+              </div>
+              <div className="space-y-2">
+                <div className="w-full bg-slate-200/80 rounded-full h-2.5 overflow-hidden flex">
+                  <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${coveragePct}%` }} />
+                </div>
+                <div className="grid grid-cols-3 gap-1 pt-1 text-[9px] font-bold text-slate-500 text-center">
+                  <div className="bg-white/80 py-1 rounded border border-slate-100">
+                    <span className="text-slate-400 block text-[8px]">FRONT</span>
+                    <span className="font-mono text-slate-800 font-black">{frontPct}%</span>
+                  </div>
+                  <div className="bg-white/80 py-1 rounded border border-slate-100">
+                    <span className="text-slate-400 block text-[8px]">BACK</span>
+                    <span className="font-mono text-slate-800 font-black">{backPct}%</span>
+                  </div>
+                  <div className="bg-white/80 py-1 rounded border border-slate-100">
+                    <span className="text-slate-400 block text-[8px]">SIGN</span>
+                    <span className="font-mono text-slate-800 font-black">{signPct}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
 
 
@@ -736,22 +940,153 @@ export default function ClientsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
               {/* Left Column: Form Inputs */}
               <div className="space-y-4">
+                {/* ── RED ALERT: CUSTOMER ALREADY EXISTS IN DATABASE ── */}
+                {duplicateClientMatch && (
+                  <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 sm:p-5 shadow-lg shadow-red-500/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-start justify-between gap-2 border-b border-red-200 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                          <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <span className="text-xs sm:text-sm font-black text-red-700 uppercase tracking-wide block">
+                            Customer Already Exists in Database!
+                          </span>
+                          <span className="text-[11px] font-bold text-red-600">
+                            Existing customer details are shown below in red:
+                          </span>
+                        </div>
+                      </div>
+                      <Badge className="bg-red-600 hover:bg-red-600 text-white font-mono font-black text-[10px] uppercase tracking-wider shrink-0 px-2.5 py-1">
+                        EXISTS IN DB
+                      </Badge>
+                    </div>
+
+                    {/* Existing Details Visible in Red Color */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="bg-white/90 p-2.5 rounded-xl border border-red-300 shadow-sm">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500 block mb-0.5">
+                          Existing NIC Number
+                        </span>
+                        <span className="font-mono font-black text-red-700 text-sm">
+                          {duplicateClientMatch.national_id || duplicateClientMatch.nationalId || duplicateClientMatch.id || nic}
+                        </span>
+                      </div>
+
+                      <div className="bg-white/90 p-2.5 rounded-xl border border-red-300 shadow-sm">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500 block mb-0.5">
+                          Full Name
+                        </span>
+                        <span className="font-black text-red-700 text-sm">
+                          {`${duplicateClientMatch.first_name || duplicateClientMatch.firstName || ''} ${duplicateClientMatch.last_name || duplicateClientMatch.lastName || ''}`.trim() || duplicateClientMatch.name || 'Unnamed Client'}
+                        </span>
+                      </div>
+
+                      <div className="bg-white/90 p-2.5 rounded-xl border border-red-300 shadow-sm">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500 block mb-0.5">
+                          Mobile Number (TP)
+                        </span>
+                        <span className="font-mono font-black text-red-700 text-sm">
+                          {duplicateClientMatch.phone || duplicateClientMatch.mobile || 'No Mobile Number'}
+                        </span>
+                      </div>
+
+                      <div className="bg-white/90 p-2.5 rounded-xl border border-red-300 shadow-sm">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500 block mb-0.5">
+                          Registered Branch
+                        </span>
+                        <span className="font-black text-red-700 text-xs uppercase">
+                          {duplicateClientMatch.branch_id || duplicateClientMatch.branchId || 'Head Office / HQ'}
+                        </span>
+                      </div>
+
+                      <div className="bg-white/90 p-2.5 rounded-xl border border-red-300 shadow-sm sm:col-span-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500 block mb-0.5">
+                          Permanent Address
+                        </span>
+                        <span className="font-bold text-red-700 text-xs">
+                          {duplicateClientMatch.address || duplicateClientMatch.address_line1 || 'No Address Recorded'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action button inside red card */}
+                    <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-red-600">
+                        Click below to view or edit this customer profile:
+                      </span>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          openEditDialog(duplicateClientMatch);
+                          toast.info('Switched to existing customer record ✓');
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider h-9 px-4 rounded-xl shadow-md gap-1.5 cursor-pointer shrink-0"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        <span>Edit Existing Record</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-1.5">
-                  <Label htmlFor="nic" className="font-black text-[10px] uppercase tracking-widest text-slate-400">NIC Number (Primary Key)</Label>
-                  <Input value={nic} onChange={e=>setNic(e.target.value)} id="nic" placeholder="e.g. 941234567V or 199412345678" className="h-11 bg-white/50 rounded-xl font-mono font-bold text-slate-800 text-xs sm:text-sm" />
+                  <div className="flex items-center justify-between">
+                    <Label 
+                      htmlFor="nic" 
+                      className={`font-black text-[10px] uppercase tracking-widest ${isDuplicateClientNic ? 'text-red-600' : 'text-slate-400'}`}
+                    >
+                      NIC Number (Primary Key)
+                    </Label>
+                    {isDuplicateClientNic && (
+                      <span className="text-[10px] font-black text-red-600 flex items-center gap-1 uppercase tracking-wider animate-pulse">
+                        <AlertTriangle className="w-3 h-3 stroke-[2.5]" /> Exists in DB
+                      </span>
+                    )}
+                  </div>
+                  <Input 
+                    value={nic} 
+                    onChange={e=>setNic(e.target.value)} 
+                    id="nic" 
+                    placeholder="e.g. 941234567V or 199412345678" 
+                    className={`h-11 rounded-xl font-mono font-bold text-xs sm:text-sm transition-all ${
+                      isDuplicateClientNic 
+                        ? 'border-2 border-red-500 bg-red-50/70 text-red-700 focus:border-red-600 focus:ring-red-400/20' 
+                        : 'bg-white/50 text-slate-800'
+                    }`} 
+                  />
                 </div>
                 
                 <div className="grid gap-1.5">
-                  <Label htmlFor="firstName" className="font-black text-[10px] uppercase tracking-widest text-slate-400">Name with Initials</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="firstName" className="font-black text-[10px] uppercase tracking-widest text-slate-400">Name with Initials</Label>
+                    {duplicateClientMatch && (
+                      <span className="text-[10px] font-bold text-red-600">
+                        Existing: {`${duplicateClientMatch.first_name || duplicateClientMatch.firstName || ''} ${duplicateClientMatch.last_name || duplicateClientMatch.lastName || ''}`.trim()}
+                      </span>
+                    )}
+                  </div>
                   <Input value={firstName} onChange={e=>setFirstName(e.target.value)} id="firstName" placeholder="e.g. A.B.C. Perera" className="h-11 bg-white/50 rounded-xl font-bold text-slate-800 text-xs sm:text-sm" />
                 </div>
 
                 <div className="grid gap-1.5">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="phone" className="font-black text-[10px] uppercase tracking-widest text-slate-400">TP (Phone Number)</Label>
-                    <span className={`text-[10px] font-bold ${(phone || '').replace(/\D/g, '').length === 10 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      {(phone || '').replace(/\D/g, '').length}/10 digits
-                    </span>
+                    <Label 
+                      htmlFor="phone" 
+                      className={`font-black text-[10px] uppercase tracking-widest ${isDuplicateClientPhone ? 'text-red-600' : 'text-slate-400'}`}
+                    >
+                      TP (Phone Number)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      {isDuplicateClientPhone && (
+                        <span className="text-[10px] font-black text-red-600 flex items-center gap-1 uppercase tracking-wider animate-pulse">
+                          <AlertTriangle className="w-3 h-3 stroke-[2.5]" /> TP Matches Existing
+                        </span>
+                      )}
+                      <span className={`text-[10px] font-bold ${(phone || '').replace(/\D/g, '').length === 10 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {(phone || '').replace(/\D/g, '').length}/10 digits
+                      </span>
+                    </div>
                   </div>
                   <Input 
                     value={phone} 
@@ -764,7 +1099,11 @@ export default function ClientsPage() {
                     }} 
                     id="phone" 
                     placeholder="e.g. 077 123 4567" 
-                    className="h-11 bg-white/50 rounded-xl font-mono font-bold text-slate-800 text-xs sm:text-sm" 
+                    className={`h-11 rounded-xl font-mono font-bold text-xs sm:text-sm transition-all ${
+                      isDuplicateClientPhone 
+                        ? 'border-2 border-red-500 bg-red-50/70 text-red-700 focus:border-red-600 focus:ring-red-400/20' 
+                        : 'bg-white/50 text-slate-800'
+                    }`} 
                   />
                 </div>
 
@@ -900,10 +1239,18 @@ export default function ClientsPage() {
               <Button 
                 disabled={isSaving}
                 onClick={handleSave} 
-                className="bg-primary hover:bg-primary/90 text-white font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg shadow-primary/20 gap-2 cursor-pointer w-full sm:w-auto"
+                className={`${
+                  duplicateClientMatch
+                    ? "bg-red-600 hover:bg-red-700 text-white shadow-red-600/20"
+                    : "bg-primary hover:bg-primary/90 text-white shadow-primary/20"
+                } font-black px-8 h-11 sm:h-12 rounded-xl shadow-lg gap-2 cursor-pointer w-full sm:w-auto transition-all`}
               >
                 {isSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : null}
-                {isSaving ? "Saving Record..." : (editingClient ? "Update Customer" : "Register Customer")}
+                {isSaving 
+                  ? "Saving Record..." 
+                  : duplicateClientMatch 
+                    ? "Customer Exists - Switch to Edit" 
+                    : (editingClient ? "Update Customer" : "Register Customer")}
               </Button>
             </div>
           </div>
@@ -1006,14 +1353,29 @@ export default function ClientsPage() {
                             nicFront = client.nic_image; // Fallback legacy format support
                           }
                         }
+                        const openViewer = () => {
+                          setPhotoViewerClient({
+                            isOpen: true,
+                            name: `${client.first_name || client.firstName || ''} ${client.last_name || client.lastName || ''}`.trim() || 'Customer',
+                            nic: client.national_id || client.nationalId || 'N/A',
+                            front: nicFront,
+                            back: nicBack,
+                            signature: client.signature_image || null,
+                          });
+                        };
+
                         return (
                           <>
                             {nicFront ? (
-                              <div className="relative group/thumb cursor-pointer">
+                              <div 
+                                onClick={openViewer}
+                                className="relative group/thumb cursor-pointer"
+                                title="Click to view full photo"
+                              >
                                 <img 
                                   src={nicFront} 
                                   alt="NIC Front" 
-                                  className="w-10 h-8 rounded-lg object-cover border border-slate-200 shadow-sm transition-transform group-hover/thumb:scale-150 group-hover/thumb:z-50"
+                                  className="w-10 h-8 rounded-lg object-cover border border-slate-200 shadow-sm transition-transform group-hover/thumb:scale-125 group-hover/thumb:z-50"
                                 />
                                 <span className="bg-slate-900/90 text-white text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded absolute -bottom-1.5 -right-1 opacity-0 group-hover/thumb:opacity-100 transition-opacity">FRONT</span>
                               </div>
@@ -1024,11 +1386,15 @@ export default function ClientsPage() {
                             )}
 
                             {nicBack ? (
-                              <div className="relative group/thumb cursor-pointer">
+                              <div 
+                                onClick={openViewer}
+                                className="relative group/thumb cursor-pointer"
+                                title="Click to view full photo"
+                              >
                                 <img 
                                   src={nicBack} 
                                   alt="NIC Back" 
-                                  className="w-10 h-8 rounded-lg object-cover border border-slate-200 shadow-sm transition-transform group-hover/thumb:scale-150 group-hover/thumb:z-50"
+                                  className="w-10 h-8 rounded-lg object-cover border border-slate-200 shadow-sm transition-transform group-hover/thumb:scale-125 group-hover/thumb:z-50"
                                 />
                                 <span className="bg-slate-900/90 text-white text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded absolute -bottom-1.5 -right-1 opacity-0 group-hover/thumb:opacity-100 transition-opacity">BACK</span>
                               </div>
@@ -1037,24 +1403,28 @@ export default function ClientsPage() {
                                 <CameraOff className="w-3.5 h-3.5 text-slate-300" />
                               </div>
                             )}
+
+                            {client.signature_image ? (
+                              <div 
+                                onClick={openViewer}
+                                className="relative group/thumb cursor-pointer"
+                                title="Click to view signature"
+                              >
+                                <img 
+                                  src={client.signature_image} 
+                                  alt="Signature Preview" 
+                                  className="w-10 h-8 rounded-lg object-cover border border-slate-200 shadow-sm transition-transform group-hover/thumb:scale-125 group-hover/thumb:z-50"
+                                />
+                                <span className="bg-slate-900/90 text-white text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded absolute -bottom-1.5 -right-1 opacity-0 group-hover/thumb:opacity-100 transition-opacity">SIG</span>
+                              </div>
+                            ) : (
+                              <div className="w-10 h-8 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-200" title="No Signature Webcam Scan">
+                                <CameraOff className="w-3.5 h-3.5 text-slate-300" />
+                              </div>
+                            )}
                           </>
                         );
                       })()}
-
-                      {client.signature_image ? (
-                        <div className="relative group/thumb cursor-pointer">
-                          <img 
-                            src={client.signature_image} 
-                            alt="Signature Preview" 
-                            className="w-10 h-8 rounded-lg object-cover border border-slate-200 shadow-sm transition-transform group-hover/thumb:scale-150 group-hover/thumb:z-50"
-                          />
-                          <span className="bg-slate-900/90 text-white text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded absolute -bottom-1.5 -right-1 opacity-0 group-hover/thumb:opacity-100 transition-opacity">SIG</span>
-                        </div>
-                      ) : (
-                        <div className="w-10 h-8 bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-200" title="No Signature Webcam Scan">
-                          <CameraOff className="w-3.5 h-3.5 text-slate-300" />
-                        </div>
-                      )}
                     </div>
                   </TableCell>
                   <TableCell className="px-8 py-6">
@@ -1507,6 +1877,115 @@ export default function ClientsPage() {
               className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-10 px-5 rounded-xl shadow-lg cursor-pointer"
             >
               Generate & Print PDF
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer KYC Photos Viewer Dialog */}
+      <Dialog 
+        open={photoViewerClient.isOpen} 
+        onOpenChange={(v) => setPhotoViewerClient(prev => ({ ...prev, isOpen: v }))}
+      >
+        <DialogContent className="w-[95vw] sm:w-[90vw] lg:max-w-3xl bg-white border border-slate-200 shadow-2xl p-0 rounded-2xl sm:rounded-[2.5rem] flex flex-col overflow-hidden">
+          <div className="h-2.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-primary shrink-0" />
+          <div className="p-6 border-b border-slate-100">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 rounded-2xl text-emerald-600">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900">
+                    Customer KYC Scans
+                  </DialogTitle>
+                  <DialogDescription className="text-xs font-bold text-slate-500 mt-0.5">
+                    {photoViewerClient.name} • <span className="font-mono text-primary font-black">NIC: {photoViewerClient.nic}</span>
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+            {(!photoViewerClient.front && !photoViewerClient.back && !photoViewerClient.signature) ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <CameraOff className="w-12 h-12 text-slate-300 mb-2" />
+                <p className="text-sm font-bold text-slate-600">No Webcam KYC Photos Recorded</p>
+                <p className="text-xs text-slate-400 mt-1">This customer does not have any saved NIC or signature scans yet.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* NIC Front */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 block mb-2">NIC Front</span>
+                  <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                    {photoViewerClient.front ? (
+                      <img 
+                        src={photoViewerClient.front} 
+                        alt="NIC Front" 
+                        className="w-full h-full object-contain cursor-zoom-in"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${photoViewerClient.front}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 font-bold">No Front Scan</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* NIC Back */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 block mb-2">NIC Back</span>
+                  <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                    {photoViewerClient.back ? (
+                      <img 
+                        src={photoViewerClient.back} 
+                        alt="NIC Back" 
+                        className="w-full h-full object-contain cursor-zoom-in"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${photoViewerClient.back}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 font-bold">No Back Scan</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Signature */}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 block mb-2">Customer Signature</span>
+                  <div className="w-full aspect-[4/3] bg-white rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                    {photoViewerClient.signature ? (
+                      <img 
+                        src={photoViewerClient.signature} 
+                        alt="Signature" 
+                        className="w-full h-full object-contain cursor-zoom-in p-2"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${photoViewerClient.signature}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 font-bold">No Signature Scan</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <Button 
+              type="button" 
+              onClick={() => setPhotoViewerClient(prev => ({ ...prev, isOpen: false }))}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 rounded-xl"
+            >
+              Close
             </Button>
           </div>
         </DialogContent>

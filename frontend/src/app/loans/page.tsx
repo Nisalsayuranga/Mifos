@@ -1,5 +1,6 @@
 'use client';
 import { getAuthHeaders } from '@/lib/getAuthHeaders';
+import { getBranchSearchTerms } from '@/lib/branch-mapping';
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -9,13 +10,21 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Plus, Search, FileText, Package, TrendingUp, AlertTriangle,
-  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download, Send, Smartphone, Bluetooth, Camera, MapPin
+  Pencil, Trash2, RefreshCcw, Printer, Filter, UserCheck, Calculator, Coins, Scale, Download, Send, Smartphone, Bluetooth, Camera, MapPin, MoreVertical, ShieldCheck
 } from "lucide-react"
 import { WebBluetoothTransport } from "@/lib/bluetooth/WebBluetoothTransport";
 import { EscPosAdapter } from "@/lib/bluetooth/EscPosAdapter";
 import { PawnBill80mmReceipt } from "@/components/receipts/PawnBill80mmReceipt";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import { ItemEvaluationModal } from "@/components/ItemEvaluationModal"
+import { CustomerSelectionModal } from "@/components/CustomerSelectionModal"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
@@ -24,6 +33,7 @@ import { buildPawnReminderSms } from "@/lib/sms"
 export default function PawnesPage() {
   const [isOpen, setIsOpen]       = useState(false);
   const [isEvaluationOpen, setIsEvaluationOpen] = useState(false);
+  const [isCustomerStepOpen, setIsCustomerStepOpen] = useState(false);
   const [evaluationData, setEvaluationData] = useState<any>(null);
 
   // Inline Quick Customer Registration (inside pawn modal)
@@ -74,23 +84,33 @@ export default function PawnesPage() {
   const [userId, setUserId]           = useState('');
   const [userRole, setUserRole]       = useState('TELLER');
 
-  // Admin branch filter
-  const [filterBranch, setFilterBranch] = useState('ALL');
+  // Multi-option filters
+  const [filterBranch, setFilterBranch]           = useState('ALL');
+  const [filterDescription, setFilterDescription] = useState('ALL');
+  const [filterStatus, setFilterStatus]           = useState('ALL');
   const [redemptionReceiptData, setRedemptionReceiptData] = useState<any>(null);
 
-  // Weight Photos Viewer Modal State
+  // Weight & KYC Photos Viewer Modal State
   const [viewPhotoModal, setViewPhotoModal] = useState<{
     isOpen: boolean;
     billNo: string;
+    customerName?: string;
     airPhoto?: string | null;
     waterPhoto?: string | null;
     airWeight?: number | string | null;
     waterWeight?: number | string | null;
+    kycFront?: string | null;
+    kycBack?: string | null;
+    kycSignature?: string | null;
   }>({
     isOpen: false,
     billNo: '',
+    customerName: '',
     airPhoto: null,
     waterPhoto: null,
+    kycFront: null,
+    kycBack: null,
+    kycSignature: null,
   });
 
   const handleOpenPhotoViewer = async (pawn: any) => {
@@ -116,13 +136,46 @@ export default function PawnesPage() {
       }
     }
 
+    // Extract customer KYC photos
+    let kycFront: string | null = null;
+    let kycBack: string | null = null;
+    let kycSignature: string | null = null;
+    let cName: string = '';
+
+    const cid = pawn.client_id || '';
+    const client = pawn.clients || clientsList.find(c => 
+      String(c.id).toLowerCase() === String(cid).toLowerCase() || 
+      String(c.national_id || c.nationalId || '').toLowerCase() === String(cid).toLowerCase()
+    );
+
+    if (client) {
+      cName = `${client.first_name || client.firstName || ''} ${client.last_name || client.lastName || ''}`.trim();
+      kycSignature = client.signature_image || client.signatureImage || null;
+      const rawNic = client.nic_image || client.nicImage;
+      if (rawNic) {
+        try {
+          const parsed = typeof rawNic === 'string' ? JSON.parse(rawNic) : rawNic;
+          kycFront = parsed.front || null;
+          kycBack = parsed.back || null;
+        } catch {
+          if (typeof rawNic === 'string' && rawNic.startsWith('data:image')) {
+            kycFront = rawNic;
+          }
+        }
+      }
+    }
+
     setViewPhotoModal({
       isOpen: true,
       billNo: cleanBill || 'Pawn Collateral',
+      customerName: cName || pawn.customer_name || 'Customer',
       airPhoto: air,
       waterPhoto: water,
       airWeight: aw,
-      waterWeight: ww
+      waterWeight: ww,
+      kycFront,
+      kycBack,
+      kycSignature,
     });
   };
 
@@ -350,16 +403,18 @@ export default function PawnesPage() {
     } catch (e) { console.error('Failed to load clients map', e); }
   };
 
-  const loadPawns = async (u?: any) => {
+  const loadPawns = async (u?: any, overrideBranch?: string) => {
     try {
+      setLoading(true);
       const user = u || loadUser();
       // getAuthHeaders() automatically includes Authorization + x-branch-id from localStorage
       const headers = getAuthHeaders();
+      const activeBranch = overrideBranch !== undefined ? overrideBranch : filterBranch;
 
       const params = new URLSearchParams({
-        branchId: filterBranch || 'ALL',
+        branchId: activeBranch || 'ALL',
         role: user?.role || userRole,
-        filterBranch: filterBranch || 'ALL',
+        filterBranch: activeBranch || 'ALL',
       });
       const res = await fetch(`/api/pawns?${params}`, { headers });
       if (res.ok) {
@@ -376,6 +431,11 @@ export default function PawnesPage() {
     }
   };
 
+  const handleBranchChange = (newBranch: string) => {
+    setFilterBranch(newBranch);
+    loadPawns(undefined, newBranch);
+  };
+
   useEffect(() => {
     const u = loadUser();
     loadPawns(u);
@@ -385,7 +445,7 @@ export default function PawnesPage() {
 
   // Reload when branch filter changes
   useEffect(() => {
-    loadPawns();
+    loadPawns(undefined, filterBranch);
   }, [filterBranch]);
 
   // Resolve customer name, phone, and address when NIC/ID is typed
@@ -444,9 +504,27 @@ export default function PawnesPage() {
 
   // Save new customer inline and auto-select them
   const handleInlineRegisterCustomer = async () => {
-    if (!inlineName.trim()) { toast.error('Name is required'); return; }
     const nicVal = inlineNic.trim() || clientId.trim();
     if (!nicVal) { toast.error('NIC is required'); return; }
+
+    const inlineDuplicate = clientsList.find(c => {
+      const cNic = String(c.national_id || c.nationalId || c.nic || c.id || '').trim().toLowerCase();
+      return nicVal.toLowerCase() === cNic;
+    });
+
+    if (inlineDuplicate) {
+      toast.info(`Using existing customer record for ${inlineDuplicate.first_name || inlineDuplicate.firstName || 'Customer'}`);
+      const nic = inlineDuplicate.national_id || inlineDuplicate.nationalId || inlineDuplicate.id || nicVal;
+      const fullName = `${inlineDuplicate.first_name || inlineDuplicate.firstName || ''} ${inlineDuplicate.last_name || inlineDuplicate.lastName || ''}`.trim() || inlineDuplicate.name || inlineName.trim();
+      setClientId(nic);
+      setResolvedName(fullName);
+      setClientPhone(inlineDuplicate.phone || inlinePhone.trim());
+      setClientAddress(inlineDuplicate.address || inlineAddress.trim());
+      setShowInlineReg(false);
+      return;
+    }
+
+    if (!inlineName.trim()) { toast.error('Name is required'); return; }
     setIsSavingCustomer(true);
     const toastId = toast.loading('Registering customer...');
     try {
@@ -968,13 +1046,74 @@ export default function PawnesPage() {
     setDetailsCustomDisbursed(String(pawn.disbursed_amount || 0));
   };
 
-  const totalDisbursed = pawns.reduce((s, p) => s + (p.disbursed_amount || 0), 0);
-  const searchLower = (search || '').toLowerCase();
-  const filtered = pawns.filter(p =>
-    String(p.client_id || '').toLowerCase().includes(searchLower) ||
-    String(p.description || '').toLowerCase().includes(searchLower) ||
-    String(p.id || '').toLowerCase().includes(searchLower)
-  );
+  const searchLower = (search || '').toLowerCase().trim();
+  const filtered = pawns.filter(p => {
+    // 1. Branch Filter (Client-side immediate filtering + safety)
+    if (filterBranch && filterBranch !== 'ALL') {
+      const pBranch = String(p.branch_id || p.branchId || '').toUpperCase().trim();
+      const fBranch = filterBranch.toUpperCase().trim();
+      const terms = getBranchSearchTerms(fBranch);
+      const branchMatches = terms.some(t => pBranch === t.toUpperCase() || pBranch.includes(t.toUpperCase())) || pBranch === fBranch;
+      if (!branchMatches) return false;
+    }
+
+    // 2. Status Filter
+    if (filterStatus && filterStatus !== 'ALL') {
+      const pStatus = String(p.status || 'ACTIVE').toUpperCase().trim();
+      if (pStatus !== filterStatus.toUpperCase().trim()) return false;
+    }
+
+    // 3. Item Description Filter
+    if (filterDescription && filterDescription !== 'ALL') {
+      const desc = String(p.description || '').toLowerCase();
+      const fDesc = filterDescription.toLowerCase().trim();
+      let descMatch = false;
+      if (fDesc === 'ring') {
+        descMatch = desc.includes('ring') || desc.includes('(pr)') || desc.includes('pr_') || desc.includes('pr-');
+      } else if (fDesc === 'chain') {
+        descMatch = desc.includes('chain');
+      } else if (fDesc === 'earrings') {
+        descMatch = desc.includes('ear') || desc.includes('earring');
+      } else if (fDesc === 'pendant') {
+        descMatch = desc.includes('pendant') || desc.includes('(pp)') || desc.includes('pp_') || desc.includes('pp-');
+      } else if (fDesc === 'bracelet') {
+        descMatch = desc.includes('bracelet') || desc.includes('(brc)') || desc.includes('brc_') || desc.includes('brc-');
+      } else if (fDesc === 'bangle') {
+        descMatch = desc.includes('bangle') || desc.includes('(bgl)') || desc.includes('bgl_');
+      } else if (fDesc === 'necklace') {
+        descMatch = desc.includes('necklace') || desc.includes('(nl)') || desc.includes('nl_');
+      } else {
+        descMatch = desc.includes(fDesc);
+      }
+      if (!descMatch) return false;
+    }
+
+    // 4. Search Query Filter
+    if (!searchLower) return true;
+
+    const cleanId = String(p.client_id || '').toLowerCase().trim();
+    const clientName = (clientsMap[cleanId] || p.clients?.first_name || p.clients?.firstName || p.clients?.name || '').toLowerCase();
+    const clientNic = (clientsNicMap[cleanId] || p.clients?.national_id || p.clients?.nationalId || p.client_id || '').toLowerCase();
+    const clientPhone = String(p.clients?.phone || '').toLowerCase();
+    const billNo = String(p.bill_no || '').toLowerCase();
+    const description = String(p.description || '').toLowerCase();
+    const id = String(p.id || '').toLowerCase();
+    const branch = String(p.branch_id || p.branchId || '').toLowerCase();
+    const status = String(p.status || '').toLowerCase();
+
+    return (
+      billNo.includes(searchLower) ||
+      clientName.includes(searchLower) ||
+      clientNic.includes(searchLower) ||
+      clientPhone.includes(searchLower) ||
+      description.includes(searchLower) ||
+      branch.includes(searchLower) ||
+      status.includes(searchLower) ||
+      id.includes(searchLower)
+    );
+  });
+
+  const totalDisbursed = filtered.reduce((s, p) => s + (p.disbursed_amount || 0), 0);
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
@@ -983,33 +1122,9 @@ export default function PawnesPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center glass p-8 rounded-2xl border-white/40 shadow-2xl gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none mb-2">
-            Active <span className="text-gradient">Pawnes</span>
+            Pawning <span className="text-gradient">Process</span>
           </h1>
           <p className="text-slate-500 font-medium tracking-tight">Record pawned collateral and assign capital to registered clients.</p>
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Admin Branch Filter */}
-          {userRole === 'ADMIN' && (
-            <Select value={filterBranch} onValueChange={(v) => v && setFilterBranch(v)}>
-              <SelectTrigger className="h-14 w-48 bg-white/70 border-white/40 font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg">
-                <Filter className="w-3 h-3 mr-2 text-slate-400" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="glass border-white/40 rounded-2xl shadow-2xl">
-                {branches.map(b => (
-                  <SelectItem key={b.id} value={b.id} className="font-bold text-[11px] uppercase tracking-widest">
-                    {b.name} ({b.id})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button
-            onClick={() => setIsEvaluationOpen(true)}
-            className="gap-2 bg-primary hover:bg-primary/90 h-14 px-8 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 card-hover w-full md:w-auto shrink-0 rounded-2xl"
-          >
-            <Plus className="h-4 w-4" /> Pawning registration
-          </Button>
         </div>
       </div>
 
@@ -1022,11 +1137,59 @@ export default function PawnesPage() {
           resetForm();
           loadClients();
           // Set initial form values based on evaluation
-          setAppraisal(data.trueValue.toString());
-          setAmount(data.askingAmount.toString());
-          setWeightMg(data.airWeight.toString());
-          setIsOpen(true);
+          const appraisedStr = (data.trueValue || '').toString();
+          const amountStr = (data.askingAmount || '').toString();
+          const weightMgStr = (data.airWeight || '').toString();
+          const gVal = data.airWeight >= 100 ? (data.airWeight / 1000).toFixed(3) : data.airWeight.toString();
+          
+          setAppraisal(appraisedStr);
+          setAmount(amountStr);
+          setWeightMg(weightMgStr);
+          setGoldWeight(gVal);
+
+          let karatPurity = '22K';
+          if (data.estimatedKarat) {
+            const kMatch = data.estimatedKarat.match(/(24K|22K|21K|20K|18K|14K|10K|9K)/i);
+            if (kMatch) {
+              karatPurity = kMatch[1].toUpperCase();
+              setGoldPurity(karatPurity);
+            }
+          }
+
+          setItemsList([{ 
+            itemType: 'CH', 
+            description: `Evaluated Collateral (${karatPurity}, SG ${data.specificGravity || '—'})`, 
+            weightGrams: gVal, 
+            weightMg: weightMgStr, 
+            appraisedValue: appraisedStr,
+            purity: karatPurity
+          }]);
+          setIsCustomerStepOpen(true);
         }} 
+      />
+
+      {/* Customer Selection & KYC Registration Modal (Step 2) */}
+      <CustomerSelectionModal
+        isOpen={isCustomerStepOpen}
+        onOpenChange={setIsCustomerStepOpen}
+        clientsList={clientsList}
+        branchId={branchId}
+        evaluationSummary={{
+          airWeight: evaluationData?.airWeight,
+          waterWeight: evaluationData?.waterWeight,
+          specificGravity: evaluationData?.specificGravity,
+          estimatedKarat: evaluationData?.estimatedKarat,
+          trueValue: evaluationData?.trueValue,
+          askingAmount: evaluationData?.askingAmount
+        }}
+        onCustomerSelected={(cust) => {
+          setClientId(cust.nic || cust.id);
+          setResolvedName(cust.name);
+          setClientPhone(cust.phone);
+          setClientAddress(cust.address);
+          setIsCustomerStepOpen(false);
+          setIsOpen(true);
+        }}
       />
 
       {/* Dialog */}
@@ -1070,6 +1233,39 @@ export default function PawnesPage() {
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
                   1. Customer & Bill Information
                 </h3>
+
+                {/* Customer Details Display */}
+                {resolvedName && (
+                  <div className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <UserCheck className="w-4 h-4 stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-900">{resolvedName}</span>
+                          <span className="font-mono text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                            NIC: {clientId}
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-500 mt-0.5 flex items-center gap-2">
+                          <span>TP: {clientPhone || '—'}</span>
+                          <span>•</span>
+                          <span className="truncate max-w-[200px]">{clientAddress || 'No address'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsCustomerStepOpen(true)}
+                      className="text-xs font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-100/60 rounded-xl h-8 px-2.5"
+                    >
+                      Change
+                    </Button>
+                  </div>
+                )}
 
                 {/* Customer Search */}
                 <div className="grid gap-2 relative">
@@ -1167,21 +1363,74 @@ export default function PawnesPage() {
                             </div>
 
                             {/* Inline Registration Form */}
-                            {showInlineReg && (
-                              <div className="px-3 pb-3 space-y-2.5 border-t border-amber-200 pt-2.5">
-                                <p className="text-[10px] text-amber-700 font-bold uppercase tracking-widest">Quick Registration</p>
-                                
-                                {/* NIC */}
-                                <div className="grid gap-1">
-                                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">NIC Number</label>
-                                  <input
-                                    type="text"
-                                    value={inlineNic}
-                                    onChange={e => setInlineNic(e.target.value)}
-                                    placeholder="e.g. 941234567V"
-                                    className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold w-full focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                  />
-                                </div>
+                            {showInlineReg && (() => {
+                              const inlineDuplicate = inlineNic.trim()
+                                ? clientsList.find(c => {
+                                    const cNic = String(c.national_id || c.nationalId || c.nic || c.id || '').trim().toLowerCase();
+                                    return inlineNic.trim().toLowerCase() === cNic;
+                                  })
+                                : null;
+
+                              return (
+                                <div className="px-3 pb-3 space-y-2.5 border-t border-amber-200 pt-2.5">
+                                  <p className="text-[10px] text-amber-700 font-bold uppercase tracking-widest">Quick Registration</p>
+                                  
+                                  {/* ── RED ALERT: CUSTOMER ALREADY EXISTS IN DATABASE ── */}
+                                  {inlineDuplicate && (
+                                    <div className="bg-red-50 border-2 border-red-500 rounded-xl p-3 space-y-2 animate-in fade-in duration-200">
+                                      <div className="flex items-center justify-between border-b border-red-200 pb-1.5">
+                                        <span className="text-[11px] font-black text-red-700 uppercase flex items-center gap-1">
+                                          <AlertTriangle className="w-3.5 h-3.5" /> Customer Exists in Database!
+                                        </span>
+                                        <span className="text-[9px] font-mono font-black bg-red-600 text-white px-1.5 py-0.5 rounded">
+                                          EXISTS
+                                        </span>
+                                      </div>
+                                      <div className="space-y-1 text-[11px]">
+                                        <p className="text-red-700 font-bold">NIC: <span className="font-mono font-black">{inlineDuplicate.national_id || inlineDuplicate.nationalId || inlineNic}</span></p>
+                                        <p className="text-red-700 font-bold">Name: <span className="font-black">{`${inlineDuplicate.first_name || inlineDuplicate.firstName || ''} ${inlineDuplicate.last_name || inlineDuplicate.lastName || ''}`.trim() || inlineDuplicate.name}</span></p>
+                                        <p className="text-red-700 font-bold">TP: <span className="font-mono font-black">{inlineDuplicate.phone || 'No TP'}</span></p>
+                                        <p className="text-red-700 font-bold">Address: <span>{inlineDuplicate.address || 'No Address'}</span></p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nic = inlineDuplicate.national_id || inlineDuplicate.nationalId || inlineDuplicate.id || inlineNic.trim();
+                                          const fullName = `${inlineDuplicate.first_name || inlineDuplicate.firstName || ''} ${inlineDuplicate.last_name || inlineDuplicate.lastName || ''}`.trim() || inlineDuplicate.name || inlineName.trim();
+                                          setClientId(nic);
+                                          setResolvedName(fullName);
+                                          setClientPhone(inlineDuplicate.phone || inlinePhone.trim());
+                                          setClientAddress(inlineDuplicate.address || inlineAddress.trim());
+                                          setShowInlineReg(false);
+                                          toast.success('Selected existing customer record ✓');
+                                        }}
+                                        className="w-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-wider rounded-lg shadow cursor-pointer"
+                                      >
+                                        Select This Existing Customer
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* NIC */}
+                                  <div className="grid gap-1">
+                                    <div className="flex items-center justify-between">
+                                      <label className={`text-[10px] font-black uppercase tracking-wider ${inlineDuplicate ? 'text-red-600' : 'text-slate-500'}`}>NIC Number</label>
+                                      {inlineDuplicate && (
+                                        <span className="text-[9px] font-black text-red-600 uppercase">Already Registered</span>
+                                      )}
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={inlineNic}
+                                      onChange={e => setInlineNic(e.target.value)}
+                                      placeholder="e.g. 941234567V"
+                                      className={`h-9 px-3 rounded-xl text-xs font-mono font-bold w-full focus:outline-none transition-all ${
+                                        inlineDuplicate
+                                          ? 'border-2 border-red-500 bg-red-50/70 text-red-700 ring-2 ring-red-400/20'
+                                          : 'border border-slate-200 bg-white'
+                                      }`}
+                                    />
+                                  </div>
 
                                 {/* Full Name */}
                                 <div className="grid gap-1">
@@ -1231,8 +1480,9 @@ export default function PawnesPage() {
                                     : <><UserCheck className="w-3.5 h-3.5" /> Register & Select Customer</>
                                   }
                                 </Button>
-                              </div>
-                            )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
 
@@ -1628,7 +1878,7 @@ export default function PawnesPage() {
       {/* Summary Stats */}
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          { label: 'Active Pawn Items',  value: loading ? '—' : pawns.length.toString(),                       icon: Package,       color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+          { label: 'Active Pawn Items',  value: loading ? '—' : filtered.length.toString(),                    icon: Package,       color: 'text-indigo-600',  bg: 'bg-indigo-50' },
           { label: 'Capital Disbursed',  value: loading ? '—' : `Rs. ${totalDisbursed.toLocaleString()}`,      icon: TrendingUp,    color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Items in Arrears',   value: '0',                                                            icon: AlertTriangle, color: 'text-rose-600',    bg: 'bg-rose-50' },
         ].map(s => (
@@ -1646,54 +1896,126 @@ export default function PawnesPage() {
         ))}
       </div>
 
-      {/* Search & Branch Filter */}
-      <div className="flex flex-col md:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      {/* Search & Action Bar with Multi-Option Filters (Add Pawn, Branch, Item Description, Status) */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Search by Ticket ID, Client, or Description..."
-            className="pl-12 h-14 bg-white/50 border-white/40 glass focus:ring-primary shadow-lg rounded-2xl font-bold"
+            placeholder="Search by Bill #, Client, NIC, Phone, Description..."
+            className="pl-10 h-11 bg-white/70 border-slate-200 glass focus:ring-primary shadow-xs rounded-xl font-bold text-xs"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="relative w-full md:w-auto shrink-0 min-w-[220px]">
-          <select
-            value={filterBranch}
-            onChange={e => setFilterBranch(e.target.value)}
-            className="h-14 w-full px-5 pr-10 bg-white/80 border border-slate-200 glass font-black text-xs uppercase tracking-wider text-slate-700 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none"
-          >
-            <option value="ALL">All Branches ({pawns.length})</option>
-            {branches.filter(b => b.id !== 'ALL').map((b: any) => (
-              <option key={b.id} value={b.id}>
-                {b.name || b.id} Branch
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <Filter className="w-4 h-4 text-primary" />
+
+        {/* Add Pawn Button (Near Searching Bar) */}
+        <Button
+          onClick={() => setIsEvaluationOpen(true)}
+          className="h-11 px-5 bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-wider text-xs shadow-md shadow-amber-500/20 rounded-xl gap-2 shrink-0 cursor-pointer transition-all active:scale-95"
+        >
+          <Plus className="h-4 w-4 stroke-[3]" />
+          <span>Add Pawn</span>
+        </Button>
+
+        {/* Filters Group */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 shrink-0">
+          {/* Branch Filter */}
+          <div className="relative min-w-[140px]">
+            <select
+              value={filterBranch}
+              onChange={e => handleBranchChange(e.target.value)}
+              className="h-11 w-full px-3 pr-8 bg-white/80 border border-slate-200 font-bold text-[11px] uppercase tracking-wider text-slate-700 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none truncate"
+            >
+              <option value="ALL">All Branches ({pawns.length})</option>
+              {branches.filter(b => b.id !== 'ALL').map((b: any) => (
+                <option key={b.id} value={b.id}>
+                  {b.name || b.id} Branch
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+            </div>
+          </div>
+
+          {/* Item Description Filter */}
+          <div className="relative min-w-[130px]">
+            <select
+              value={filterDescription}
+              onChange={e => setFilterDescription(e.target.value)}
+              className="h-11 w-full px-3 pr-8 bg-white/80 border border-slate-200 font-bold text-[11px] uppercase tracking-wider text-slate-700 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none truncate"
+            >
+              <option value="ALL">All Items</option>
+              <option value="Ring">Ring (PR)</option>
+              <option value="Chain">Chain</option>
+              <option value="Earrings">Earrings (EAR)</option>
+              <option value="Necklace">Necklace (NL)</option>
+              <option value="Bangle">Bangle (BGL)</option>
+              <option value="Pendant">Pendant (PP)</option>
+              <option value="Bracelet">Bracelet (BRC)</option>
+            </select>
+            <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+              <Package className="w-3.5 h-3.5 text-indigo-500" />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div className="relative min-w-[130px]">
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="h-11 w-full px-3 pr-8 bg-white/80 border border-slate-200 font-bold text-[11px] uppercase tracking-wider text-slate-700 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none truncate"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="AUDITED_PENDING_APPROVAL">Audited (Pending Mgr)</option>
+              <option value="REQUIRES_RECHECK">Requires Recheck</option>
+              <option value="REDEEMED">Redeemed</option>
+            </select>
+            <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            </div>
           </div>
         </div>
+
+        {/* Reset Filter Button if active */}
+        {(filterBranch !== 'ALL' || filterDescription !== 'ALL' || filterStatus !== 'ALL' || search) && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              handleBranchChange('ALL');
+              setFilterDescription('ALL');
+              setFilterStatus('ALL');
+              setSearch('');
+            }}
+            className="h-11 px-3 text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shrink-0 cursor-pointer"
+            title="Reset all filters"
+          >
+            Reset
+          </Button>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="w-full overflow-x-auto glass border-white/40 rounded-[2.5rem] shadow-2xl bg-white/40">
-        <Table>
-          <TableHeader className="bg-slate-50/50 border-b border-slate-100">
+      {/* Table — Screen fitting for tablet & desktop */}
+      <div className="w-full overflow-x-auto glass border-white/50 rounded-2xl shadow-xl bg-white/70">
+        <Table className="w-full text-xs">
+          <TableHeader className="bg-slate-50/80 border-b border-slate-200/70">
             <TableRow>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Bill #</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Customer NIC & Name</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Item Description</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Appraised (LKR)</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Disbursed (LKR)</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-              <TableHead className="px-4 py-3 font-black text-[10px] uppercase tracking-widest text-slate-400">Date</TableHead>
-              <TableHead className="px-4 py-3 text-center font-black text-[10px] uppercase tracking-widest text-slate-400">Weight Photos</TableHead>
-              <TableHead className="px-4 py-3 text-right font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
+              <TableHead className="px-2.5 py-2.5 font-black text-[10px] uppercase tracking-wider text-slate-400 whitespace-nowrap">Bill #</TableHead>
+              <TableHead className="px-1.5 py-2.5 font-black text-[10px] uppercase tracking-wider text-slate-400 whitespace-nowrap">Branch</TableHead>
+              <TableHead className="px-2 py-2.5 font-black text-[10px] uppercase tracking-wider text-slate-400">Customer</TableHead>
+              <TableHead className="px-2 py-2.5 font-black text-[10px] uppercase tracking-wider text-slate-400">Item Description</TableHead>
+              <TableHead className="px-2 py-2.5 font-black text-[10px] uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Appraised (LKR)</TableHead>
+              <TableHead className="px-2 py-2.5 font-black text-[10px] uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Disbursed (LKR)</TableHead>
+              <TableHead className="px-1.5 py-2.5 text-center font-black text-[10px] uppercase tracking-wider text-slate-400 whitespace-nowrap">Status</TableHead>
+              <TableHead className="px-1.5 py-2.5 text-center font-black text-[10px] uppercase tracking-wider text-slate-400 whitespace-nowrap">Date</TableHead>
+              <TableHead className="px-1 py-2.5 text-center font-black text-[10px] uppercase tracking-wider text-slate-400 whitespace-nowrap">Photos</TableHead>
+              <TableHead className="px-2 py-2.5 text-right font-black text-[10px] uppercase tracking-wider text-slate-400 whitespace-nowrap">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y divide-slate-50">
+          <TableBody className="divide-y divide-slate-100">
             {loading ? (
               <TableRow><TableCell colSpan={10} className="h-64 text-center font-black text-slate-300 animate-pulse tracking-widest uppercase">Loading pawn registry...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
@@ -1701,8 +2023,8 @@ export default function PawnesPage() {
                 <TableCell colSpan={10} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <FileText className="h-12 w-12 text-slate-200" />
-                    <p className="text-slate-400 font-bold">{search ? 'No matching pawn items found.' : "No active pawn items. Click 'Originate Pawn' to begin."}</p>
-                    {!search && (
+                    <p className="text-slate-400 font-bold">{search || filterBranch !== 'ALL' || filterDescription !== 'ALL' || filterStatus !== 'ALL' ? 'No matching pawn items found.' : "No active pawn items. Click 'Originate Pawn' to begin."}</p>
+                    {!search && filterBranch === 'ALL' && filterDescription === 'ALL' && filterStatus === 'ALL' && (
                       <Button variant="outline" onClick={openAdd} className="border-primary/20 text-primary font-black text-[10px] uppercase tracking-widest h-12 rounded-xl hover:bg-primary hover:text-white transition-all px-8">
                         Create First Ticket
                       </Button>
@@ -1712,43 +2034,46 @@ export default function PawnesPage() {
               </TableRow>
             ) : (
               filtered.map(pawn => (
-                <TableRow key={pawn.id} className="group hover:bg-primary/5 transition-all duration-300">
-                  <TableCell className="px-4 py-3 font-black text-primary text-xs tracking-widest whitespace-nowrap">
+                <TableRow key={pawn.id} className="group hover:bg-primary/5 transition-all duration-200">
+                  <TableCell className="px-2.5 py-2 font-black text-primary text-xs tracking-tight whitespace-nowrap">
                     {getBillNo(pawn)}
                   </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Badge className="bg-slate-100 text-slate-800 border-slate-200 font-black text-[9px] uppercase tracking-wider px-2 py-0.5 whitespace-nowrap">
-                      <MapPin className="w-2.5 h-2.5 mr-1 inline text-primary" />
+                  <TableCell className="px-1.5 py-2 whitespace-nowrap">
+                    <Badge className="bg-slate-100 text-slate-700 border-slate-200 font-bold text-[9px] uppercase px-1.5 py-0.5">
                       {pawn.branch_id || 'HQ'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-xs whitespace-nowrap">
-                        {getClientNic(pawn)}
-                      </span>
-                      {(() => {
-                        const custName = getCustomerName(pawn);
-                        return custName ? (
-                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1 mt-0.5 whitespace-nowrap">
-                            <UserCheck className="w-3 h-3" />
-                            {custName}
+                  <TableCell className="px-2 py-2">
+                    {(() => {
+                      const rawNic = getClientNic(pawn);
+                      const isUuid = rawNic.length > 20 && rawNic.includes('-');
+                      const displayNic = isUuid ? `${rawNic.substring(0, 8)}...${rawNic.slice(-4)}` : rawNic;
+                      const custName = getCustomerName(pawn);
+                      return (
+                        <div className="flex flex-col max-w-[130px] xl:max-w-[150px]">
+                          <span className="font-mono font-bold text-slate-900 group-hover:text-primary transition-colors text-[11px] truncate" title={rawNic}>
+                            {displayNic}
                           </span>
-                        ) : null;
-                      })()}
-                    </div>
+                          {custName ? (
+                            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-tight truncate mt-0.5" title={custName}>
+                              {custName}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-bold text-slate-700 max-w-[180px] truncate">
+                  <TableCell className="px-2 py-2 font-bold text-slate-700 text-xs max-w-[125px] truncate" title={getCleanDescription(pawn)}>
                     {getCleanDescription(pawn)}
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-bold text-amber-700 whitespace-nowrap">
+                  <TableCell className="px-2 py-2 font-bold text-amber-700 text-xs text-right whitespace-nowrap">
                     Rs. {(pawn.appraised_value || 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-black text-blue-700 text-base tracking-tighter whitespace-nowrap">
+                  <TableCell className="px-2 py-2 font-black text-blue-700 text-xs text-right whitespace-nowrap">
                     Rs. {(pawn.disbursed_amount || 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Badge className={`font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 border ${
+                  <TableCell className="px-1.5 py-2 text-center whitespace-nowrap">
+                    <Badge className={`font-black text-[8.5px] uppercase tracking-wider px-2 py-0.5 border ${
                       pawn.status === 'REQUIRES_RECHECK'
                         ? "bg-rose-100 text-rose-800 border-rose-300 animate-pulse"
                         : pawn.status === 'AUDITED_PENDING_APPROVAL'
@@ -1762,116 +2087,104 @@ export default function PawnesPage() {
                             : "bg-slate-50 text-slate-700 border-slate-200"
                     }`}>
                       {pawn.status === 'REQUIRES_RECHECK' 
-                        ? '⚠ REQUIRES RECHECK' 
+                        ? 'RECHECK' 
                         : pawn.status === 'AUDITED_PENDING_APPROVAL'
-                        ? '✓ AUDITED (PENDING MGR)'
+                        ? 'AUDITED'
                         : (pawn.status || 'ACTIVE')}
                     </Badge>
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-slate-400 font-bold text-xs uppercase tracking-widest whitespace-nowrap">
-                    {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                  <TableCell className="px-1.5 py-2 text-center text-slate-500 font-bold text-[10px] uppercase tracking-wider whitespace-nowrap">
+                    {pawn.created_at ? new Date(pawn.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-center whitespace-nowrap">
-                    {pawn.air_weight_photo_url || pawn.water_weight_photo_url ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPhotoViewer(pawn)}
-                        className="inline-flex items-center gap-1.5 p-1 bg-amber-50/90 hover:bg-amber-100 border border-amber-200/90 rounded-xl transition-all shadow-sm hover:scale-105 cursor-pointer group"
-                        title="Click to view captured Air & Water Weight Photos"
-                      >
-                        {pawn.air_weight_photo_url ? (
-                          <img 
-                            src={pawn.air_weight_photo_url} 
-                            alt="Air proof" 
-                            className="w-7 h-7 object-cover rounded-lg border border-amber-400"
-                          />
-                        ) : null}
-                        {pawn.water_weight_photo_url ? (
-                          <img 
-                            src={pawn.water_weight_photo_url} 
-                            alt="Water proof" 
-                            className="w-7 h-7 object-cover rounded-lg border border-blue-400"
-                          />
-                        ) : null}
-                        <span className="text-[10px] font-black text-amber-900 group-hover:text-amber-800 px-1">
-                          View
-                        </span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPhotoViewer(pawn)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
-                        title="Check Weight Photos"
-                      >
-                        <Camera className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-[10px]">Photo</span>
-                      </button>
-                    )}
+                  <TableCell className="px-1 py-2 text-center whitespace-nowrap">
+                    {(() => {
+                      const hasScalePhoto = !!(pawn.air_weight_photo_url || pawn.water_weight_photo_url);
+                      const cid = pawn.client_id || '';
+                      const client = pawn.clients || clientsList.find(c => 
+                        String(c.id).toLowerCase() === String(cid).toLowerCase() || 
+                        String(c.national_id || c.nationalId || '').toLowerCase() === String(cid).toLowerCase()
+                      );
+                      const hasKycPhoto = !!(client?.nic_image || client?.nicImage || client?.signature_image || client?.signatureImage);
+
+                      if (hasScalePhoto || hasKycPhoto) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPhotoViewer(pawn)}
+                            className="inline-flex items-center gap-1 px-1.5 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all shadow-xs cursor-pointer group"
+                            title="Click to view Scale & KYC Photos"
+                          >
+                            {pawn.air_weight_photo_url ? (
+                              <img 
+                                src={pawn.air_weight_photo_url} 
+                                alt="Scale" 
+                                className="w-4 h-4 object-cover rounded border border-amber-300 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-4 h-4 rounded bg-amber-200 flex items-center justify-center text-[8px] font-black text-amber-800 shrink-0">
+                                🪪
+                              </div>
+                            )}
+                            <span className="text-[9px] font-black text-amber-800">
+                              {hasScalePhoto && hasKycPhoto ? 'Scale+KYC' : hasScalePhoto ? 'Scale' : 'KYC'}
+                            </span>
+                          </button>
+                        );
+                      }
+                      return <span className="text-[10px] text-slate-300 font-bold">—</span>;
+                    })()}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-right">
-                    <div className="flex items-center gap-1.5 justify-end">
+                  <TableCell className="px-2 py-2 text-right whitespace-nowrap">
+                    <div className="flex items-center gap-1 justify-end">
                       {pawn.status === 'PENDING_APPROVAL' && (
                         <Button
                           variant="default"
                           size="sm"
                           onClick={() => handleApprove(pawn)}
-                          className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
+                          className="h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 font-bold text-[10px] shrink-0 shadow-xs cursor-pointer"
                         >
-                          <UserCheck className="h-3.5 w-3.5" />
-                          Approve
+                          <UserCheck className="h-3 w-3" /> Approve
+                        </Button>
+                      )}
+                      {pawn.status === 'ACTIVE' && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => openRedeem(pawn)}
+                          className="h-7 px-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1 font-bold text-[10px] shrink-0 shadow-xs cursor-pointer"
+                        >
+                          <Coins className="h-3 w-3" /> Settle
                         </Button>
                       )}
                       <Button
                         variant="default"
                         size="sm"
                         onClick={() => openDetails(pawn)}
-                        className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
+                        className="h-7 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 font-bold text-[10px] shrink-0 shadow-xs cursor-pointer"
                       >
-                        <FileText className="h-3.5 w-3.5" />
-                        Print / Details
+                        <FileText className="h-3 w-3" /> Details
                       </Button>
-                      {pawn.status === 'ACTIVE' && (
-                        <>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => openRedeem(pawn)}
-                            className="h-8 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 font-bold text-xs shrink-0 shadow-md cursor-pointer transition-all"
-                          >
-                            <Coins className="h-3.5 w-3.5" />
-                            Settle
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSendReminder(pawn)}
-                            className="h-8 px-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 flex items-center gap-1 font-bold text-xs shrink-0 shadow-sm cursor-pointer transition-all"
-                            title="Send Customer SMS Reminder"
-                          >
-                            <Send className="h-3.5 w-3.5 text-amber-600" />
-                            SMS Reminder
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEdit(pawn)}
-                        className="h-8 w-8 p-0 rounded-lg border border-slate-200 bg-white hover:bg-amber-100 text-slate-700 hover:text-amber-700 flex items-center justify-center shrink-0 shadow-sm cursor-pointer transition-all"
-                        title="Edit Pawn"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(pawn)}
-                        className="h-8 w-8 p-0 rounded-lg border border-slate-200 bg-white hover:bg-rose-100 text-slate-700 hover:text-rose-600 flex items-center justify-center shrink-0 shadow-sm cursor-pointer transition-all"
-                        title="Delete Pawn"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+
+                      {/* Dropdown for SMS Reminder, Edit, and Delete */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="h-7 w-7 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer outline-none shrink-0 shadow-xs">
+                          <MoreVertical className="w-3.5 h-3.5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 glass p-1.5 rounded-xl border-slate-200 shadow-xl bg-white/95">
+                          {pawn.status === 'ACTIVE' && (
+                            <DropdownMenuItem onClick={() => handleSendReminder(pawn)} className="gap-2 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg cursor-pointer">
+                              <Send className="w-3.5 h-3.5 text-amber-600" /> Send SMS Reminder
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => openEdit(pawn)} className="gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer">
+                            <Pencil className="w-3.5 h-3.5 text-slate-500" /> Edit Pawn Record
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1 bg-slate-100" />
+                          <DropdownMenuItem onClick={() => handleDelete(pawn)} className="gap-2 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer">
+                            <Trash2 className="w-3.5 h-3.5 text-rose-500" /> Delete Ticket
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -2158,70 +2471,134 @@ export default function PawnesPage() {
           </div>
 
           <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-            {(!viewPhotoModal.airPhoto && !viewPhotoModal.waterPhoto) ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <Camera className="w-12 h-12 text-slate-300 mb-2" />
-                <p className="text-sm font-bold text-slate-600">No Weight Photos Recorded</p>
-                <p className="text-xs text-slate-400 mt-1">There are no scale photos currently linked to this bill ticket.</p>
+            {/* Scale Photos Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700">⚖️ Scale Weight Proofs</span>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Air Weight Photo Card */}
-                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
-                  <div className="w-full flex items-center justify-between mb-3">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Air Weight Photo
-                    </span>
-                    {viewPhotoModal.airWeight ? (
-                      <span className="text-xs font-mono font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                        {viewPhotoModal.airWeight} mg
+              {(!viewPhotoModal.airPhoto && !viewPhotoModal.waterPhoto) ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Camera className="w-8 h-8 text-slate-300 mb-1" />
+                  <p className="text-xs font-bold text-slate-600">No Scale Photos Recorded</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">There are no hydrostatic scale photos linked to this pawn ticket.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Air Weight Photo Card */}
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                    <div className="w-full flex items-center justify-between mb-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Air Weight Photo
                       </span>
-                    ) : null}
+                      {viewPhotoModal.airWeight ? (
+                        <span className="text-xs font-mono font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                          {viewPhotoModal.airWeight} mg
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                      {viewPhotoModal.airPhoto ? (
+                        <img 
+                          src={viewPhotoModal.airPhoto} 
+                          alt="Air weight scale photo" 
+                          className="w-full h-full object-contain cursor-zoom-in"
+                          onClick={() => {
+                            const w = window.open("");
+                            w?.document.write(`<img src="${viewPhotoModal.airPhoto}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 font-bold">No photo taken</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
-                    {viewPhotoModal.airPhoto ? (
-                      <img 
-                        src={viewPhotoModal.airPhoto} 
-                        alt="Air weight scale photo" 
-                        className="w-full h-full object-contain cursor-zoom-in"
-                        onClick={() => {
-                          const w = window.open("");
-                          w?.document.write(`<img src="${viewPhotoModal.airPhoto}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
-                        }}
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 font-bold">No photo taken</span>
-                    )}
+
+                  {/* Water Weight Photo Card */}
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
+                    <div className="w-full flex items-center justify-between mb-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Water Weight Photo
+                      </span>
+                      {viewPhotoModal.waterWeight ? (
+                        <span className="text-xs font-mono font-black text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                          {viewPhotoModal.waterWeight} mg
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
+                      {viewPhotoModal.waterPhoto ? (
+                        <img 
+                          src={viewPhotoModal.waterPhoto} 
+                          alt="Water weight scale photo" 
+                          className="w-full h-full object-contain cursor-zoom-in"
+                          onClick={() => {
+                            const w = window.open("");
+                            w?.document.write(`<img src="${viewPhotoModal.waterPhoto}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 font-bold">No photo taken</span>
+                      )}
+                    </div>
                   </div>
                 </div>
+              )}
+            </div>
 
-                {/* Water Weight Photo Card */}
-                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col items-center">
-                  <div className="w-full flex items-center justify-between mb-3">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Water Weight Photo
+            {/* Customer Identity & KYC Photos Section */}
+            {(viewPhotoModal.kycFront || viewPhotoModal.kycBack || viewPhotoModal.kycSignature) && (
+              <div className="pt-4 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700">🪪 Customer Identity & KYC Scans</span>
+                  {viewPhotoModal.customerName && (
+                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
+                      {viewPhotoModal.customerName}
                     </span>
-                    {viewPhotoModal.waterWeight ? (
-                      <span className="text-xs font-mono font-black text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                        {viewPhotoModal.waterWeight} mg
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="w-full aspect-[4/3] bg-black/95 rounded-xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-300">
-                    {viewPhotoModal.waterPhoto ? (
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {viewPhotoModal.kycFront ? (
+                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200 text-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 block mb-1.5">NIC Front</span>
                       <img 
-                        src={viewPhotoModal.waterPhoto} 
-                        alt="Water weight scale photo" 
-                        className="w-full h-full object-contain cursor-zoom-in"
+                        src={viewPhotoModal.kycFront} 
+                        alt="NIC Front" 
+                        className="w-full h-28 object-cover rounded-lg border border-slate-300 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
                         onClick={() => {
                           const w = window.open("");
-                          w?.document.write(`<img src="${viewPhotoModal.waterPhoto}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                          w?.document.write(`<img src="${viewPhotoModal.kycFront}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
                         }}
                       />
-                    ) : (
-                      <span className="text-xs text-slate-400 font-bold">No photo taken</span>
-                    )}
-                  </div>
+                    </div>
+                  ) : null}
+                  {viewPhotoModal.kycBack ? (
+                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200 text-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 block mb-1.5">NIC Back</span>
+                      <img 
+                        src={viewPhotoModal.kycBack} 
+                        alt="NIC Back" 
+                        className="w-full h-28 object-cover rounded-lg border border-slate-300 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${viewPhotoModal.kycBack}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {viewPhotoModal.kycSignature ? (
+                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200 text-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 block mb-1.5">Customer Signature</span>
+                      <img 
+                        src={viewPhotoModal.kycSignature} 
+                        alt="Customer Signature" 
+                        className="w-full h-28 object-contain bg-white rounded-lg border border-slate-300 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
+                        onClick={() => {
+                          const w = window.open("");
+                          w?.document.write(`<img src="${viewPhotoModal.kycSignature}" style="max-width:100%;height:auto;margin:auto;display:block;"/>`);
+                        }}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}

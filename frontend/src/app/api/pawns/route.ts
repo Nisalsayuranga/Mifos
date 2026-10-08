@@ -72,6 +72,9 @@ export async function GET(request: Request) {
           if (ev.status && ev.status.startsWith('BILL:')) {
             const bNo = ev.status.replace('BILL:', '').trim();
             evalsByBillMap[bNo] = ev;
+            evalsByBillMap[bNo.toUpperCase()] = ev;
+            evalsByBillMap[bNo.replace(/\s+/g, '')] = ev;
+            evalsByBillMap[bNo.replace(/\s+/g, '').toUpperCase()] = ev;
           }
         });
       }
@@ -96,7 +99,20 @@ export async function GET(request: Request) {
 
        // Attach scale evaluation photos by bill number
        const cleanBill = (pawn.bill_no || '').trim();
-       const matchedEval = cleanBill ? evalsByBillMap[cleanBill] : null;
+       const descMatch = (pawn.description || '').match(/^([A-Za-z0-9]+)\s+([0-9]+)/);
+       const altBill = descMatch ? `${descMatch[1]} ${descMatch[2]}` : '';
+       const idBill = pawn.id ? pawn.id.substring(0, 8).toUpperCase() : '';
+
+       const matchedEval = cleanBill ? (
+         evalsByBillMap[cleanBill] ||
+         evalsByBillMap[cleanBill.toUpperCase()] ||
+         evalsByBillMap[cleanBill.replace(/\s+/g, '')] ||
+         evalsByBillMap[cleanBill.replace(/\s+/g, '').toUpperCase()]
+       ) : (
+         altBill ? (evalsByBillMap[altBill] || evalsByBillMap[altBill.replace(/\s+/g, '')]) :
+         evalsByBillMap[idBill]
+       );
+
        if (matchedEval) {
          pawn.air_weight_photo_url = matchedEval.air_weight_photo_url;
          pawn.water_weight_photo_url = matchedEval.water_weight_photo_url;

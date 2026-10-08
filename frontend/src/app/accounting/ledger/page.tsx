@@ -685,6 +685,72 @@ function MainLedgerContent() {
     router.push(`/accounting/ledger?tab=${tab}`);
   };
 
+  const renderSignButtons = (
+    val: string | number,
+    setVal: (v: string) => void,
+    theme: 'emerald' | 'rose' | 'blue' = 'emerald',
+    disabled: boolean = false
+  ) => {
+    const isNegative = String(val ?? '').trim().startsWith('-') || (Number(val) || 0) < 0;
+    const isPositive = !String(val ?? '').trim().startsWith('-') && (Number(val) || 0) >= 0;
+
+    const positiveBg = theme === 'rose'
+      ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+      : theme === 'blue'
+      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+      : 'bg-emerald-600 text-white border-emerald-600 shadow-xs';
+
+    return (
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            const str = String(val ?? '').trim();
+            if (str.startsWith('-')) {
+              setVal(str.substring(1));
+            } else {
+              const num = Number(str);
+              if (!isNaN(num) && num < 0) {
+                setVal(String(Math.abs(num)));
+              }
+            }
+          }}
+          className={`px-2 py-0.5 rounded text-[11px] font-black transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
+            isPositive
+              ? positiveBg
+              : 'bg-white text-slate-500 border-slate-300 hover:bg-slate-50'
+          }`}
+          title="Positive (+)"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            const str = String(val ?? '').trim();
+            if (!str.startsWith('-')) {
+              if (str === '' || str === '0' || str === '0.00') {
+                setVal('-');
+              } else {
+                setVal(`-${str}`);
+              }
+            }
+          }}
+          className={`px-2 py-0.5 rounded text-[11px] font-black transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
+            isNegative
+              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+              : 'bg-white text-slate-500 border-slate-300 hover:bg-rose-50 hover:text-rose-700'
+          }`}
+          title="Negative (-)"
+        >
+          -
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full min-w-0 space-y-4 pb-24">
       
@@ -866,14 +932,14 @@ function MainLedgerContent() {
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase border-b border-slate-200">
                     <th className="py-2 px-2 min-w-[100px]">Loan No</th>
-                    <th className="py-2 px-2 min-w-[90px] text-right">Cash (Loan)</th>
-                    <th className="py-2 px-2 min-w-[75px] text-right">Insurance</th>
+                    <th className="py-2 px-2 min-w-[130px] text-right">Cash (Loan)</th>
+                    <th className="py-2 px-2 min-w-[125px] text-right">Insurance</th>
                     <th className="py-2 px-2 min-w-[60px] text-center">Wt.g</th>
                     <th className="py-2 px-2 min-w-[60px] text-center">Wt.mg</th>
                     <th className="py-2 px-2 min-w-[55px] text-center">Code</th>
                     <th className="py-2 px-2 min-w-[100px]">Redeem No</th>
-                    <th className="py-2 px-2 min-w-[85px] text-right">Interest</th>
-                    <th className="py-2 px-2 min-w-[90px] text-right">Cash (Rdm)</th>
+                    <th className="py-2 px-2 min-w-[125px] text-right">Interest</th>
+                    <th className="py-2 px-2 min-w-[130px] text-right">Cash (Rdm)</th>
                     <th className="py-2 px-2 min-w-[55px] text-center">Type</th>
                     <th className="py-2 px-2 min-w-[55px] text-center">F/S</th>
                     <th className="py-2 px-1.5 w-[32px] text-center"></th>
@@ -913,22 +979,48 @@ function MainLedgerContent() {
                           </div>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={t.cash_loan}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'cash_loan', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-rose-700"
-                          />
+                          <div className="flex items-center gap-1 min-w-[125px]">
+                            {renderSignButtons(t.cash_loan, (v) => handleUpdateTransactionRow(idx, 'cash_loan', v), 'rose')}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={t.cash_loan}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                  handleUpdateTransactionRow(idx, 'cash_loan', val);
+                                }
+                              }}
+                              className={`w-full bg-white border rounded px-1.5 py-1 font-mono font-bold text-xs text-right focus:ring-2 focus:outline-none ${
+                                String(t.cash_loan ?? '').trim().startsWith('-') || (Number(t.cash_loan) || 0) < 0
+                                  ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                  : 'text-rose-700 border-slate-300 focus:ring-rose-500'
+                              }`}
+                            />
+                          </div>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={t.insurance_rs}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'insurance_rs', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
-                          />
+                          <div className="flex items-center gap-1 min-w-[120px]">
+                            {renderSignButtons(t.insurance_rs, (v) => handleUpdateTransactionRow(idx, 'insurance_rs', v), 'emerald')}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={t.insurance_rs}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                  handleUpdateTransactionRow(idx, 'insurance_rs', val);
+                                }
+                              }}
+                              className={`w-full bg-white border rounded px-1.5 py-1 font-mono font-bold text-xs text-right focus:ring-2 focus:outline-none ${
+                                String(t.insurance_rs ?? '').trim().startsWith('-') || (Number(t.insurance_rs) || 0) < 0
+                                  ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                  : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                              }`}
+                            />
+                          </div>
                         </td>
                         <td className="py-1.5 px-2">
                           <input
@@ -978,22 +1070,48 @@ function MainLedgerContent() {
                           </div>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={t.interest_rs}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'interest_rs', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
-                          />
+                          <div className="flex items-center gap-1 min-w-[120px]">
+                            {renderSignButtons(t.interest_rs, (v) => handleUpdateTransactionRow(idx, 'interest_rs', v), 'emerald')}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={t.interest_rs}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                  handleUpdateTransactionRow(idx, 'interest_rs', val);
+                                }
+                              }}
+                              className={`w-full bg-white border rounded px-1.5 py-1 font-mono font-bold text-xs text-right focus:ring-2 focus:outline-none ${
+                                String(t.interest_rs ?? '').trim().startsWith('-') || (Number(t.interest_rs) || 0) < 0
+                                  ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                  : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                              }`}
+                            />
+                          </div>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={t.cash_received}
-                            onChange={(e) => handleUpdateTransactionRow(idx, 'cash_received', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-xs text-right text-emerald-700"
-                          />
+                          <div className="flex items-center gap-1 min-w-[125px]">
+                            {renderSignButtons(t.cash_received, (v) => handleUpdateTransactionRow(idx, 'cash_received', v), 'emerald')}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={t.cash_received}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                  handleUpdateTransactionRow(idx, 'cash_received', val);
+                                }
+                              }}
+                              className={`w-full bg-white border rounded px-1.5 py-1 font-mono font-bold text-xs text-right focus:ring-2 focus:outline-none ${
+                                String(t.cash_received ?? '').trim().startsWith('-') || (Number(t.cash_received) || 0) < 0
+                                  ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                  : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                              }`}
+                            />
+                          </div>
                         </td>
                         <td className="py-1.5 px-2">
                           <div className="space-y-1">
@@ -1113,51 +1231,7 @@ function MainLedgerContent() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 gap-2">
                       <span className="font-extrabold text-xs text-emerald-950">1B. Opening Cash</span>
                       <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const str = String(openingBalance ?? '').trim();
-                              if (str.startsWith('-')) {
-                                setOpeningBalance(str.substring(1));
-                              } else {
-                                const num = Number(str);
-                                if (!isNaN(num) && num < 0) {
-                                  setOpeningBalance(String(Math.abs(num)));
-                                }
-                              }
-                            }}
-                            className={`px-2.5 py-1 rounded text-xs font-black transition-all border ${
-                              !String(openingBalance ?? '').trim().startsWith('-') && (Number(openingBalance) || 0) >= 0
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                : 'bg-white text-slate-500 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700'
-                            }`}
-                            title="Positive (+)"
-                          >
-                            +
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const str = String(openingBalance ?? '').trim();
-                              if (!str.startsWith('-')) {
-                                if (str === '' || str === '0' || str === '0.00') {
-                                  setOpeningBalance('-');
-                                } else {
-                                  setOpeningBalance(`-${str}`);
-                                }
-                              }
-                            }}
-                            className={`px-2.5 py-1 rounded text-xs font-black transition-all border ${
-                              String(openingBalance ?? '').trim().startsWith('-') || (Number(openingBalance) || 0) < 0
-                                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                                : 'bg-white text-slate-500 border-slate-300 hover:bg-rose-50 hover:text-rose-700'
-                            }`}
-                            title="Negative (-)"
-                          >
-                            -
-                          </button>
-                        </div>
+                        {renderSignButtons(openingBalance, setOpeningBalance, 'emerald')}
                         <input
                           type="text"
                           inputMode="decimal"
@@ -1201,13 +1275,23 @@ function MainLedgerContent() {
                               </button>
                             ))}
                           </div>
+                          {renderSignButtons(transferIn, setTransferIn, 'emerald')}
                           <input
-                            type="number"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="0.00"
                             value={transferIn}
-                            onChange={(e) => setTransferIn(e.target.value)}
-                            className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                setTransferIn(val);
+                              }
+                            }}
+                            className={`w-full sm:w-32 bg-white border rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold focus:ring-2 focus:outline-none ${
+                              String(transferIn ?? '').trim().startsWith('-') || (Number(transferIn) || 0) < 0
+                                ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                            }`}
                           />
                         </div>
                       </div>
@@ -1217,15 +1301,32 @@ function MainLedgerContent() {
                           Redeem Cash
                           {totalRedemptions > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-mono">Auto</span>}
                         </span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal}
-                          onChange={(e) => setManualRedeemTotal(e.target.value)}
-                          disabled={totalRedemptions > 0}
-                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/50 focus:outline-none"
-                        />
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          {renderSignButtons(
+                            totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal,
+                            setManualRedeemTotal,
+                            'emerald',
+                            totalRedemptions > 0
+                          )}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                setManualRedeemTotal(val);
+                              }
+                            }}
+                            disabled={totalRedemptions > 0}
+                            className={`w-full sm:w-32 bg-white border rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold focus:ring-2 disabled:bg-emerald-50/50 focus:outline-none ${
+                              String((totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal) ?? '').trim().startsWith('-') || (Number(totalRedemptions > 0 ? totalRedemptions : manualRedeemTotal) || 0) < 0
+                                ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                            }`}
+                          />
+                        </div>
                       </div>
 
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
@@ -1233,43 +1334,89 @@ function MainLedgerContent() {
                           Receive (Interest)
                           {totalInterestCollected > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-mono">Auto</span>}
                         </span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal}
-                          onChange={(e) => setManualInterestTotal(e.target.value)}
-                          disabled={totalInterestCollected > 0}
-                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/50 focus:outline-none"
-                        />
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          {renderSignButtons(
+                            totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal,
+                            setManualInterestTotal,
+                            'emerald',
+                            totalInterestCollected > 0
+                          )}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                setManualInterestTotal(val);
+                              }
+                            }}
+                            disabled={totalInterestCollected > 0}
+                            className={`w-full sm:w-32 bg-white border rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold focus:ring-2 disabled:bg-emerald-50/50 focus:outline-none ${
+                              String((totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal) ?? '').trim().startsWith('-') || (Number(totalInterestCollected > 0 ? totalInterestCollected : manualInterestTotal) || 0) < 0
+                                ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                            }`}
+                          />
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                          <span className="text-[11px] font-bold text-slate-600 block">Recovery</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={recoveryTotal}
-                            onChange={(e) => setRecoveryTotal(e.target.value)}
-                            className="w-full mt-1 bg-white border border-slate-300 rounded-lg px-2 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          />
+                          <span className="text-[11px] font-bold text-slate-600 block mb-1">Recovery</span>
+                          <div className="flex items-center gap-1.5">
+                            {renderSignButtons(recoveryTotal, setRecoveryTotal, 'emerald')}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={recoveryTotal}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                  setRecoveryTotal(val);
+                                }
+                              }}
+                              className={`w-full bg-white border rounded-lg px-2 py-1 text-right font-mono text-xs font-bold focus:ring-2 focus:outline-none ${
+                                String(recoveryTotal ?? '').trim().startsWith('-') || (Number(recoveryTotal) || 0) < 0
+                                  ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                  : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                              }`}
+                            />
+                          </div>
                         </div>
                         <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                          <span className="text-[11px] font-bold text-slate-600 block flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-600 block flex items-center justify-between mb-1">
                             Insurance
                             {totalInsuranceCollected > 0 && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-mono">Auto</span>}
                           </span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal}
-                            onChange={(e) => setManualInsuranceTotal(e.target.value)}
-                            disabled={totalInsuranceCollected > 0}
-                            className="w-full mt-1 bg-white border border-slate-300 rounded-lg px-2 py-1 text-right font-mono text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 disabled:bg-emerald-50/50 focus:outline-none"
-                          />
+                          <div className="flex items-center gap-1.5">
+                            {renderSignButtons(
+                              totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal,
+                              setManualInsuranceTotal,
+                              'emerald',
+                              totalInsuranceCollected > 0
+                            )}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                  setManualInsuranceTotal(val);
+                                }
+                              }}
+                              disabled={totalInsuranceCollected > 0}
+                              className={`w-full bg-white border rounded-lg px-2 py-1 text-right font-mono text-xs font-bold focus:ring-2 disabled:bg-emerald-50/50 focus:outline-none ${
+                                String((totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal) ?? '').trim().startsWith('-') || (Number(totalInsuranceCollected > 0 ? totalInsuranceCollected : manualInsuranceTotal) || 0) < 0
+                                  ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                  : 'text-emerald-700 border-slate-300 focus:ring-emerald-500'
+                              }`}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1297,13 +1444,23 @@ function MainLedgerContent() {
                               </button>
                             ))}
                           </div>
+                          {renderSignButtons(transferOut, setTransferOut, 'rose')}
                           <input
-                            type="number"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="0.00"
                             value={transferOut}
-                            onChange={(e) => setTransferOut(e.target.value)}
-                            className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                setTransferOut(val);
+                              }
+                            }}
+                            className={`w-full sm:w-32 bg-white border rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold focus:ring-2 focus:outline-none ${
+                              String(transferOut ?? '').trim().startsWith('-') || (Number(transferOut) || 0) < 0
+                                ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                : 'text-slate-900 border-slate-300 focus:ring-rose-500'
+                            }`}
                           />
                         </div>
                       </div>
@@ -1313,15 +1470,32 @@ function MainLedgerContent() {
                           Loans Issued
                           {totalLoansIssued > 0 && <span className="text-[9px] bg-rose-100 text-rose-800 px-1 py-0.5 rounded font-mono">Auto</span>}
                         </span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal}
-                          onChange={(e) => setManualLoanTotal(e.target.value)}
-                          disabled={totalLoansIssued > 0}
-                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/50 focus:outline-none"
-                        />
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          {renderSignButtons(
+                            totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal,
+                            setManualLoanTotal,
+                            'rose',
+                            totalLoansIssued > 0
+                          )}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                setManualLoanTotal(val);
+                              }
+                            }}
+                            disabled={totalLoansIssued > 0}
+                            className={`w-full sm:w-32 bg-white border rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold focus:ring-2 disabled:bg-rose-50/50 focus:outline-none ${
+                              String((totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal) ?? '').trim().startsWith('-') || (Number(totalLoansIssued > 0 ? totalLoansIssued : manualLoanTotal) || 0) < 0
+                                ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                : 'text-slate-900 border-slate-300 focus:ring-rose-500'
+                            }`}
+                          />
+                        </div>
                       </div>
 
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 gap-2">
@@ -1329,15 +1503,32 @@ function MainLedgerContent() {
                           Expenses
                           {totalExpensesSum > 0 && <span className="text-[9px] bg-rose-100 text-rose-800 px-1 py-0.5 rounded font-mono">Auto</span>}
                         </span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal}
-                          onChange={(e) => setManualExpensesTotal(e.target.value)}
-                          disabled={totalExpensesSum > 0}
-                          className="w-full sm:w-32 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold text-rose-700 focus:ring-2 focus:ring-rose-500 disabled:bg-rose-50/50 focus:outline-none"
-                        />
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          {renderSignButtons(
+                            totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal,
+                            setManualExpensesTotal,
+                            'rose',
+                            totalExpensesSum > 0
+                          )}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                                setManualExpensesTotal(val);
+                              }
+                            }}
+                            disabled={totalExpensesSum > 0}
+                            className={`w-full sm:w-32 bg-white border rounded-lg px-2.5 py-1 text-right font-mono text-xs font-bold focus:ring-2 disabled:bg-rose-50/50 focus:outline-none ${
+                              String((totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal) ?? '').trim().startsWith('-') || (Number(totalExpensesSum > 0 ? totalExpensesSum : manualExpensesTotal) || 0) < 0
+                                ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                                : 'text-slate-900 border-slate-300 focus:ring-rose-500'
+                            }`}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1349,16 +1540,28 @@ function MainLedgerContent() {
                       <span className="text-xl font-black font-mono text-emerald-950">LKR {calculatedClosingCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                     </div>
 
-                    <div className="pt-2 border-t border-emerald-200 flex items-center justify-between gap-3">
+                    <div className="pt-2 border-t border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="text-xs font-bold text-slate-700">Closing Cash Entered:</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={userClosingBalance}
-                        onChange={(e) => setUserClosingBalance(e.target.value)}
-                        className="w-36 bg-white border-2 border-emerald-400 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-xs text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        {renderSignButtons(userClosingBalance, setUserClosingBalance, 'emerald')}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={userClosingBalance}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                              setUserClosingBalance(val);
+                            }
+                          }}
+                          className={`w-full sm:w-36 bg-white border-2 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-xs focus:outline-none focus:ring-2 ${
+                            String(userClosingBalance ?? '').trim().startsWith('-') || (Number(userClosingBalance) || 0) < 0
+                              ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                              : 'text-emerald-900 border-emerald-400 focus:ring-emerald-500'
+                          }`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1375,14 +1578,26 @@ function MainLedgerContent() {
                     {/* 1A. Opening Capital */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50/70 p-3 rounded-xl border border-blue-200 gap-2">
                       <span className="font-extrabold text-xs text-blue-950">1A. Opening Capital</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={openingCapital}
-                        onChange={(e) => setOpeningCapital(e.target.value)}
-                        className="w-full sm:w-36 bg-white border border-blue-300 rounded-lg px-3 py-1.5 text-right font-mono text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      />
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        {renderSignButtons(openingCapital, setOpeningCapital, 'blue')}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={openingCapital}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                              setOpeningCapital(val);
+                            }
+                          }}
+                          className={`w-full sm:w-36 bg-white border rounded-lg px-3 py-1.5 text-right font-mono text-xs font-bold focus:ring-2 focus:outline-none ${
+                            String(openingCapital ?? '').trim().startsWith('-') || (Number(openingCapital) || 0) < 0
+                              ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                              : 'text-slate-900 border-blue-300 focus:ring-blue-500'
+                          }`}
+                        />
+                      </div>
                     </div>
 
                     {/* Capital Transactions */}
@@ -1408,16 +1623,28 @@ function MainLedgerContent() {
                       <span className="text-xl font-black font-mono text-blue-950">LKR {calculatedClosingCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                     </div>
 
-                    <div className="pt-2 border-t border-blue-200 flex items-center justify-between gap-3">
+                    <div className="pt-2 border-t border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="text-xs font-bold text-slate-700">Closing CP Entered:</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={cpBalance}
-                        onChange={(e) => setCpBalance(e.target.value)}
-                        className="w-36 bg-white border-2 border-blue-400 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-xs text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        {renderSignButtons(cpBalance, setCpBalance, 'blue')}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={cpBalance}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                              setCpBalance(val);
+                            }
+                          }}
+                          className={`w-full sm:w-36 bg-white border-2 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-xs focus:outline-none focus:ring-2 ${
+                            String(cpBalance ?? '').trim().startsWith('-') || (Number(cpBalance) || 0) < 0
+                              ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                              : 'text-blue-900 border-blue-400 focus:ring-blue-500'
+                          }`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1502,14 +1729,26 @@ function MainLedgerContent() {
                         onChange={(e) => handleUpdateExpenseRow(idx, 'description', e.target.value)}
                         className="flex-1 bg-white border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-900"
                       />
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Amount"
-                        value={exp.amount}
-                        onChange={(e) => handleUpdateExpenseRow(idx, 'amount', e.target.value)}
-                        className="w-full sm:w-36 bg-white border border-slate-300 rounded px-3 py-1.5 text-xs font-mono font-bold text-right text-rose-700"
-                      />
+                      <div className="flex items-center gap-1 w-full sm:w-auto">
+                        {renderSignButtons(exp.amount, (v) => handleUpdateExpenseRow(idx, 'amount', v), 'rose')}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Amount"
+                          value={exp.amount}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                              handleUpdateExpenseRow(idx, 'amount', val);
+                            }
+                          }}
+                          className={`w-full sm:w-36 bg-white border rounded px-3 py-1.5 text-xs font-mono font-bold text-right focus:ring-2 focus:outline-none ${
+                            String(exp.amount ?? '').trim().startsWith('-') || (Number(exp.amount) || 0) < 0
+                              ? 'text-rose-600 border-rose-300 focus:ring-rose-500'
+                              : 'text-rose-700 border-slate-300 focus:ring-rose-500'
+                          }`}
+                        />
+                      </div>
                       <button onClick={() => handleRemoveExpenseRow(idx)} className="text-rose-600 hover:bg-rose-100 p-1.5 rounded self-end sm:self-auto">
                         <Trash2 className="w-4 h-4" />
                       </button>
